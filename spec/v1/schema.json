@@ -1,0 +1,489 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opensrm.dev/spec/v1/schema.json",
+  "title": "Service Reliability Manifest",
+  "description": "A declarative schema for defining service reliability requirements",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "srm/v1",
+      "description": "Schema version. Must be srm/v1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "ServiceReliabilityManifest",
+      "description": "Must be ServiceReliabilityManifest"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/spec"
+    }
+  },
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "description": "Service identity and classification",
+      "required": ["name", "team", "tier"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "Unique service identifier"
+        },
+        "team": {
+          "type": "string",
+          "description": "Owning team identifier"
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["critical", "high", "standard", "low"],
+          "description": "Service criticality level"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Key-value pairs for filtering/grouping"
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Arbitrary metadata (not used for selection)"
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "description": "Reliability requirements",
+      "additionalProperties": false,
+      "properties": {
+        "slos": {
+          "$ref": "#/$defs/slos"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dependency" },
+          "description": "Upstream dependencies"
+        },
+        "ownership": {
+          "$ref": "#/$defs/ownership"
+        },
+        "observability": {
+          "$ref": "#/$defs/observability"
+        },
+        "deployment": {
+          "$ref": "#/$defs/deployment"
+        }
+      }
+    },
+    "duration": {
+      "type": "string",
+      "pattern": "^[0-9]+(m|h|d)$",
+      "description": "Duration format: number followed by m (minutes), h (hours), or d (days)"
+    },
+    "slos": {
+      "type": "object",
+      "description": "Service Level Objectives",
+      "additionalProperties": false,
+      "properties": {
+        "availability": {
+          "type": "object",
+          "required": ["target"],
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Target percentage (e.g., 99.95)"
+            },
+            "window": {
+              "$ref": "#/$defs/duration",
+              "default": "30d",
+              "description": "Measurement window"
+            }
+          }
+        },
+        "latency": {
+          "type": "object",
+          "required": ["target", "unit", "percentile"],
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Target value"
+            },
+            "unit": {
+              "type": "string",
+              "enum": ["ms", "s"],
+              "description": "Time unit"
+            },
+            "percentile": {
+              "type": "string",
+              "enum": ["p50", "p90", "p95", "p99", "p999"],
+              "description": "Latency percentile"
+            },
+            "window": {
+              "$ref": "#/$defs/duration",
+              "default": "30d",
+              "description": "Measurement window"
+            }
+          }
+        },
+        "error_rate": {
+          "type": "object",
+          "required": ["target", "unit"],
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Maximum error rate"
+            },
+            "unit": {
+              "type": "string",
+              "enum": ["percent", "ratio"],
+              "description": "Error rate unit"
+            },
+            "window": {
+              "$ref": "#/$defs/duration",
+              "default": "30d",
+              "description": "Measurement window"
+            }
+          }
+        },
+        "throughput": {
+          "type": "object",
+          "required": ["target", "unit"],
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Minimum throughput"
+            },
+            "unit": {
+              "type": "string",
+              "enum": ["rps", "rpm", "rph"],
+              "description": "Throughput unit"
+            },
+            "window": {
+              "$ref": "#/$defs/duration",
+              "default": "1h",
+              "description": "Measurement window"
+            }
+          }
+        },
+        "openslo": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path"],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Path to OpenSLO file"
+              }
+            }
+          },
+          "description": "References to external OpenSLO files"
+        },
+        "custom": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "target"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Custom SLO name"
+              },
+              "target": {
+                "type": "number",
+                "description": "Target value"
+              },
+              "unit": {
+                "type": "string",
+                "description": "Unit of measurement"
+              },
+              "description": {
+                "type": "string",
+                "description": "Human-readable description"
+              }
+            }
+          },
+          "description": "Custom SLO types"
+        }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Dependency identifier"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["service", "database", "cache", "queue", "external"],
+          "description": "Type of dependency"
+        },
+        "critical": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether failure causes service failure"
+        },
+        "slo": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "availability": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Expected availability of dependency"
+            }
+          }
+        },
+        "manifest": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to dependency's SRM manifest"
+        }
+      }
+    },
+    "ownership": {
+      "type": "object",
+      "required": ["team"],
+      "additionalProperties": false,
+      "properties": {
+        "team": {
+          "type": "string",
+          "description": "Team identifier"
+        },
+        "slack": {
+          "type": "string",
+          "description": "Slack channel"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Team email address"
+        },
+        "escalation": {
+          "type": "string",
+          "description": "On-call rotation or escalation policy name"
+        },
+        "pagerduty": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "service_id": {
+              "type": "string",
+              "description": "PagerDuty service ID"
+            },
+            "escalation_policy_id": {
+              "type": "string",
+              "description": "PagerDuty escalation policy ID"
+            }
+          }
+        },
+        "runbook": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to operational runbook"
+        },
+        "documentation": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to service documentation"
+        }
+      }
+    },
+    "observability": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "required": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Metric names that must exist"
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "required": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Labels that must be present"
+                }
+              }
+            },
+            "convention": {
+              "type": "string",
+              "enum": ["opentelemetry", "prometheus"],
+              "default": "opentelemetry",
+              "description": "Metric naming convention"
+            }
+          }
+        },
+        "dashboards": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "required": {
+              "type": "boolean",
+              "description": "Whether dashboards must exist"
+            },
+            "urls": {
+              "type": "array",
+              "items": { "type": "string", "format": "uri" },
+              "description": "URLs to service dashboards"
+            }
+          }
+        },
+        "alerts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "required": {
+              "type": "boolean",
+              "description": "Whether alerts must be configured"
+            },
+            "definitions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "severity"],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Alert name"
+                  },
+                  "severity": {
+                    "type": "string",
+                    "enum": ["critical", "warning", "info"],
+                    "description": "Alert severity"
+                  },
+                  "threshold": {
+                    "type": "string",
+                    "description": "Human-readable threshold description"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tracing": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "required": {
+              "type": "boolean",
+              "description": "Whether distributed tracing must be enabled"
+            },
+            "sampling_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Expected sampling rate (0.0 - 1.0)"
+            }
+          }
+        }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "environments": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Environments where service is deployed"
+        },
+        "gates": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "error_budget": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "threshold": { "type": "number" }
+              }
+            },
+            "slo_compliance": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "min_compliance": { "type": "number", "minimum": 0, "maximum": 1 }
+              }
+            },
+            "recent_incidents": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "lookback": { "$ref": "#/$defs/duration" },
+                "max_p1": { "type": "integer", "minimum": 0 },
+                "max_p2": { "type": "integer", "minimum": 0 }
+              }
+            }
+          },
+          "patternProperties": {
+            "^x-": {
+              "type": "object",
+              "description": "Custom deployment gates"
+            }
+          }
+        },
+        "rollback": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "automatic": {
+              "type": "boolean",
+              "description": "Whether automatic rollback is enabled"
+            },
+            "criteria": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "error_rate_increase": {
+                  "type": "string",
+                  "description": "Error rate increase threshold"
+                },
+                "latency_increase": {
+                  "type": "string",
+                  "description": "Latency increase threshold"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

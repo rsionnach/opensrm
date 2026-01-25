@@ -1,0 +1,121 @@
+# Payment API Service Reliability Manifest
+# This example shows a critical tier service with full configuration
+
+apiVersion: srm/v1
+kind: ServiceReliabilityManifest
+metadata:
+  name: payment-api
+  team: payments
+  tier: critical
+  description: Handles payment processing for checkout
+  labels:
+    domain: commerce
+    cost-center: engineering
+  annotations:
+    backstage.io/techdocs-ref: "dir:."
+
+spec:
+  slos:
+    availability:
+      target: 99.95
+      window: 30d
+    latency:
+      target: 200
+      unit: ms
+      percentile: p99
+      window: 30d
+    error_rate:
+      target: 0.1
+      unit: percent
+      window: 7d
+    throughput:
+      target: 1000
+      unit: rps
+      window: 1h
+
+  dependencies:
+    - name: postgresql
+      type: database
+      critical: true
+      slo:
+        availability: 99.95
+    - name: redis
+      type: cache
+      critical: false
+    - name: user-service
+      type: service
+      critical: true
+      manifest: https://github.com/example/user-service/blob/main/service.reliability.yaml
+    - name: stripe-api
+      type: external
+      critical: true
+      slo:
+        availability: 99.99
+
+  ownership:
+    team: payments
+    slack: "#payments-team"
+    email: payments@example.com
+    escalation: payments-oncall
+    pagerduty:
+      service_id: PXXXXXX
+      escalation_policy_id: PXXXXXX
+    runbook: https://wiki.example.com/payment-api-runbook
+    documentation: https://docs.example.com/payment-api
+
+  observability:
+    metrics:
+      required:
+        - http_server_request_duration_seconds
+        - http_server_requests_total
+        - http_server_active_requests
+        - payment_transactions_total
+        - payment_transaction_amount_sum
+      labels:
+        required:
+          - service
+          - method
+          - status_code
+      convention: opentelemetry
+    dashboards:
+      required: true
+      urls:
+        - https://grafana.example.com/d/payment-api
+        - https://grafana.example.com/d/payment-api-slo
+    alerts:
+      required: true
+      definitions:
+        - name: PaymentAPIHighErrorRate
+          severity: critical
+          threshold: "error_rate > 1%"
+        - name: PaymentAPIHighLatency
+          severity: warning
+          threshold: "p99_latency > 500ms"
+        - name: PaymentAPIDown
+          severity: critical
+          threshold: "availability < 99.5%"
+    tracing:
+      required: true
+      sampling_rate: 0.1
+
+  deployment:
+    environments:
+      - production
+      - staging
+    gates:
+      error_budget:
+        enabled: true
+        threshold: 0
+      slo_compliance:
+        enabled: true
+        min_compliance: 0.99
+      recent_incidents:
+        enabled: true
+        lookback: 7d
+        max_p1: 0
+        max_p2: 2
+    rollback:
+      automatic: true
+      criteria:
+        error_rate_increase: 5%
+        latency_increase: 50%

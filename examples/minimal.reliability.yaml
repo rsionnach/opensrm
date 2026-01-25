@@ -1,0 +1,15 @@
+# Minimal Service Reliability Manifest
+# This example shows the minimum required fields
+
+apiVersion: srm/v1
+kind: ServiceReliabilityManifest
+metadata:
+  name: my-service
+  team: my-team
+  tier: standard
+
+spec:
+  slos:
+    availability:
+      target: 99.9
+      window: 30d

@@ -1,0 +1,64 @@
+# Internal API Service Reliability Manifest
+# This example shows a standard tier internal service
+
+apiVersion: srm/v1
+kind: ServiceReliabilityManifest
+metadata:
+  name: user-preferences-api
+  team: platform
+  tier: standard
+  description: Manages user preferences and settings
+  labels:
+    domain: platform
+    type: internal
+
+spec:
+  slos:
+    availability:
+      target: 99.5
+      window: 30d
+    latency:
+      target: 100
+      unit: ms
+      percentile: p95
+      window: 30d
+
+  dependencies:
+    - name: postgresql
+      type: database
+      critical: true
+    - name: redis
+      type: cache
+      critical: false
+
+  ownership:
+    team: platform
+    slack: "#platform-team"
+    email: platform@example.com
+    runbook: https://wiki.example.com/user-preferences-runbook
+
+  observability:
+    metrics:
+      required:
+        - http_server_request_duration_seconds
+        - http_server_requests_total
+      convention: opentelemetry
+    dashboards:
+      required: true
+    alerts:
+      required: true
+      definitions:
+        - name: UserPrefsHighErrorRate
+          severity: warning
+          threshold: "error_rate > 2%"
+    tracing:
+      required: false
+
+  deployment:
+    environments:
+      - production
+      - staging
+    gates:
+      error_budget:
+        enabled: true
+        threshold: 10
