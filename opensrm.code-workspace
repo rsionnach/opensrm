@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"yaml.schemas": {
+			"./spec/v1/schema.json": "*.reliability.yaml"
+		}
+	}
+}
