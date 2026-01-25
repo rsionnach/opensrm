@@ -61,13 +61,24 @@
         }
       }
     },
+    "serviceType": {
+      "type": "string",
+      "enum": ["api", "worker", "stream", "ai-gate"],
+      "description": "Service operational pattern"
+    },
     "spec": {
       "type": "object",
       "description": "Reliability requirements",
       "additionalProperties": false,
       "properties": {
+        "type": {
+          "$ref": "#/$defs/serviceType"
+        },
         "slos": {
           "$ref": "#/$defs/slos"
+        },
+        "instrumentation": {
+          "$ref": "#/$defs/instrumentation"
         },
         "dependencies": {
           "type": "array",
@@ -87,8 +98,8 @@
     },
     "duration": {
       "type": "string",
-      "pattern": "^[0-9]+(m|h|d)$",
-      "description": "Duration format: number followed by m (minutes), h (hours), or d (days)"
+      "pattern": "^[0-9]+(m|h|d|w)$",
+      "description": "Duration format: number followed by m (minutes), h (hours), d (days), or w (weeks)"
     },
     "slos": {
       "type": "object",
@@ -225,6 +236,145 @@
             }
           },
           "description": "Custom SLO types"
+        },
+        "judgment": {
+          "$ref": "#/$defs/judgmentSlos"
+        }
+      }
+    },
+    "judgmentSlos": {
+      "type": "object",
+      "description": "Judgment SLOs for AI gate services",
+      "additionalProperties": false,
+      "properties": {
+        "reversal_rate": {
+          "type": "object",
+          "required": ["target", "window"],
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Maximum acceptable reversal rate (0.0 - 1.0)"
+            },
+            "window": {
+              "$ref": "#/$defs/duration",
+              "description": "SLO evaluation window"
+            },
+            "observation_period": {
+              "$ref": "#/$defs/duration",
+              "default": "24h",
+              "description": "Time to wait for reversals after a decision"
+            }
+          }
+        },
+        "high_confidence_failure": {
+          "type": "object",
+          "required": ["target", "window"],
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Maximum acceptable failure rate for high-confidence decisions"
+            },
+            "window": {
+              "$ref": "#/$defs/duration",
+              "description": "SLO evaluation window"
+            },
+            "confidence_threshold": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.9,
+              "description": "What counts as high confidence"
+            }
+          }
+        },
+        "calibration": {
+          "type": "object",
+          "required": ["target", "window"],
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Maximum acceptable Expected Calibration Error (ECE)"
+            },
+            "window": {
+              "$ref": "#/$defs/duration",
+              "description": "SLO evaluation window"
+            }
+          }
+        },
+        "feedback_latency": {
+          "type": "object",
+          "additionalProperties": false,
+          "anyOf": [
+            { "required": ["p50"] },
+            { "required": ["p90"] }
+          ],
+          "properties": {
+            "p50": {
+              "$ref": "#/$defs/duration",
+              "description": "Target for median feedback latency"
+            },
+            "p90": {
+              "$ref": "#/$defs/duration",
+              "description": "Target for 90th percentile feedback latency"
+            }
+          }
+        }
+      }
+    },
+    "instrumentation": {
+      "type": "object",
+      "description": "Telemetry configuration for AI gate services",
+      "additionalProperties": false,
+      "required": ["events"],
+      "properties": {
+        "events": {
+          "type": "object",
+          "required": ["decision", "reversal"],
+          "additionalProperties": false,
+          "properties": {
+            "decision": {
+              "type": "string",
+              "description": "Event name emitted when AI makes a decision"
+            },
+            "reversal": {
+              "type": "string",
+              "description": "Event name emitted when a decision is overridden"
+            },
+            "outcome": {
+              "type": "string",
+              "description": "Event name emitted when ground truth is known"
+            }
+          }
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "decision_id": {
+              "type": "string",
+              "default": "decision_id",
+              "description": "Field name for decision identifier"
+            },
+            "confidence": {
+              "type": "string",
+              "default": "confidence",
+              "description": "Field name for confidence score"
+            },
+            "decision": {
+              "type": "string",
+              "default": "decision",
+              "description": "Field name for decision value"
+            }
+          }
         }
       }
     },

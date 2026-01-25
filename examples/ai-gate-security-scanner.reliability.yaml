@@ -1,0 +1,43 @@
+# AI-powered security scanner
+apiVersion: srm/v1
+kind: ServiceReliabilityManifest
+metadata:
+  name: security-scanner
+  team: security
+  tier: critical
+
+spec:
+  type: ai-gate
+
+  slos:
+    availability:
+      target: 99.95
+      window: 30d
+
+    judgment:
+      # Very low tolerance for missing real issues
+      reversal_rate:
+        target: 0.02
+        window: 30d
+        observation_period: 72h  # Security issues may take longer to surface
+
+      # Critical: confident "safe" verdicts that were wrong
+      high_confidence_failure:
+        target: 0.005  # 0.5% - very strict
+        window: 30d
+        confidence_threshold: 0.95
+
+  instrumentation:
+    events:
+      decision: security.scan.verdict
+      reversal: security.scan.override
+      outcome: security.incident.correlation
+    attributes:
+      decision_id: scan_id
+      confidence: confidence_score
+      decision: verdict
+
+  ownership:
+    team: security
+    escalation: security-oncall
+    runbook: https://wiki.example.com/security-scanner

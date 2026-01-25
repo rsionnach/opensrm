@@ -1,0 +1,28 @@
+# Minimal AI gate manifest - start here
+apiVersion: srm/v1
+kind: ServiceReliabilityManifest
+metadata:
+  name: code-reviewer
+  team: platform
+  tier: standard
+
+spec:
+  type: ai-gate
+
+  slos:
+    availability:
+      target: 99.9
+      window: 30d
+
+    judgment:
+      reversal_rate:
+        target: 0.05
+        window: 30d
+
+  instrumentation:
+    events:
+      decision: ai_gate.decision
+      reversal: ai_gate.reversal
+
+  ownership:
+    team: platform

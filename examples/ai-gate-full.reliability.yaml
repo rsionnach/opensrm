@@ -1,0 +1,77 @@
+# Full AI gate manifest with all judgment SLOs
+apiVersion: srm/v1
+kind: ServiceReliabilityManifest
+metadata:
+  name: pr-review-agent
+  team: platform
+  tier: critical
+
+spec:
+  type: ai-gate
+
+  slos:
+    # Traditional SLOs
+    availability:
+      target: 99.9
+      window: 30d
+    latency:
+      target: 5000
+      unit: ms
+      percentile: p99
+
+    # Judgment SLOs
+    judgment:
+      reversal_rate:
+        target: 0.03
+        window: 30d
+        observation_period: 24h
+
+      high_confidence_failure:
+        target: 0.01
+        window: 30d
+        confidence_threshold: 0.9
+
+      calibration:
+        target: 0.10
+        window: 30d
+
+      feedback_latency:
+        p50: 48h
+        p90: 168h
+
+  instrumentation:
+    events:
+      decision: ai_gate.decision
+      reversal: ai_gate.reversal
+      outcome: ai_gate.outcome
+    attributes:
+      decision_id: decision_id
+      confidence: confidence
+      decision: decision
+
+  dependencies:
+    - name: claude-api
+      type: external
+      critical: true
+    - name: github-api
+      type: external
+      critical: true
+    - name: postgresql
+      type: database
+      critical: true
+
+  observability:
+    metrics:
+      required:
+        - ai_gate_decisions_total
+        - ai_gate_reversals_total
+        - ai_gate_confidence_bucket
+    dashboards:
+      required: true
+    alerts:
+      required: true
+
+  ownership:
+    team: platform
+    escalation: platform-oncall
+    runbook: https://wiki.example.com/pr-review-agent

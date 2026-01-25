@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Service Types field (`spec.type`) with values: `api`, `worker`, `stream`, `ai-gate`
+- AI Gate support for AI-powered decision systems
+- Judgment SLOs for AI gates:
+  - `reversal_rate` - measures how often AI decisions are overridden
+  - `high_confidence_failure` - measures failure rate of high-confidence decisions
+  - `calibration` - measures whether confidence scores predict actual accuracy (ECE)
+  - `feedback_latency` - measures time until decision quality can be assessed
+- Instrumentation section for AI gate telemetry configuration
+- Duration format now supports weeks (`w` suffix)
+- Three new AI gate example manifests:
+  - `ai-gate-minimal.reliability.yaml` - minimal AI gate configuration
+  - `ai-gate-full.reliability.yaml` - complete AI gate with all judgment SLOs
+  - `ai-gate-security-scanner.reliability.yaml` - security-focused AI gate
+
 ## [1.0.0-draft] - 2026-01-23
 
 ### Added

@@ -1,8 +1,8 @@
 # Service Reliability Manifest Specification
 
-**Version:** 1.0.0-draft  
-**Status:** Draft  
-**Last Updated:** 2026-01-23
+**Version:** 1.0.0-draft
+**Status:** Draft
+**Last Updated:** 2026-01-25
 
 ## Table of Contents
 
@@ -10,7 +10,10 @@
 2. [Document Structure](#document-structure)
 3. [Metadata](#metadata)
 4. [Spec](#spec)
+   - [Service Types](#service-types)
    - [SLOs](#slos)
+     - [Judgment SLOs](#judgment-slos)
+   - [Instrumentation](#instrumentation)
    - [Dependencies](#dependencies)
    - [Ownership](#ownership)
    - [Observability](#observability)
@@ -105,6 +108,43 @@ Implementations MAY enforce tier-specific requirements (e.g., `critical` tier re
 
 The `spec` section contains all reliability requirements.
 
+### Service Types
+
+The `spec.type` field declares the service's operational pattern. This determines which SLOs are applicable and how metrics are interpreted.
+
+```yaml
+spec:
+  type: api  # or worker, stream, ai-gate
+```
+
+| Type | Description | Applicable SLOs |
+|------|-------------|-----------------|
+| `api` | Request/response services (REST, gRPC, GraphQL) | availability, latency, error_rate |
+| `worker` | Background job processors | job_success_rate, throughput, backlog |
+| `stream` | Event stream processors (Kafka consumers, etc.) | throughput, lag, error_rate |
+| `ai-gate` | AI-powered decision systems | availability, latency, + judgment SLOs |
+
+**Default behavior**: Manifests without an explicit `type` field are treated as `api` services.
+
+#### Type: `ai-gate`
+
+AI gates are services that make automated decisions using AI/ML models. Examples include:
+
+- AI code reviewers
+- Automated security scanners
+- AI-powered deployment approvers
+- Content moderation systems
+- Automated ticket triage
+
+AI gates have a unique failure mode: they can be operationally healthy (available, fast, returning valid responses) while consistently making poor decisions. Traditional SLOs measure system health; judgment SLOs measure decision quality.
+
+When `type: ai-gate` is specified:
+- Traditional SLOs (availability, latency) remain applicable
+- Judgment SLOs become available under `spec.slos.judgment`
+- Instrumentation requirements apply under `spec.instrumentation`
+
+---
+
 ### SLOs
 
 Defines Service Level Objectives.
@@ -174,8 +214,9 @@ Durations use a number followed by a unit suffix:
 | `m` | minutes |
 | `h` | hours |
 | `d` | days |
+| `w` | weeks |
 
-Examples: `30d`, `7d`, `24h`, `1h`
+Examples: `30d`, `7d`, `24h`, `1h`, `1w`
 
 #### OpenSLO Reference
 
@@ -188,6 +229,285 @@ spec:
       - path: ./slos/availability.yaml
       - path: ./slos/latency.yaml
 ```
+
+#### Judgment SLOs
+
+*Applicable only when `spec.type: ai-gate`*
+
+Judgment SLOs measure the quality of AI-driven decisions. Unlike traditional SLOs that measure system behavior, judgment SLOs measure whether the system is making good decisions.
+
+```yaml
+spec:
+  type: ai-gate
+  slos:
+    judgment:
+      reversal_rate:
+        target: 0.05
+        window: 30d
+        observation_period: 24h
+      high_confidence_failure:
+        target: 0.02
+        window: 30d
+        confidence_threshold: 0.9
+      calibration:
+        target: 0.15
+        window: 30d
+      feedback_latency:
+        p50: 48h
+        p90: 168h
+```
+
+##### `reversal_rate`
+
+Measures how often AI decisions are overridden by humans or automated systems.
+
+**Why it matters**: High reversal rates indicate the AI gate is not trusted or is making poor decisions. This metric is measurable without ground truth—you only need to observe downstream behavior.
+
+**Calculation**:
+```
+reversal_rate = count(reversals within observation_period) / count(decisions)
+```
+
+**Fields**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `target` | float | Yes | Maximum acceptable reversal rate (0.0 - 1.0) |
+| `window` | duration | Yes | SLO evaluation window (e.g., `30d`) |
+| `observation_period` | duration | No | Time to wait for reversals after a decision. Default: `24h` |
+
+**Measurement**:
+1. AI gate emits `decision` event with unique `decision_id`
+2. System emits `reversal` event when human overrides, linking to `decision_id`
+3. Count reversals that occur within `observation_period` of the decision
+4. Calculate rate over the `window`
+
+**Example events**:
+```json
+// Decision event
+{
+  "event": "ai_gate.decision",
+  "decision_id": "dec_abc123",
+  "decision": "approve",
+  "confidence": 0.87,
+  "timestamp": "2025-01-20T10:00:00Z"
+}
+
+// Reversal event (within 24h)
+{
+  "event": "ai_gate.reversal",
+  "decision_id": "dec_abc123",
+  "reversal_type": "human_override",
+  "timestamp": "2025-01-20T14:30:00Z"
+}
+```
+
+**Recommended targets**:
+
+| Tier | Target |
+|------|--------|
+| critical | ≤ 0.03 (3%) |
+| standard | ≤ 0.05 (5%) |
+| low | ≤ 0.10 (10%) |
+
+##### `high_confidence_failure`
+
+Measures the rate of high-confidence decisions that prove to be wrong.
+
+**Why it matters**: A system that is confidently wrong is more dangerous than one that is uncertain and wrong. High-confidence failures erode trust rapidly and can cause significant downstream damage before being caught.
+
+**Calculation**:
+```
+hcf_rate = count(decisions WHERE confidence >= threshold AND reversed)
+         / count(decisions WHERE confidence >= threshold)
+```
+
+**Fields**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `target` | float | Yes | Maximum acceptable failure rate for high-confidence decisions (0.0 - 1.0) |
+| `window` | duration | Yes | SLO evaluation window |
+| `confidence_threshold` | float | No | What counts as "high confidence". Default: `0.9` |
+
+**Measurement**:
+1. Filter decisions where `confidence >= confidence_threshold`
+2. Of those, count how many were reversed (using same reversal logic as `reversal_rate`)
+3. Calculate rate over the `window`
+
+**Recommended targets**:
+
+| Tier | Target |
+|------|--------|
+| critical | ≤ 0.01 (1%) |
+| standard | ≤ 0.02 (2%) |
+| low | ≤ 0.05 (5%) |
+
+##### `calibration`
+
+Measures whether stated confidence scores predict actual accuracy.
+
+**Why it matters**: A well-calibrated system allows downstream consumers to make informed decisions based on confidence. If a system says it's 90% confident, it should be correct ~90% of the time.
+
+**Calculation** (Expected Calibration Error):
+```
+ECE = Σ (|accuracy_b - confidence_b| × weight_b) for each bin b
+
+Where:
+- Decisions are bucketed by confidence (e.g., 0.0-0.1, 0.1-0.2, ..., 0.9-1.0)
+- accuracy_b = correct decisions in bin / total decisions in bin
+- confidence_b = average confidence score in bin
+- weight_b = decisions in bin / total decisions
+```
+
+**Fields**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `target` | float | Yes | Maximum acceptable ECE (0.0 - 1.0). Lower is better. |
+| `window` | duration | Yes | SLO evaluation window |
+
+**Measurement**:
+1. Requires ground truth: you must know which decisions were actually correct
+2. Collect `(confidence, was_correct)` pairs from sampled decisions
+3. Bucket by confidence and calculate ECE
+
+**Ground truth sources**:
+- Human review of sampled decisions
+- Production outcomes (incidents, rollbacks)
+- Automated verification against known-good test cases
+
+**Recommended targets**:
+
+| Quality | ECE |
+|---------|-----|
+| Excellent | < 0.05 |
+| Good | < 0.10 |
+| Acceptable | < 0.15 |
+| Poor | ≥ 0.20 |
+
+**Note**: Calibration requires ground truth and is typically measured on a sample of decisions (e.g., 10%) rather than all decisions.
+
+##### `feedback_latency`
+
+Measures how long until decision quality can be assessed.
+
+**Why it matters**: If you don't learn about bad decisions for weeks, your other judgment SLOs are meaningless during that period. Fast feedback enables rapid iteration and early problem detection.
+
+**Calculation**:
+```
+feedback_latency = outcome_timestamp - decision_timestamp
+```
+
+**Fields**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `p50` | duration | No | Target for median feedback latency |
+| `p90` | duration | No | Target for 90th percentile feedback latency |
+
+At least one of `p50` or `p90` must be specified.
+
+**Measurement**:
+1. AI gate emits `decision` event with timestamp
+2. System emits `outcome` event when ground truth is known, linking to `decision_id`
+3. Calculate time delta between events
+4. Compute percentiles over the `window`
+
+**Outcome sources**:
+- Human review completion
+- Production incident correlation
+- Automated test results
+- Implicit signals (PR merged without changes = approval was correct)
+
+**Recommended targets**:
+
+| Signal Type | p50 | p90 |
+|-------------|-----|-----|
+| Human review | 24-48h | 72-168h |
+| Production outcome | 48-168h | 336h (2 weeks) |
+| Automated verification | < 1h | < 4h |
+
+---
+
+### Instrumentation
+
+*Required when `spec.type: ai-gate`*
+
+The instrumentation section defines how the AI gate emits telemetry for judgment SLO measurement.
+
+```yaml
+spec:
+  type: ai-gate
+  instrumentation:
+    events:
+      decision: ai_gate.decision
+      reversal: ai_gate.reversal
+      outcome: ai_gate.outcome
+    attributes:
+      decision_id: decision_id
+      confidence: confidence
+      decision: decision
+```
+
+#### Events
+
+Defines the event names emitted by the AI gate and related systems.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `events.decision` | string | Yes | Event name emitted when AI makes a decision |
+| `events.reversal` | string | Yes | Event name emitted when a decision is overridden |
+| `events.outcome` | string | No | Event name emitted when ground truth is known |
+
+**Event schemas**:
+
+**Decision event** (emitted by AI gate):
+```json
+{
+  "event": "<events.decision>",
+  "decision_id": "string",      // Unique identifier for correlation
+  "decision": "string",         // The decision value (e.g., "approve", "reject")
+  "confidence": 0.0-1.0,        // Model confidence score
+  "timestamp": "ISO8601",
+  "metadata": {}                // Optional: additional context
+}
+```
+
+**Reversal event** (emitted by orchestration layer):
+```json
+{
+  "event": "<events.reversal>",
+  "decision_id": "string",      // Links to original decision
+  "reversal_type": "string",    // e.g., "human_override", "rollback", "auto_revert"
+  "actor": "string",            // Who/what initiated the reversal
+  "reason": "string",           // Optional: why
+  "timestamp": "ISO8601"
+}
+```
+
+**Outcome event** (emitted when ground truth known):
+```json
+{
+  "event": "<events.outcome>",
+  "decision_id": "string",      // Links to original decision
+  "outcome": "string",          // e.g., "validated", "incorrect", "incident"
+  "outcome_source": "string",   // e.g., "human_review", "production", "automated_test"
+  "timestamp": "ISO8601"
+}
+```
+
+#### Attributes
+
+Maps logical attribute names to actual field names in events.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `attributes.decision_id` | string | No | `decision_id` | Field name for decision identifier |
+| `attributes.confidence` | string | No | `confidence` | Field name for confidence score |
+| `attributes.decision` | string | No | `decision` | Field name for decision value |
+
+This allows flexibility when integrating with existing event schemas.
 
 ---
 
@@ -470,6 +790,13 @@ spec:
 ---
 
 ## Changelog
+
+### v1.0.0-draft (2026-01-25)
+
+- Add Service Types (`api`, `worker`, `stream`, `ai-gate`)
+- Add Judgment SLOs for AI gates (`reversal_rate`, `high_confidence_failure`, `calibration`, `feedback_latency`)
+- Add Instrumentation section for AI gate telemetry
+- Add `w` (weeks) to duration format
 
 ### v1.0.0-draft (2026-01-23)
 
