@@ -1,7 +1,7 @@
 <div align="center">
-  <h1>Service Reliability Manifest (SRM)</h1>
-  <p><strong>Version control for reliability.</strong></p>
-  <p>Define reliability requirements as code. Declare SLOs, dependencies, and ownership in a single manifest that travels with your service.</p>
+  <h1>OpenSRM</h1>
+  <p><strong>The Open Service Reliability Manifest</strong></p>
+  <p>Version control for reliability. Define SLOs, dependencies, and ownership in a single manifest that travels with your service.</p>
 
   <br>
 
@@ -27,7 +27,7 @@ metadata:
 spec:
   slos:
     availability:
-      target: 99.95
+      target: 0.9995
       window: 30d
 ```
 
@@ -41,7 +41,7 @@ We have version control for code (Git), infrastructure (Terraform), and policy (
 
 ## 💡 The Solution
 
-Define reliability requirements in a single manifest that travels with your service:
+OpenSRM defines reliability requirements in a single manifest that travels with your service:
 
 ```
 service.reliability.yaml → validate → enforce → deploy
@@ -63,33 +63,54 @@ service.reliability.yaml → validate → enforce → deploy
 spec:
   slos:
     availability:
-      target: 99.95
+      target: 0.9995
       window: 30d
     latency:
-      target: 200
-      unit: ms
-      percentile: p99
+      p50: 50ms
+      p99: 200ms
+      target: 0.99
 
   dependencies:
-    - name: postgresql
+    - service: postgresql
       critical: true
-    - name: redis
+    - service: redis
       critical: false
+```
+
+### Contracts & SLOs
+
+OpenSRM separates what you promise externally (contracts) from what you measure internally (SLOs):
+
+```yaml
+spec:
+  contract:
+    availability: 0.999
+    latency:
+      p99: 300ms
+
+  slos:
+    availability:
+      target: 0.9995    # Internal target is tighter
+      window: 30d
 ```
 
 ### Dependency-Aware SLO Feasibility
 
-Declare dependencies with criticality. Tools can calculate your maximum achievable SLO.
+Declare dependencies with expected guarantees. Tools can calculate your maximum achievable SLO.
 
 ```yaml
 dependencies:
-  - name: postgresql
+  - service: postgresql
     critical: true
-    slo:
-      availability: 99.95
-  - name: user-service
+    expects:
+      availability: 0.9995
+  - service: user-service
     critical: true
     manifest: https://github.com/org/user-service/blob/main/service.reliability.yaml
+    expects:
+      availability: 0.999
+      latency:
+        p99: 100ms
 ```
 
 ### Ownership & Escalation
@@ -143,7 +164,7 @@ deployment:
 
 ### AI Gate Support
 
-For AI-powered decision systems, declare judgment SLOs that measure decision quality, not just uptime.
+For AI-powered decision systems, OpenSRM supports judgment SLOs that measure decision quality, not just uptime.
 
 ```yaml
 spec:
@@ -158,9 +179,30 @@ spec:
         window: 30d
 ```
 
+### Templates for Inheritance
+
+Define standard configurations once and inherit across services:
+
+```yaml
+# Template definition
+apiVersion: srm/v1
+kind: Template
+metadata:
+  name: api-critical
+spec:
+  slos:
+    availability:
+      target: 0.9999
+
+# Service inherits from template
+metadata:
+  name: checkout-api
+  template: api-critical
+```
+
 ---
 
-## 📋 What You Can Do With It
+## 📋 What You Can Do With OpenSRM
 
 | Use Case | Description |
 |----------|-------------|
@@ -173,10 +215,10 @@ spec:
 
 ---
 
-## 🎯 How It's Different
+## 🎯 How OpenSRM Is Different
 
-| Traditional Approach | Service Reliability Manifest |
-|---------------------|------------------------------|
+| Traditional Approach | OpenSRM |
+|---------------------|---------|
 | SLOs in wiki pages | SLOs in version-controlled YAML |
 | Ownership in tribal knowledge | Ownership declared and discoverable |
 | Dependencies undocumented | Dependencies explicit with criticality |
@@ -189,9 +231,9 @@ spec:
 
 | Resource | Description |
 |----------|-------------|
-| **[Full Specification](spec/v1/specification.md)** | Complete schema reference |
+| **[Full Specification](spec/v1/specification.md)** | Complete OpenSRM schema reference |
 | **[JSON Schema](spec/v1/schema.json)** | For validation tooling |
-| **[Examples](examples/)** | Real-world manifest examples |
+| **[Examples](examples/)** | Real-world OpenSRM manifest examples |
 | **[Contributing](CONTRIBUTING.md)** | How to contribute |
 | **[Governance](GOVERNANCE.md)** | RFC process for spec changes |
 
@@ -199,7 +241,7 @@ spec:
 
 ## 🔧 Implementations
 
-Tools that implement the Service Reliability Manifest:
+Tools that implement OpenSRM:
 
 | Tool | Type | Status |
 |------|------|--------|
@@ -207,13 +249,13 @@ Tools that implement the Service Reliability Manifest:
 
 → [Full implementations list](IMPLEMENTATIONS.md)
 
-*Building a tool that implements SRM? [Add it to the list](CONTRIBUTING.md).*
+*Building a tool that implements OpenSRM? [Add it to the list](CONTRIBUTING.md).*
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Create a manifest
+### 1. Create an OpenSRM manifest
 
 ```yaml
 # service.reliability.yaml
@@ -227,14 +269,17 @@ metadata:
 spec:
   slos:
     availability:
-      target: 99.9
+      target: 0.999
       window: 30d
 ```
 
 ### 2. Validate it
 
 ```bash
-# Using a JSON Schema validator
+# Using the OpenSRM GitHub Action (recommended)
+# See GitHub Action section below
+
+# Or using a JSON Schema validator
 npx ajv validate -s spec/v1/schema.json -d service.reliability.yaml
 
 # Or using NthLayer (reference implementation)
@@ -255,7 +300,7 @@ nthlayer check-deploy --manifest service.reliability.yaml --exit-on-failure
 
 ## 🔄 GitHub Action
 
-Validate SRM manifests in your CI/CD pipeline with the official GitHub Action.
+Validate OpenSRM manifests in your CI/CD pipeline with the official GitHub Action.
 
 ### Basic Usage
 
@@ -284,7 +329,7 @@ Validate SRM manifests in your CI/CD pipeline with the official GitHub Action.
 ### Full Workflow Example
 
 ```yaml
-name: Validate SRM
+name: Validate OpenSRM
 
 on:
   push:
@@ -302,7 +347,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate SRM manifests
+      - name: Validate OpenSRM manifests
         uses: opensrm/opensrm@v1
         with:
           manifest: '**/*.reliability.yaml'
@@ -324,16 +369,16 @@ jobs:
 
 | Standard | Relationship |
 |----------|--------------|
-| **[OpenSLO](https://openslo.com/)** | SRM can reference OpenSLO definitions or embed SLO targets directly |
+| **[OpenSLO](https://openslo.com/)** | OpenSRM can reference OpenSLO definitions or embed SLO targets directly |
 | **[OpenTelemetry](https://opentelemetry.io/)** | Metric names follow OTel Semantic Conventions |
 | **[Kubernetes](https://kubernetes.io/)** | Manifest structure follows K8s conventions (apiVersion, kind, metadata, spec) |
-| **[Backstage](https://backstage.io/)** | SRM manifests can be consumed by Backstage catalog plugins |
+| **[Backstage](https://backstage.io/)** | OpenSRM manifests can be consumed by Backstage catalog plugins |
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions to the specification. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions to OpenSRM. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 Major changes go through the RFC process described in [GOVERNANCE.md](GOVERNANCE.md).
 
@@ -347,7 +392,7 @@ Apache License 2.0 — See [LICENSE](LICENSE)
 
 ## 🙏 Acknowledgments
 
-This specification builds on ideas from:
+OpenSRM builds on ideas from:
 
 - [OpenSLO](https://openslo.com/) — SLO specification
 - [OpenTelemetry](https://opentelemetry.io/docs/specs/semconv/) — Semantic Conventions
