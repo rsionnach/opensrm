@@ -1,0 +1,104 @@
+# Data Pipeline ETL Service Reliability Manifest
+# This example shows a batch service for ETL processing
+
+apiVersion: srm/v1
+kind: ServiceReliabilityManifest
+metadata:
+  name: customer-data-pipeline
+  team: data-platform
+  tier: high
+  description: Daily ETL pipeline that processes customer data for analytics
+  labels:
+    domain: data
+    pipeline-type: etl
+  annotations:
+    airflow.apache.org/dag-id: customer_data_daily
+
+spec:
+  type: batch
+
+  slos:
+    success_rate:
+      target: 0.995
+      window: 7d
+
+    duration:
+      p95: 45m
+      target: 0.95
+      window: 30d
+
+    schedule_adherence:
+      max_delay: 10m
+      window: 7d
+
+    data_freshness:
+      max_age: 2h
+      window: 7d
+
+    # Batch services can also use throughput for records processed
+    throughput:
+      target: 100000
+      unit: rph
+      window: 1d
+
+  dependencies:
+    - service: source-postgresql
+      type: database
+      critical: true
+      expects:
+        availability: 0.9995
+    - service: destination-snowflake
+      type: external
+      critical: true
+      expects:
+        availability: 0.999
+    - service: airflow
+      type: service
+      critical: true
+
+  ownership:
+    team: data-platform
+    slack: "#data-platform"
+    email: data-platform@example.com
+    escalation: data-oncall
+    runbook: https://wiki.example.com/customer-data-pipeline-runbook
+    documentation: https://docs.example.com/data-pipelines/customer
+
+  observability:
+    metrics:
+      required:
+        - batch_job_duration_seconds
+        - batch_job_records_processed_total
+        - batch_job_status
+        - batch_job_last_success_timestamp
+      labels:
+        required:
+          - job_name
+          - environment
+          - status
+      convention: opentelemetry
+    dashboards:
+      required: true
+      urls:
+        - https://grafana.example.com/d/data-pipelines
+    alerts:
+      required: true
+      definitions:
+        - name: CustomerPipelineFailure
+          severity: critical
+          threshold: "job_status = failed"
+        - name: CustomerPipelineSlow
+          severity: warning
+          threshold: "duration > 60m"
+        - name: CustomerPipelineStale
+          severity: critical
+          threshold: "data_age > 4h"
+
+  deployment:
+    environments:
+      - production
+      - staging
+    gates:
+      error_budget:
+        enabled: true
+        threshold: 0

@@ -11,7 +11,7 @@ spec:
 
   slos:
     availability:
-      target: 99.9
+      target: 0.999
       window: 30d
 
     judgment:

@@ -253,6 +253,64 @@ nthlayer check-deploy --manifest service.reliability.yaml --exit-on-failure
 
 ---
 
+## 🔄 GitHub Action
+
+Validate SRM manifests in your CI/CD pipeline with the official GitHub Action.
+
+### Basic Usage
+
+```yaml
+- uses: opensrm/opensrm@v1
+  with:
+    manifest: 'service.reliability.yaml'
+```
+
+### Inputs
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `manifest` | Path to manifest file (supports glob patterns) | Yes | - |
+| `schema-version` | Schema version to validate against | No | `v1` |
+| `strict` | Fail on warnings (missing recommended fields) | No | `false` |
+
+### Outputs
+
+| Output | Description |
+|--------|-------------|
+| `valid` | Whether all manifests are valid (`true`/`false`) |
+| `validated-count` | Number of manifests validated |
+| `warnings-count` | Number of warnings generated |
+
+### Full Workflow Example
+
+```yaml
+name: Validate SRM
+
+on:
+  push:
+    paths:
+      - '**/*.reliability.yaml'
+      - '**/service.reliability.yaml'
+  pull_request:
+    paths:
+      - '**/*.reliability.yaml'
+      - '**/service.reliability.yaml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate SRM manifests
+        uses: opensrm/opensrm@v1
+        with:
+          manifest: '**/*.reliability.yaml'
+          strict: 'false'
+```
+
+---
+
 ## 🏗️ Design Principles
 
 1. **Declare intent, not implementation** — Specify *what* reliability you need, not *how* to achieve it

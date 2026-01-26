@@ -1,0 +1,119 @@
+# Shared MySQL Database Service Reliability Manifest
+# This example shows a database service provided by an internal platform team
+
+apiVersion: srm/v1
+kind: ServiceReliabilityManifest
+metadata:
+  name: mysql-shared
+  team: database-platform
+  tier: critical
+  description: Shared MySQL cluster for transactional workloads
+  labels:
+    domain: platform
+    database-engine: mysql
+    cluster-type: primary-replica
+  annotations:
+    mysql.version: "8.0"
+
+spec:
+  type: database
+
+  contract:
+    availability: 0.9999
+    latency:
+      p99: 20ms
+
+  slos:
+    availability:
+      target: 0.9999
+      window: 30d
+
+    query_latency:
+      p50: 5ms
+      p99: 10ms
+      target: 0.99
+      window: 30d
+
+    replication_lag:
+      max_lag: 1s
+      window: 30d
+
+    connection_availability:
+      target: 0.9999
+      window: 30d
+
+    # Throughput can measure queries per second capacity
+    throughput:
+      target: 10000
+      unit: rps
+      window: 1h
+
+  dependencies:
+    - service: aws-rds
+      type: external
+      critical: true
+      expects:
+        availability: 0.9995
+    - service: aws-ebs
+      type: external
+      critical: true
+
+  ownership:
+    team: database-platform
+    slack: "#db-platform"
+    email: db-platform@example.com
+    escalation: db-oncall
+    pagerduty:
+      service_id: PXXXXXX
+      escalation_policy_id: PXXXXXX
+    runbook: https://wiki.example.com/mysql-shared-runbook
+    documentation: https://docs.example.com/databases/mysql-shared
+
+  observability:
+    metrics:
+      required:
+        - mysql_global_status_queries
+        - mysql_global_status_threads_connected
+        - mysql_global_status_threads_running
+        - mysql_slave_status_seconds_behind_master
+        - mysql_global_status_innodb_buffer_pool_reads
+      labels:
+        required:
+          - cluster
+          - instance
+          - role
+      convention: prometheus
+    dashboards:
+      required: true
+      urls:
+        - https://grafana.example.com/d/mysql-shared
+        - https://grafana.example.com/d/mysql-shared-replication
+    alerts:
+      required: true
+      definitions:
+        - name: MySQLHighReplicationLag
+          severity: critical
+          threshold: "replication_lag > 5s"
+        - name: MySQLHighQueryLatency
+          severity: warning
+          threshold: "p99_query_latency > 50ms"
+        - name: MySQLConnectionPoolExhausted
+          severity: critical
+          threshold: "connections_available < 10%"
+        - name: MySQLDown
+          severity: critical
+          threshold: "availability < 99.9%"
+
+  deployment:
+    environments:
+      - production
+      - staging
+    gates:
+      error_budget:
+        enabled: true
+        threshold: 0
+      recent_incidents:
+        enabled: true
+        lookback: 7d
+        max_p1: 0
+        max_p2: 1

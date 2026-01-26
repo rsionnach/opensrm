@@ -17,6 +17,7 @@ Thumbs.db
 
 # Node modules (for validation tooling)
 node_modules/
+action/node_modules/
 
 # Test output
 coverage/
@@ -24,6 +25,7 @@ coverage/
 
 # Build output
 dist/
+!action/dist/
 build/
 
 # Local environment

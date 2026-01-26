@@ -1,0 +1,32 @@
+name: 'OpenSRM Validator'
+description: 'Validate Service Reliability Manifests against the OpenSRM JSON Schema'
+author: 'OpenSRM'
+
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  manifest:
+    description: 'Path to the SRM manifest file (supports glob patterns)'
+    required: true
+  schema-version:
+    description: 'Schema version to validate against'
+    required: false
+    default: 'v1'
+  strict:
+    description: 'Fail on warnings (missing recommended fields)'
+    required: false
+    default: 'false'
+
+outputs:
+  valid:
+    description: 'Whether all manifests are valid (true/false)'
+  validated-count:
+    description: 'Number of manifests validated'
+  warnings-count:
+    description: 'Number of warnings generated'
+
+runs:
+  using: 'node20'
+  main: 'action/dist/index.js'

@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-action:
+    name: Build Action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: action/package-lock.json
+
+      - name: Install dependencies
+        working-directory: action
+        run: npm ci
+
+      - name: Type check
+        working-directory: action
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: action
+        run: npm run build
+
+      - name: Check dist is up to date
+        run: |
+          if [ -n "$(git status --porcelain action/dist)" ]; then
+            echo "::error::action/dist is out of date. Run 'cd action && npm run build' and commit the changes."
+            git diff action/dist
+            exit 1
+          fi
+
+  validate-examples:
+    name: Validate Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate all example manifests
+        uses: ./
+        with:
+          manifest: 'examples/*.yaml'
+
+  validate-strict:
+    name: Validate Examples (Strict Mode)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate with strict mode
+        uses: ./
+        with:
+          manifest: 'examples/*.yaml'
+          strict: 'true'
+
+  validate-invalid:
+    name: Test Invalid Manifest Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create invalid manifest
+        run: |
+          cat > /tmp/invalid.yaml << 'EOF'
+          apiVersion: srm/v1
+          kind: ServiceReliabilityManifest
+          metadata:
+            name: invalid_name_with_underscore
+            team: test
+            tier: invalid-tier
+          spec:
+            slos:
+              availability:
+                target: 150
+          EOF
+
+      - name: Validate invalid manifest (should fail)
+        id: validate-invalid
+        uses: ./
+        with:
+          manifest: '/tmp/invalid.yaml'
+        continue-on-error: true
+
+      - name: Check that validation failed
+        run: |
+          if [ "${{ steps.validate-invalid.outcome }}" != "failure" ]; then
+            echo "::error::Expected validation to fail for invalid manifest"
+            exit 1
+          fi
+          echo "Validation correctly rejected invalid manifest"

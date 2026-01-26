@@ -15,18 +15,24 @@ metadata:
     backstage.io/techdocs-ref: "dir:."
 
 spec:
+  contract:
+    availability: 0.9995
+    latency:
+      p99: 300ms
+    throughput:
+      max_rps: 5000
+
   slos:
     availability:
-      target: 99.95
+      target: 0.9995
       window: 30d
     latency:
-      target: 200
-      unit: ms
-      percentile: p99
+      p50: 50ms
+      p99: 200ms
+      target: 0.99
       window: 30d
     error_rate:
-      target: 0.1
-      unit: percent
+      target: 0.001
       window: 7d
     throughput:
       target: 1000
@@ -34,23 +40,27 @@ spec:
       window: 1h
 
   dependencies:
-    - name: postgresql
+    - service: postgresql
       type: database
       critical: true
-      slo:
-        availability: 99.95
-    - name: redis
+      expects:
+        availability: 0.9995
+    - service: redis
       type: cache
       critical: false
-    - name: user-service
+    - service: user-service
       type: service
       critical: true
       manifest: https://github.com/example/user-service/blob/main/service.reliability.yaml
-    - name: stripe-api
+      expects:
+        availability: 0.999
+        latency:
+          p99: 100ms
+    - service: stripe-api
       type: external
       critical: true
-      slo:
-        availability: 99.99
+      expects:
+        availability: 0.9999
 
   ownership:
     team: payments

@@ -9,15 +9,22 @@ metadata:
 spec:
   type: ai-gate
 
+  contract:
+    availability: 0.999
+    latency:
+      p99: 10s
+    judgment:
+      max_reversal_rate: 0.05
+      max_hcf_rate: 0.02
+
   slos:
     # Traditional SLOs
     availability:
-      target: 99.9
+      target: 0.999
       window: 30d
     latency:
-      target: 5000
-      unit: ms
-      percentile: p99
+      p99: 5s
+      target: 0.99
 
     # Judgment SLOs
     judgment:
@@ -50,13 +57,13 @@ spec:
       decision: decision
 
   dependencies:
-    - name: claude-api
+    - service: claude-api
       type: external
       critical: true
-    - name: github-api
+    - service: github-api
       type: external
       critical: true
-    - name: postgresql
+    - service: postgresql
       type: database
       critical: true
 

@@ -15,19 +15,18 @@ metadata:
 spec:
   slos:
     availability:
-      target: 99.5
+      target: 0.995
       window: 30d
     latency:
-      target: 100
-      unit: ms
-      percentile: p95
+      p95: 100ms
+      target: 0.95
       window: 30d
 
   dependencies:
-    - name: postgresql
+    - service: postgresql
       type: database
       critical: true
-    - name: redis
+    - service: redis
       type: cache
       critical: false
 
