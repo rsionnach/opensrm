@@ -12,7 +12,14 @@ Tools and platforms that implement the Service Reliability Manifest specificatio
 
 | Tool | Description | Language |
 |------|-------------|----------|
+| [OpenSRM Validator Action](https://github.com/rsionnach/opensrm) | Official GitHub Action for CI/CD validation (`uses: rsionnach/opensrm@v1`) | JavaScript |
 | JSON Schema | Use the [schema.json](spec/v1/schema.json) with any JSON Schema validator | Any |
+
+## IDE / Editor Integrations
+
+| Tool | Description | Platform |
+|------|-------------|----------|
+| [Shift-Left Reliability Skill](shift-left-reliability-skill.md) | Claude Code skill that generates OpenSRM manifests, suggests SLOs, and validates reliability decisions during development | Claude Code |
 
 ## Integrations
 

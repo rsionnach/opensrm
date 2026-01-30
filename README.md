@@ -234,6 +234,7 @@ metadata:
 | **[Full Specification](spec/v1/specification.md)** | Complete OpenSRM schema reference |
 | **[JSON Schema](spec/v1/schema.json)** | For validation tooling |
 | **[Examples](examples/)** | Real-world OpenSRM manifest examples |
+| **[Shift-Left Reliability Skill](shift-left-reliability-skill.md)** | Claude Code skill for generating manifests during development |
 | **[Contributing](CONTRIBUTING.md)** | How to contribute |
 | **[Governance](GOVERNANCE.md)** | RFC process for spec changes |
 
@@ -305,7 +306,7 @@ Validate OpenSRM manifests in your CI/CD pipeline with the official GitHub Actio
 ### Basic Usage
 
 ```yaml
-- uses: opensrm/opensrm@v1
+- uses: rsionnach/opensrm@v1
   with:
     manifest: 'service.reliability.yaml'
 ```
