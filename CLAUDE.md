@@ -29,10 +29,10 @@ Status: Draft specification (v1.0.0-draft)
 <!-- AUTO-MANAGED: architecture -->
 ```
 opensrm/
-├── spec/v1/                          # Versioned specification
-│   ├── specification.md              # (planned location)
-│   └── schema.json                   # (planned location)
-├── judgment-slo-spec.md              # Judgment SLO design document
+├── spec/v1/                          # Canonical specification location
+│   ├── specification.md              # Complete OpenSRM v1 spec
+│   └── schema.json                   # JSON Schema for validation
+├── judgment-slo-spec.md              # Judgment SLO maturity model (4 levels)
 ├── examples/                         # Example manifests
 ├── action/                           # GitHub Action for validation
 │   ├── src/                         # TypeScript source
@@ -42,7 +42,7 @@ opensrm/
 └── .claude/                         # Claude configuration
 ```
 
-Canonical specification files are in spec/v1/ (specification.md and schema.json).
+Specification files consolidated to spec/v1/ (complete as of commit e63049c).
 <!-- END AUTO-MANAGED -->
 
 ---
@@ -59,11 +59,11 @@ Complete OpenSRM v1.0.0-draft specification covering:
 - Stream-specific: lag (max_seconds), throughput
 - Batch-specific: duration, schedule_adherence, data_freshness
 - Database-specific: query_latency, replication_lag, connection_availability
-- AI Gate extensions: judgment SLOs with 4-level maturity model
-  - Level 1 (Reactive): reversal rate, high-confidence failure tracking
-  - Level 2 (Proactive): audit sampling with accuracy/coverage/latency targets
-  - Level 3 (Outcome): defect signal tracking, false positive rate, outcome latency
-  - Level 4 (Behavioral): escalation rate bounds, segments, stability, calibration (ECE)
+- AI Gate extensions: judgment SLOs with 4-level maturity model (see judgment-slo-spec.md)
+  - Level 1 (Reactive): reversal.rate, reversal.high_confidence_failure
+  - Level 2 (Proactive): audit (enabled, sample_rate, accuracy, coverage, latency)
+  - Level 3 (Outcome): outcomes (defect_signals, defect_rate, false_positive_rate, outcome_latency)
+  - Level 4 (Behavioral): escalation (rate bounds), segments, stability, calibration (ECE)
 - Contracts vs SLOs: external promises (contract) separate from internal targets (slos)
 - Dependencies with `expects` field for guaranteed requirements
 - Templates for inheritance across services
@@ -79,7 +79,7 @@ JSON Schema (draft-07) definition providing:
 - Standard SLO schemas: AvailabilitySLO, LatencySLO, ErrorRateSLO, ThroughputSLO, ProcessingTimeSLO, LagSLO, SuccessRateSLO
 - Batch SLO schemas: DurationSLO, ScheduleAdherenceSLO, DataFreshnessSLO
 - Database SLO schemas: QueryLatencySLO, ReplicationLagSLO, ConnectionAvailabilitySLO
-- Judgment SLO schemas: ReversalSLO (with rate and high_confidence_failure), AuditSLO, OutcomesSLO, EscalationSLO, SegmentsSLO, StabilitySLO, CalibrationSLO
+- Judgment SLO schemas: ReversalSLO (with rate and high_confidence_failure nested), AuditSLO, OutcomesSLO, EscalationSLO, SegmentsSLO, StabilitySLO, CalibrationSLO
 - Contract schemas: Contract (with ContractLatency, ContractThroughput, ContractJudgment)
 - Dependency schema with `expects` field (availability, latency.p99)
 - Instrumentation schema for AI gates (events: decision/reversal/outcome/audit_result)
@@ -114,6 +114,13 @@ All SLOs require:
 
 Latency/processing time SLOs require at least one percentile (p50, p90, p95, p99, p999) plus target ratio
 
+### Judgment SLO Structure (ai-gate)
+Nested structure for reversal tracking:
+- `reversal.rate` (not `reversal_rate` - note the nesting)
+- `reversal.high_confidence_failure` with `confidence_threshold`
+- `audit.enabled`, `audit.sample_rate`, `audit.accuracy`
+- `escalation.rate.min` and `escalation.rate.max` for bounds
+
 ### Contracts vs SLOs
 - `spec.contract`: External promises to dependents (what you guarantee)
 - `spec.slos`: Internal targets (typically tighter than contract)
@@ -143,14 +150,18 @@ From specification section 1.1:
 ## Related Files
 
 <!-- AUTO-MANAGED: related-files -->
-- `judgment-slo-spec.md`: Detailed specification for AI gate judgment SLOs with 4-level maturity model
+- `judgment-slo-spec.md`: Detailed specification for AI gate judgment SLOs with 4-level maturity model (Reactive, Proactive, Outcome-Based, Behavioral)
 - `shift-left-reliability-skill.md`: Documentation for Claude Code skill integration
 - `opensrm-repo-structure.md`: Planned repository organization
-- `README.md`: Project overview, branding, quick start examples, GitHub Action documentation
+- `README.md`: Project overview, branding, quick start examples, GitHub Action documentation (uses rsionnach/opensrm@v1)
 - `IMPLEMENTATIONS.md`: List of tools implementing OpenSRM (NthLayer reference implementation)
 - `examples/`: Example manifests for different service types
 - `CONTRIBUTING.md`: Contribution guidelines
 - `GOVERNANCE.md`: RFC process for spec changes
+
+Files removed:
+- `opensrm-v1-full-spec.md`: Consolidated into spec/v1/specification.md
+- `opensrm.json`: Consolidated into spec/v1/schema.json
 <!-- END AUTO-MANAGED -->
 
 ---
