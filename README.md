@@ -164,7 +164,7 @@ deployment:
 
 ### AI Gate Support
 
-For AI-powered decision systems, OpenSRM supports [judgment SLOs](opensrm-v1-full-spec.md#5-judgment-slos-ai-gates) that measure decision quality, not just uptime. A [layered maturity model](judgment-slo-spec.md) supports incremental adoption — from basic reversal tracking through audit sampling, outcome-based ground truth, and segment-level analysis.
+For AI-powered decision systems, OpenSRM supports [judgment SLOs](spec/v1/specification.md#5-judgment-slos-ai-gates) that measure decision quality, not just uptime. A [layered maturity model](judgment-slo-spec.md) supports incremental adoption — from basic reversal tracking through audit sampling, outcome-based ground truth, and segment-level analysis.
 
 ```yaml
 spec:
