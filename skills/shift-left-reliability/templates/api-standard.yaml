@@ -1,0 +1,19 @@
+apiVersion: opensrm/v1
+kind: Template
+metadata:
+  name: api-standard
+  description: Standard API service defaults (99.5% availability)
+spec:
+  type: api
+  slos:
+    availability:
+      target: 0.995
+      window: 30d
+    latency:
+      p99: 500ms
+      target: 0.99
+    error_rate:
+      target: 0.001
+      window: 30d
+  ownership:
+    oncall_required: false

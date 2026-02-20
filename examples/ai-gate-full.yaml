@@ -1,5 +1,5 @@
 # Full AI gate manifest with all judgment SLOs
-apiVersion: srm/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: pr-review-agent

@@ -1,0 +1,38 @@
+apiVersion: opensrm/v1
+kind: ServiceReliabilityManifest
+metadata:
+  name: notification-worker
+  team: notifications
+  tier: standard
+  template: worker-standard
+spec:
+  type: worker
+
+  contract:
+    availability: 0.999
+    processing_time:
+      p99: 2m
+
+  slos:
+    availability:
+      target: 0.9995
+      window: 7d
+    processing_time:
+      p99: 1m
+      target: 0.99
+      window: 7d
+
+  dependencies:
+    - service: email-provider
+      type: external
+      critical: false
+    - service: sms-provider
+      type: external
+      critical: false
+    - service: push-service
+      type: service
+      critical: false
+
+  ownership:
+    team: notifications
+    slack: "#notifications-alerts"

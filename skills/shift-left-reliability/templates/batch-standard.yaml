@@ -1,0 +1,20 @@
+apiVersion: opensrm/v1
+kind: Template
+metadata:
+  name: batch-standard
+  description: Standard batch job defaults
+spec:
+  type: batch
+  slos:
+    success_rate:
+      target: 0.995
+      window: 7d
+    duration:
+      p95: 30m
+      target: 0.95
+      window: 30d
+    schedule_adherence:
+      max_delay: 5m
+      window: 7d
+  ownership:
+    oncall_required: false

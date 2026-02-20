@@ -1404,8 +1404,8 @@
       "properties": {
         "apiVersion": {
           "type": "string",
-          "const": "srm/v1",
-          "description": "Schema version. Must be srm/v1"
+          "const": "opensrm/v1",
+          "description": "Schema version. Must be opensrm/v1"
         },
         "kind": {
           "type": "string",
@@ -1428,8 +1428,8 @@
       "properties": {
         "apiVersion": {
           "type": "string",
-          "const": "srm/v1",
-          "description": "Schema version. Must be srm/v1"
+          "const": "opensrm/v1",
+          "description": "Schema version. Must be opensrm/v1"
         },
         "kind": {
           "type": "string",

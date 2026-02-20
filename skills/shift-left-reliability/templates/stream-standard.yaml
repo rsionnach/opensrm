@@ -1,0 +1,17 @@
+apiVersion: opensrm/v1
+kind: Template
+metadata:
+  name: stream-standard
+  description: Standard streaming service defaults
+spec:
+  type: stream
+  slos:
+    availability:
+      target: 0.995
+      window: 7d
+    lag:
+      max_seconds: 30
+      target: 0.99
+      window: 7d
+  ownership:
+    oncall_required: false

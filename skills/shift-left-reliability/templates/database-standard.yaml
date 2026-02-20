@@ -1,0 +1,23 @@
+apiVersion: opensrm/v1
+kind: Template
+metadata:
+  name: database-standard
+  description: Standard managed database defaults
+spec:
+  type: database
+  slos:
+    availability:
+      target: 0.9999
+      window: 30d
+    query_latency:
+      p99: 10ms
+      target: 0.99
+      window: 30d
+    replication_lag:
+      max_lag: 1s
+      window: 30d
+    connection_availability:
+      target: 0.9999
+      window: 30d
+  ownership:
+    oncall_required: true

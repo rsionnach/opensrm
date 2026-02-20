@@ -1,7 +1,7 @@
 <div align="center">
   <h1>OpenSRM</h1>
   <p><strong>The Open Service Reliability Manifest</strong></p>
-  <p>Version control for reliability. Define SLOs, dependencies, and ownership in a single manifest that travels with your service.</p>
+  <p>A specification and ecosystem for declaring, enforcing, and measuring service reliability as code.</p>
 
   <br>
 
@@ -17,7 +17,7 @@
 
 ```yaml
 # service.reliability.yaml
-apiVersion: srm/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: payment-api
@@ -25,57 +25,114 @@ metadata:
   tier: critical
 
 spec:
-  slos:
-    availability:
-      target: 0.9995
-      window: 30d
-```
+  type: api
 
----
-
-## ⚠️ The Problem
-
-Reliability requirements are scattered across wikis, runbooks, Slack threads, and tribal knowledge. Services ship to production without defined SLOs, ownership, or operational readiness. Reliability decisions happen in postmortems instead of before deployment.
-
-We have version control for code (Git), infrastructure (Terraform), and policy (OPA). We're missing version control for reliability.
-
-## 💡 The Solution
-
-OpenSRM defines reliability requirements in a single manifest that travels with your service:
-
-```
-service.reliability.yaml → validate → enforce → deploy
-         │                     │          │
-         │                     │          └── Error budget ok? SLO met?
-         │                     │
-         │                     └── Schema valid? Metrics exist? Dashboard ready?
-         │
-         └── SLOs, dependencies, ownership, observability, deployment gates
-```
-
----
-
-## ⚡ Core Features
-
-### Machine-Readable & Human-Readable
-
-```yaml
-spec:
   slos:
     availability:
       target: 0.9995
       window: 30d
     latency:
-      p50: 50ms
       p99: 200ms
-      target: 0.99
+      target: 0.995
 
   dependencies:
-    - service: postgresql
+    - service: database
       critical: true
-    - service: redis
-      critical: false
+      expects:
+        availability: 0.99999
 ```
+
+---
+
+## The Problem
+
+Reliability requirements are scattered across wikis, runbooks, Slack threads, and tribal knowledge. Services ship to production without defined SLOs, ownership, or operational readiness. Reliability decisions happen in postmortems instead of before deployment.
+
+We have version control for code (Git), infrastructure (Terraform), and policy (OPA). We're missing version control for reliability.
+
+## The Solution
+
+OpenSRM defines reliability requirements in a single manifest that travels with your service:
+
+```
+service.reliability.yaml --> validate --> enforce --> deploy
+         |                     |          |
+         |                     |          +-- Error budget ok? SLO met?
+         |                     |
+         |                     +-- Schema valid? Metrics exist? Dashboard ready?
+         |
+         +-- SLOs, dependencies, ownership, observability, deployment gates
+```
+
+---
+
+## The Ecosystem
+
+OpenSRM is the foundation for a complete operational reliability stack:
+
+```
++-----------------------------------------------------------------------------+
+|                              OPENSRM ECOSYSTEM                              |
++-----------------------------------------------------------------------------+
+|                                                                             |
+|   +--------------------------------------------------------------------+   |
+|   |                         SPECIFICATION                              |   |
+|   |                                                                    |   |
+|   |   ServiceManifests    |    ai-gate type    |    Judgment SLOs     |   |
+|   |   (identity, deps,    |    (AI decision    |    (reversal rate,   |   |
+|   |    SLO targets)       |     services)      |     calibration)     |   |
+|   +--------------------------------------------------------------------+   |
+|                                     |                                      |
+|                +--------------------+--------------------+                 |
+|                v                                         v                 |
+|   +-------------------------+            +-------------------------+      |
+|   |        NTHLAYER         |            |        SITREP           |      |
+|   |    (Implementation)     |            |      (Correlation)      |      |
+|   |                         |            |                         |      |
+|   |  * Manifest validation  |            |  * Pre-correlation      |      |
+|   |  * Prometheus rules     |----------->|  * Change attribution   |      |
+|   |  * Grafana dashboards   |  topology  |  * AI-native snapshots  |      |
+|   |  * CI/CD enforcement    |            |                         |      |
+|   +-------------------------+            +------------+------------+      |
+|                                                       |                    |
+|                                                       v                    |
+|                                          +-------------------------+      |
+|                                          |       CONSUMERS         |      |
+|                                          |                         |      |
+|                                          |  * AI Agents            |      |
+|                                          |  * Human operators      |      |
+|                                          |  * Dashboards           |      |
+|                                          +------------+------------+      |
+|                                                       |                    |
+|   +-------------------------------------------------------------------+   |
+|   |                    SEMANTIC CONVENTIONS (OTel)                     |   |
+|   |                                                                   |   |
+|   |   Change Events        |    Decision Telemetry    |    Outcomes   |   |
+|   |   (deploy, config,     |    (gen_ai.decision.*,   |    (feedback, |   |
+|   |    feature flags)      |     gen_ai.reversal.*)   |  calibration) |   |
+|   +-------------------------------------------------------------------+   |
+|                                                                             |
++-----------------------------------------------------------------------------+
+```
+
+## Components
+
+| Component | Purpose | Status |
+|-----------|---------|--------|
+| [Specification](spec/v1/specification.md) | Core manifest schema | Stable |
+| [ai-gate Extension](spec/v1/specification.md#5-judgment-slos-ai-gates) | AI decision services | Stable |
+| [Judgment SLOs](spec/v1/judgment-slos.md) | Decision quality metrics | Documented |
+| [GitHub Action](action/) | CI/CD validation | Available |
+| [NthLayer](https://github.com/rsionnach/nthlayer) | Reference implementation | Partial |
+| [Change Events](conventions/change-events/) | OTel semantic conventions | Drafted |
+| [Decision Telemetry](conventions/decision-telemetry/) | OTel semantic conventions | Drafted |
+| [Sitrep](components/sitrep/) | Pre-correlation layer | In design |
+
+See [STATUS.md](STATUS.md) for detailed progress.
+
+---
+
+## Core Features
 
 ### Contracts & SLOs
 
@@ -162,9 +219,32 @@ deployment:
       max_p1: 0
 ```
 
-### AI Gate Support
+### Templates for Inheritance
 
-For AI-powered decision systems, OpenSRM supports [judgment SLOs](spec/v1/specification.md#5-judgment-slos-ai-gates) that measure decision quality, not just uptime. A [layered maturity model](judgment-slo-spec.md) supports incremental adoption — from basic reversal tracking through audit sampling, outcome-based ground truth, and segment-level analysis.
+Define standard configurations once and inherit across services:
+
+```yaml
+# Template definition
+apiVersion: opensrm/v1
+kind: Template
+metadata:
+  name: api-critical
+spec:
+  slos:
+    availability:
+      target: 0.9999
+
+# Service inherits from template
+metadata:
+  name: checkout-api
+  template: api-critical
+```
+
+---
+
+## AI Gate Support
+
+For AI-powered decision systems, OpenSRM supports [judgment SLOs](spec/v1/specification.md#5-judgment-slos-ai-gates) that measure decision quality, not just uptime. A [layered maturity model](spec/v1/judgment-slos.md) supports incremental adoption -- from basic reversal tracking through audit sampling, outcome-based ground truth, and segment-level analysis.
 
 ```yaml
 spec:
@@ -190,88 +270,57 @@ spec:
           max: 0.30
 ```
 
-### Templates for Inheritance
+See [Judgment SLOs](spec/v1/judgment-slos.md) for the full framework.
 
-Define standard configurations once and inherit across services:
+---
+
+## Semantic Conventions
+
+OpenSRM proposes OTel semantic conventions for operational signals:
+
+### Change Events
+
+Standardized schema for operational changes (deploys, config, feature flags). These enable correlation between changes and incidents.
 
 ```yaml
-# Template definition
-apiVersion: srm/v1
-kind: Template
-metadata:
-  name: api-critical
-spec:
-  slos:
-    availability:
-      target: 0.9999
-
-# Service inherits from template
-metadata:
-  name: checkout-api
-  template: api-critical
+# OTel Event
+name: change
+attributes:
+  change.id: chg-deploy-001
+  change.type: deployment
+  change.scope.service: payment-service
+  change.timestamp: "2026-02-20T14:25:00Z"
 ```
 
----
+See [conventions/change-events/](conventions/change-events/).
 
-## 📋 What You Can Do With OpenSRM
+### Decision Telemetry
 
-| Use Case | Description |
-|----------|-------------|
-| **Pre-deployment validation** | Check that metrics, dashboards, and alerts exist before shipping |
-| **SLO feasibility checks** | Validate that targets are achievable given dependencies |
-| **Drift detection** | Alert when declared vs. actual reliability diverges |
-| **Deployment gating** | Block releases when error budgets are exhausted |
-| **Service catalog enrichment** | Feed reliability metadata into Backstage, Cortex, etc. |
-| **Audit & compliance** | Prove that services meet reliability standards |
+Standardized schema for AI/human decisions and their outcomes.
 
----
+```yaml
+# AI makes a decision
+gen_ai.decision.id: dec-001
+gen_ai.decision.value: approve
+gen_ai.decision.confidence: 0.87
 
-## 🎯 How OpenSRM Is Different
+# Human overrides
+gen_ai.reversal.decision_id: dec-001
+gen_ai.reversal.type: human_override
+gen_ai.reversal.new_value: request_changes
+```
 
-| Traditional Approach | OpenSRM |
-|---------------------|---------|
-| SLOs in wiki pages | SLOs in version-controlled YAML |
-| Ownership in tribal knowledge | Ownership declared and discoverable |
-| Dependencies undocumented | Dependencies explicit with criticality |
-| Observability requirements assumed | Observability requirements enforced |
-| "Is this ready?" = opinion | "Is this ready?" = schema validation |
+See [conventions/decision-telemetry/](conventions/decision-telemetry/).
 
 ---
 
-## 📚 Documentation
-
-| Resource | Description |
-|----------|-------------|
-| **[Full Specification](spec/v1/specification.md)** | Complete OpenSRM schema reference |
-| **[JSON Schema](spec/v1/schema.json)** | For validation tooling |
-| **[Examples](examples/)** | Real-world OpenSRM manifest examples |
-| **[Shift-Left Reliability Skill](shift-left-reliability-skill.md)** | Claude Code skill for generating manifests during development |
-| **[Contributing](CONTRIBUTING.md)** | How to contribute |
-| **[Governance](GOVERNANCE.md)** | RFC process for spec changes |
-
----
-
-## 🔧 Implementations
-
-Tools that implement OpenSRM:
-
-| Tool | Type | Status |
-|------|------|--------|
-| [NthLayer](https://github.com/rsionnach/nthlayer) | CI/CD enforcement | Reference implementation |
-
-→ [Full implementations list](IMPLEMENTATIONS.md)
-
-*Building a tool that implements OpenSRM? [Add it to the list](CONTRIBUTING.md).*
-
----
-
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Create an OpenSRM manifest
 
 ```yaml
 # service.reliability.yaml
-apiVersion: srm/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: my-service
@@ -279,6 +328,7 @@ metadata:
   tier: standard
 
 spec:
+  type: api
   slos:
     availability:
       target: 0.999
@@ -310,7 +360,7 @@ nthlayer check-deploy --manifest service.reliability.yaml --exit-on-failure
 
 ---
 
-## 🔄 GitHub Action
+## GitHub Action
 
 Validate OpenSRM manifests in your CI/CD pipeline with the official GitHub Action.
 
@@ -360,7 +410,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate OpenSRM manifests
-        uses: opensrm/opensrm@v1
+        uses: rsionnach/opensrm@v1
         with:
           manifest: '**/*.reliability.yaml'
           strict: 'false'
@@ -368,27 +418,82 @@ jobs:
 
 ---
 
-## 🏗️ Design Principles
+## What You Can Do With OpenSRM
 
-1. **Declare intent, not implementation** — Specify *what* reliability you need, not *how* to achieve it
-2. **Complement existing standards** — Align with OpenSLO, OpenTelemetry, and Kubernetes conventions
-3. **Progressive complexity** — Simple services need simple manifests; complex services can use advanced features
-4. **Fail open by default** — Missing optional fields shouldn't block adoption
+| Use Case | Description |
+|----------|-------------|
+| **Pre-deployment validation** | Check that metrics, dashboards, and alerts exist before shipping |
+| **SLO feasibility checks** | Validate that targets are achievable given dependencies |
+| **Drift detection** | Alert when declared vs. actual reliability diverges |
+| **Deployment gating** | Block releases when error budgets are exhausted |
+| **Service catalog enrichment** | Feed reliability metadata into Backstage, Cortex, etc. |
+| **Audit & compliance** | Prove that services meet reliability standards |
 
 ---
 
-## 🔗 Relationship to Other Standards
+## How OpenSRM Is Different
+
+| Traditional Approach | OpenSRM |
+|---------------------|---------|
+| SLOs in wiki pages | SLOs in version-controlled YAML |
+| Ownership in tribal knowledge | Ownership declared and discoverable |
+| Dependencies undocumented | Dependencies explicit with criticality |
+| Observability requirements assumed | Observability requirements enforced |
+| "Is this ready?" = opinion | "Is this ready?" = schema validation |
+
+---
+
+## Documentation
+
+| Resource | Description |
+|----------|-------------|
+| **[Full Specification](spec/v1/specification.md)** | Complete OpenSRM schema reference |
+| **[JSON Schema](spec/v1/schema.json)** | For validation tooling |
+| **[Judgment SLOs](spec/v1/judgment-slos.md)** | AI decision quality framework |
+| **[Examples](examples/)** | Real-world OpenSRM manifest examples |
+| **[Architecture](ARCHITECTURE.md)** | Ecosystem architecture and data flows |
+| **[Shift-Left Reliability Skill](shift-left-reliability-skill.md)** | Claude Code skill for generating manifests |
+| **[Contributing](CONTRIBUTING.md)** | How to contribute |
+| **[Governance](GOVERNANCE.md)** | RFC process for spec changes |
+
+---
+
+## Implementations
+
+Tools that implement OpenSRM:
+
+| Tool | Type | Status |
+|------|------|--------|
+| [NthLayer](https://github.com/rsionnach/nthlayer) | CI/CD enforcement | Reference implementation |
+
+> [Full implementations list](IMPLEMENTATIONS.md)
+
+*Building a tool that implements OpenSRM? [Add it to the list](CONTRIBUTING.md).*
+
+---
+
+## Design Principles
+
+1. **Declare intent, not implementation** -- Specify *what* reliability you need, not *how* to achieve it
+2. **Schemas + enforcement** -- Define contracts, then validate them
+3. **Tooling-agnostic** -- Works with Prometheus, Datadog, or any backend
+4. **Progressive complexity** -- Simple services need simple manifests; complex services can use advanced features
+5. **AI-native** -- First-class support for AI decision services
+
+---
+
+## Relationship to Other Standards
 
 | Standard | Relationship |
 |----------|--------------|
-| **[OpenSLO](https://openslo.com/)** | OpenSRM can reference OpenSLO definitions or embed SLO targets directly |
-| **[OpenTelemetry](https://opentelemetry.io/)** | Metric names follow OTel Semantic Conventions |
-| **[Kubernetes](https://kubernetes.io/)** | Manifest structure follows K8s conventions (apiVersion, kind, metadata, spec) |
-| **[Backstage](https://backstage.io/)** | OpenSRM manifests can be consumed by Backstage catalog plugins |
+| **[OpenSLO](https://openslo.com/)** | Complementary -- OpenSRM adds service context around SLO definitions |
+| **[OpenTelemetry](https://opentelemetry.io/)** | Extends -- Change events and decision telemetry as OTel conventions |
+| **[Kubernetes](https://kubernetes.io/)** | Aligned -- Manifest structure follows K8s conventions |
+| **[Backstage](https://backstage.io/)** | Integrates -- Manifests can populate service catalogs |
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions to OpenSRM. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
@@ -396,17 +501,17 @@ Major changes go through the RFC process described in [GOVERNANCE.md](GOVERNANCE
 
 ---
 
-## 📄 License
+## License
 
-Apache License 2.0 — See [LICENSE](LICENSE)
+Apache License 2.0 -- See [LICENSE](LICENSE)
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 OpenSRM builds on ideas from:
 
-- [OpenSLO](https://openslo.com/) — SLO specification
-- [OpenTelemetry](https://opentelemetry.io/docs/specs/semconv/) — Semantic Conventions
-- [Google SRE Handbook](https://sre.google/sre-book/table-of-contents/) — SLO/SLI concepts
-- [Backstage](https://backstage.io/) — Service catalog patterns
+- [OpenSLO](https://openslo.com/) -- SLO specification
+- [OpenTelemetry](https://opentelemetry.io/docs/specs/semconv/) -- Semantic Conventions
+- [Google SRE Handbook](https://sre.google/sre-book/table-of-contents/) -- SLO/SLI concepts
+- [Backstage](https://backstage.io/) -- Service catalog patterns

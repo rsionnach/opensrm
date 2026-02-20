@@ -1,0 +1,30 @@
+apiVersion: opensrm/v1
+kind: Template
+metadata:
+  name: ai-gate-standard
+  description: Standard AI gate service with judgment SLOs
+spec:
+  type: ai-gate
+  slos:
+    availability:
+      target: 0.995
+      window: 30d
+    latency:
+      p99: 30s
+      target: 0.99
+    judgment:
+      reversal_rate:
+        target: 0.05
+        window: 30d
+        observation_period: 7d
+      high_confidence_failure:
+        target: 0.02
+        confidence_threshold: 0.8
+        window: 30d
+  ownership:
+    oncall_required: false
+  instrumentation:
+    events:
+      decision: ai_gate.decision
+      reversal: ai_gate.reversal
+      outcome: ai_gate.outcome

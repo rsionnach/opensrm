@@ -1,7 +1,7 @@
 # Minimal Service Reliability Manifest
 # This example shows the minimum required fields
 
-apiVersion: srm/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: my-service

@@ -323,7 +323,7 @@ spec:
 A bot that reviews pull requests and approves, requests changes, or escalates to senior engineers.
 
 ```yaml
-apiVersion: opensrm.io/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: pr-review-bot
@@ -398,7 +398,7 @@ spec:
 A system that allows or blocks transactions, with chargeback data as ground truth.
 
 ```yaml
-apiVersion: opensrm.io/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: fraud-detector
@@ -494,7 +494,7 @@ spec:
 A system that publishes, flags for review, or removes user-generated content.
 
 ```yaml
-apiVersion: opensrm.io/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: content-moderator

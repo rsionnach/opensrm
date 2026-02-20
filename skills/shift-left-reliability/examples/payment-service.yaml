@@ -1,0 +1,64 @@
+apiVersion: opensrm/v1
+kind: ServiceReliabilityManifest
+metadata:
+  name: payment-service
+  team: payments
+  tier: critical
+  template: api-critical
+spec:
+  type: api
+
+  contract:
+    availability: 0.9999
+    latency:
+      p99: 500ms
+    throughput:
+      max_rps: 5000
+
+  slos:
+    availability:
+      target: 0.99995
+      window: 30d
+    latency:
+      p99: 300ms
+      target: 0.995
+      window: 30d
+    error_rate:
+      target: 0.0001
+      window: 30d
+
+  dependencies:
+    - service: stripe-adapter
+      type: external
+      critical: true
+      expects:
+        availability: 0.9999
+        latency:
+          p99: 200ms
+    - service: fraud-detection
+      type: service
+      critical: true
+      expects:
+        availability: 0.999
+    - service: notification-service
+      type: service
+      critical: false
+
+  ownership:
+    team: payments
+    slack: "#payments-oncall"
+    pagerduty:
+      service_id: PAYMENTS_CRITICAL
+      escalation_policy_id: PAYMENTS_ESCALATION
+    runbook: https://wiki.example.com/runbooks/payment-service
+    oncall_required: true
+
+  observability:
+    metrics:
+      required:
+        - payment_service_requests_total
+        - payment_service_duration_seconds
+      labels:
+        required:
+          - service
+          - environment

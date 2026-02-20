@@ -1,0 +1,17 @@
+apiVersion: opensrm/v1
+kind: Template
+metadata:
+  name: worker-standard
+  description: Standard background worker defaults
+spec:
+  type: worker
+  slos:
+    availability:
+      target: 0.995
+      window: 7d
+    processing_time:
+      p99: 5m
+      target: 0.99
+      window: 7d
+  ownership:
+    oncall_required: false

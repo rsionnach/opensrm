@@ -31,18 +31,28 @@ Status: Draft specification (v1.0.0-draft)
 opensrm/
 ├── spec/v1/                          # Canonical specification location
 │   ├── specification.md              # Complete OpenSRM v1 spec
-│   └── schema.json                   # JSON Schema for validation
-├── judgment-slo-spec.md              # Judgment SLO maturity model (4 levels)
-├── examples/                         # Example manifests
+│   ├── schema.json                   # JSON Schema for validation
+│   └── judgment-slos.md              # Judgment SLO maturity model (4 levels)
+├── conventions/                      # OTel semantic convention proposals
+│   ├── change-events/                # Operational change events (deploy, config, flags)
+│   └── decision-telemetry/           # AI/human decision telemetry (gen_ai.decision.*)
+├── components/                       # Ecosystem components (architecture-only)
+│   ├── sitrep/                       # Pre-correlation layer for AI-native snapshots
+│   └── incidenttown/                 # Multi-agent incident response system
+├── examples/                         # Example manifests by service type
+│   ├── api-*.yaml                    # API service examples
+│   ├── ai-gate-*.yaml                # AI gate examples (minimal, full, security)
+│   ├── batch-*.yaml                  # Batch job examples
+│   └── database-*.yaml               # Database examples
+├── articles/                         # Drafts and published articles
 ├── action/                           # GitHub Action for validation
-│   ├── src/                         # TypeScript source
-│   └── dist/                        # Bundled action
-├── skills/shift-left-reliability/   # Claude Code skill
-├── .beads/                          # Task tracking
-└── .claude/                         # Claude configuration
+│   ├── src/                          # TypeScript source
+│   └── dist/                         # Bundled action
+├── skills/shift-left-reliability/    # Claude Code skill
+├── CHANGELOG.md                      # Specification version history
+├── IMPLEMENTATIONS.md                # Tools implementing OpenSRM
+└── .claude/                          # Claude configuration
 ```
-
-Specification files consolidated to spec/v1/ (complete as of commit e63049c).
 <!-- END AUTO-MANAGED -->
 
 ---
@@ -52,14 +62,14 @@ Specification files consolidated to spec/v1/ (complete as of commit e63049c).
 <!-- AUTO-MANAGED: specification-files -->
 ### spec/v1/specification.md
 Complete OpenSRM v1.0.0-draft specification covering:
-- Document structure (apiVersion: `opensrm.io/v1`, kind, metadata, spec)
+- Document structure (apiVersion: `opensrm/v1`, kind, metadata, spec)
 - Service types and their applicable SLOs: api, worker, stream, ai-gate, batch, database
 - Standard SLOs: availability (target ratio), latency (percentiles: p50/p90/p95/p99/p999), error_rate, throughput
 - Worker-specific: processing_time, success_rate
 - Stream-specific: lag (max_seconds), throughput
 - Batch-specific: duration, schedule_adherence, data_freshness
 - Database-specific: query_latency, replication_lag, connection_availability
-- AI Gate extensions: judgment SLOs with 4-level maturity model (see judgment-slo-spec.md)
+- AI Gate extensions: judgment SLOs with 4-level maturity model (see spec/v1/judgment-slos.md)
   - Level 1 (Reactive): reversal.rate, reversal.high_confidence_failure
   - Level 2 (Proactive): audit (enabled, sample_rate, accuracy, coverage, latency)
   - Level 3 (Outcome): outcomes (defect_signals, defect_rate, false_positive_rate, outcome_latency)
@@ -93,7 +103,7 @@ JSON Schema (draft-07) definition providing:
 
 <!-- AUTO-MANAGED: conventions -->
 ### Specification Format
-- API version: `opensrm.io/v1` (spec) / `srm/v1` (JSON schema) - note the discrepancy between the two files
+- API version: `opensrm/v1` (standardized as of CHANGELOG Unreleased - previously `opensrm.io/v1` in spec and `srm/v1` in schema/examples)
 - Kinds: `ServiceReliabilityManifest` or `Template`
 - Duration values: numeric + unit suffix (ms, s, m, h, d, w) - e.g., "100ms", "30d"
 - Ratio values: decimal 0.0-1.0, NOT percentages (0.999 not 99.9%, 0.05 not 5%)
@@ -135,6 +145,37 @@ Nested structure for reversal tracking:
 
 ---
 
+## Ecosystem Components
+
+<!-- AUTO-MANAGED: ecosystem-components -->
+### Implementation Tools
+- **NthLayer**: Reference implementation for CI/CD enforcement of SRM manifests (validates, generates Prometheus rules and Grafana dashboards)
+- **OpenSRM Validator Action**: Official GitHub Action (`rsionnach/opensrm@v1`) for CI/CD validation
+- **Shift-Left Reliability Skill**: Claude Code skill for generating manifests, suggesting SLOs, and validating reliability decisions during development
+
+### Pre-Correlation Layer
+- **Sitrep**: AI-native observability snapshots layer that pre-correlates telemetry for agent consumption
+  - Hybrid generation: batch (5-min), incident-triggered (immediate), refresh (1-min during incidents)
+  - Integrates Change Events and Decision Telemetry OTel conventions
+  - Service identity via OpenSRM manifest catalog
+  - Correlation engine with temporal, topological, and log pattern analysis
+
+### Multi-Agent Systems
+- **IncidentTown**: Multi-agent incident response system (architecture-only)
+  - Triage agent: initial assessment and severity classification
+  - Investigation agent: root cause analysis using Sitrep snapshots
+  - Communication agent: stakeholder updates and status page management
+  - Remediation agent: suggests and validates fixes
+
+### OTel Semantic Conventions (Proposed)
+- **Change Events** (`change.*`): Operational changes (deploy, config, feature flags, infrastructure, database) for change-incident correlation
+- **Decision Telemetry** (`gen_ai.decision.*`, `gen_ai.reversal.*`, `gen_ai.outcome.*`): AI/human decision events enabling judgment SLO measurement
+
+Status: Specification and GitHub Action are stable. NthLayer is partially complete. Sitrep and IncidentTown are architecture-only. OTel conventions are drafted.
+<!-- END AUTO-MANAGED -->
+
+---
+
 ## Key Design Principles
 
 <!-- MANUAL -->
@@ -150,18 +191,40 @@ From specification section 1.1:
 ## Related Files
 
 <!-- AUTO-MANAGED: related-files -->
-- `judgment-slo-spec.md`: Detailed specification for AI gate judgment SLOs with 4-level maturity model (Reactive, Proactive, Outcome-Based, Behavioral)
-- `shift-left-reliability-skill.md`: Documentation for Claude Code skill integration
-- `opensrm-repo-structure.md`: Planned repository organization
-- `README.md`: Project overview, branding, quick start examples, GitHub Action documentation (uses rsionnach/opensrm@v1)
-- `IMPLEMENTATIONS.md`: List of tools implementing OpenSRM (NthLayer reference implementation)
-- `examples/`: Example manifests for different service types
+### Core Specification
+- `spec/v1/specification.md`: Complete OpenSRM v1.0.0-draft specification
+- `spec/v1/schema.json`: JSON Schema for manifest validation
+- `spec/v1/judgment-slos.md`: AI gate judgment SLO maturity model (4 levels)
+- `CHANGELOG.md`: Specification version history and release notes
+
+### Ecosystem Documentation
+- `README.md`: Project overview with ecosystem diagram (OpenSRM → NthLayer → Sitrep → consumers → OTel conventions), component status table, quick start examples
+- `IMPLEMENTATIONS.md`: Tools implementing OpenSRM (NthLayer, GitHub Action, Shift-Left Reliability Skill), contribution guidelines for listing new tools
+
+### OTel Semantic Conventions (Proposed)
+- `conventions/change-events/`: Operational change event attributes (change.id, change.type, change.scope.service, change.risk.score)
+- `conventions/decision-telemetry/`: AI/human decision event attributes (gen_ai.decision.*, gen_ai.reversal.*, gen_ai.outcome.*)
+
+### Ecosystem Components (Architecture-Only)
+- `components/sitrep/sitrep-technical-appendix.md`: Pre-correlation layer v2 spec with hybrid generation model (batch + incident-triggered), Change Event and Decision Telemetry integration, service identity via OpenSRM catalog
+- `components/incidenttown/`: Multi-agent incident response system (triage, investigation, communication, remediation agents)
+
+### Examples
+- `examples/api-*.yaml`: API service examples (minimal, full, internal)
+- `examples/ai-gate-*.yaml`: AI gate examples (minimal, full with all judgment SLOs, security scanner)
+- `examples/batch-*.yaml`: Batch job examples
+- `examples/database-*.yaml`: Database examples
+
+### Development Tools
+- `shift-left-reliability-skill.md`: Claude Code skill documentation
+- `action/`: GitHub Action for CI/CD validation (rsionnach/opensrm@v1)
 - `CONTRIBUTING.md`: Contribution guidelines
 - `GOVERNANCE.md`: RFC process for spec changes
 
 Files removed:
 - `opensrm-v1-full-spec.md`: Consolidated into spec/v1/specification.md
 - `opensrm.json`: Consolidated into spec/v1/schema.json
+- `judgment-slo-spec.md`: Moved to spec/v1/judgment-slos.md
 <!-- END AUTO-MANAGED -->
 
 ---

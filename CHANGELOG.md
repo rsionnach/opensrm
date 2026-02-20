@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Standardized `apiVersion` to `opensrm/v1` across spec, schema, and all examples (previously `opensrm.io/v1` in spec and `srm/v1` in schema/examples)
+- Moved `judgment-slo-spec.md` to `spec/v1/judgment-slos.md` as canonical location
+- Merged README drafts into single README.md with ecosystem overview
+
 ### Added
 - Service Types field (`spec.type`) with values: `api`, `worker`, `stream`, `ai-gate`
 - AI Gate support for AI-powered decision systems
@@ -39,5 +44,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - JSON Schema for validation
 - Example manifests
 
-[Unreleased]: https://github.com/opensrm/opensrm/compare/v1.0.0-draft...HEAD
-[1.0.0-draft]: https://github.com/opensrm/opensrm/releases/tag/v1.0.0-draft
+[Unreleased]: https://github.com/rsionnach/opensrm/compare/v1.0.0-draft...HEAD
+[1.0.0-draft]: https://github.com/rsionnach/opensrm/releases/tag/v1.0.0-draft

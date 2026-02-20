@@ -1,7 +1,7 @@
 # Data Pipeline ETL Service Reliability Manifest
 # This example shows a batch service for ETL processing
 
-apiVersion: srm/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: customer-data-pipeline

@@ -55,7 +55,7 @@ OpenSRM (Open Service Reliability Manifest) is a specification for declaring ser
 ### 2.1 Manifest Structure
 
 ```yaml
-apiVersion: opensrm.io/v1          # MUST: API version
+apiVersion: opensrm/v1          # MUST: API version
 kind: ServiceReliabilityManifest   # MUST: Document type
 metadata:                          # MUST: Service metadata
   name: service-name
@@ -74,7 +74,7 @@ spec:                              # MUST: Reliability specification
 
 ### 2.3 API Version
 
-Current version: `opensrm.io/v1`
+Current version: `opensrm/v1`
 
 Tooling MUST reject documents with unknown API versions.
 
@@ -762,7 +762,7 @@ Templates enable inheritance of common configurations.
 ### 8.1 Template Definition
 
 ```yaml
-apiVersion: opensrm.io/v1
+apiVersion: opensrm/v1
 kind: Template
 metadata:
   name: api-standard               # MUST: Unique template name
@@ -785,7 +785,7 @@ spec:
 Services reference templates in metadata:
 
 ```yaml
-apiVersion: opensrm.io/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: checkout-service
@@ -1691,7 +1691,7 @@ Complete JSON Schema for validation.
       "type": "object",
       "required": ["apiVersion", "kind", "metadata", "spec"],
       "properties": {
-        "apiVersion": { "const": "opensrm.io/v1" },
+        "apiVersion": { "const": "opensrm/v1" },
         "kind": { "const": "ServiceReliabilityManifest" },
         "metadata": { "$ref": "#/definitions/Metadata" },
         "spec": { "$ref": "#/definitions/Spec" }
@@ -1714,7 +1714,7 @@ Complete JSON Schema for validation.
       "type": "object",
       "required": ["apiVersion", "kind", "metadata", "spec"],
       "properties": {
-        "apiVersion": { "const": "opensrm.io/v1" },
+        "apiVersion": { "const": "opensrm/v1" },
         "kind": { "const": "Template" },
         "metadata": { "$ref": "#/definitions/TemplateMetadata" },
         "spec": {
@@ -1740,7 +1740,7 @@ Complete JSON Schema for validation.
 ### 13.1 Minimal API Service
 
 ```yaml
-apiVersion: opensrm.io/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: user-service
@@ -1757,7 +1757,7 @@ spec:
 ### 13.2 Full API Service with Contract
 
 ```yaml
-apiVersion: opensrm.io/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: payment-gateway
@@ -1815,7 +1815,7 @@ spec:
 ### 13.3 AI Gate Service
 
 ```yaml
-apiVersion: opensrm.io/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: code-review-bot
@@ -1887,7 +1887,7 @@ spec:
 
 ```yaml
 # templates/api-critical.yaml
-apiVersion: opensrm.io/v1
+apiVersion: opensrm/v1
 kind: Template
 metadata:
   name: api-critical
@@ -1905,7 +1905,7 @@ spec:
     oncall_required: true
 ---
 # services/checkout-service.yaml
-apiVersion: opensrm.io/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: checkout-service
@@ -1938,7 +1938,7 @@ spec:
 ### 13.5 Worker Service
 
 ```yaml
-apiVersion: opensrm.io/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: invoice-generator

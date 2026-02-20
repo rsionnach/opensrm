@@ -1,5 +1,5 @@
 # Minimal AI gate manifest - start here
-apiVersion: srm/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: code-reviewer

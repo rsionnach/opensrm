@@ -1,7 +1,7 @@
 # Payment API Service Reliability Manifest
 # This example shows a critical tier service with full configuration
 
-apiVersion: srm/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: payment-api

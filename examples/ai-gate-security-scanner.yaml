@@ -1,5 +1,5 @@
 # AI-powered security scanner
-apiVersion: srm/v1
+apiVersion: opensrm/v1
 kind: ServiceReliabilityManifest
 metadata:
   name: security-scanner

@@ -33,7 +33,7 @@ Building a tool that implements SRM? We'd love to list it here!
 
 To be listed, your implementation should:
 
-1. Support the current spec version (`srm/v1`)
+1. Support the current spec version (`opensrm/v1`)
 2. Validate manifests against the schema
 3. Be publicly available (open source preferred)
 4. Include documentation on usage
