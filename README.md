@@ -70,50 +70,7 @@ service.reliability.yaml --> validate --> enforce --> deploy
 
 OpenSRM is the foundation for a complete operational reliability stack:
 
-```
-+-----------------------------------------------------------------------------+
-|                              OPENSRM ECOSYSTEM                              |
-+-----------------------------------------------------------------------------+
-|                                                                             |
-|   +--------------------------------------------------------------------+   |
-|   |                         SPECIFICATION                              |   |
-|   |                                                                    |   |
-|   |   ServiceManifests    |    ai-gate type    |    Judgment SLOs     |   |
-|   |   (identity, deps,    |    (AI decision    |    (reversal rate,   |   |
-|   |    SLO targets)       |     services)      |     calibration)     |   |
-|   +--------------------------------------------------------------------+   |
-|                                     |                                      |
-|                +--------------------+--------------------+                 |
-|                v                                         v                 |
-|   +-------------------------+            +-------------------------+      |
-|   |        NTHLAYER         |            |        SITREP           |      |
-|   |    (Implementation)     |            |      (Correlation)      |      |
-|   |                         |            |                         |      |
-|   |  * Manifest validation  |            |  * Pre-correlation      |      |
-|   |  * Prometheus rules     |----------->|  * Change attribution   |      |
-|   |  * Grafana dashboards   |  topology  |  * AI-native snapshots  |      |
-|   |  * CI/CD enforcement    |            |                         |      |
-|   +-------------------------+            +------------+------------+      |
-|                                                       |                    |
-|                                                       v                    |
-|                                          +-------------------------+      |
-|                                          |       CONSUMERS         |      |
-|                                          |                         |      |
-|                                          |  * AI Agents            |      |
-|                                          |  * Human operators      |      |
-|                                          |  * Dashboards           |      |
-|                                          +------------+------------+      |
-|                                                       |                    |
-|   +-------------------------------------------------------------------+   |
-|   |                    SEMANTIC CONVENTIONS (OTel)                     |   |
-|   |                                                                   |   |
-|   |   Change Events        |    Decision Telemetry    |    Outcomes   |   |
-|   |   (deploy, config,     |    (gen_ai.decision.*,   |    (feedback, |   |
-|   |    feature flags)      |     gen_ai.reversal.*)   |  calibration) |   |
-|   +-------------------------------------------------------------------+   |
-|                                                                             |
-+-----------------------------------------------------------------------------+
-```
+![OpenSRM Ecosystem Flow](assets/ecosystem.gif)
 
 ## Components
 
