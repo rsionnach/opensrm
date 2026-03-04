@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenSRM Deep Dive — Slide Deck</title>
+<!--
+  OpenSRM Codebase Explanation — Slide Deck
+  Midnight Editorial preset: Instrument Serif + JetBrains Mono, deep navy bg, gold accent.
+  35 slides covering all 9 abstractions, 4 flows, dependency map, comprehension checkpoint.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ============ THEME: Midnight Editorial ============ */
+  :root {
+    --font-body: 'Instrument Serif', Georgia, serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    --bg: #0f1729;
+    --surface: #162040;
+    --surface2: #1d2b52;
+    --surface-elevated: #243362;
+    --border: rgba(200, 180, 140, 0.08);
+    --border-bright: rgba(200, 180, 140, 0.16);
+    --text: #e8e4d8;
+    --text-dim: #9a9484;
+    --accent: #d4a73a;
+    --accent-dim: rgba(212, 167, 58, 0.1);
+    --code-bg: #0a0f1e;
+    --code-text: #d4d0c4;
+    --green: #4ade80;
+    --green-dim: rgba(74, 222, 128, 0.1);
+    --red: #f87171;
+    --red-dim: rgba(248, 113, 113, 0.1);
+    --blue: #60a5fa;
+    --blue-dim: rgba(96, 165, 250, 0.1);
+    --teal: #5eead4;
+    --teal-dim: rgba(94, 234, 212, 0.1);
+    --purple: #c084fc;
+    --purple-dim: rgba(192, 132, 252, 0.1);
+    --orange: #fbbf24;
+    --orange-dim: rgba(251, 191, 36, 0.1);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #faf8f2;
+      --surface: #ffffff;
+      --surface2: #f5f0e6;
+      --surface-elevated: #fffdf5;
+      --border: rgba(30, 30, 50, 0.08);
+      --border-bright: rgba(30, 30, 50, 0.16);
+      --text: #1a1814;
+      --text-dim: #7a7468;
+      --accent: #b8860b;
+      --accent-dim: rgba(184, 134, 11, 0.08);
+      --code-bg: #2a2520;
+      --code-text: #e8e4d8;
+      --green: #16a34a;
+      --green-dim: rgba(22, 163, 74, 0.08);
+      --red: #dc2626;
+      --red-dim: rgba(220, 38, 38, 0.08);
+      --blue: #2563eb;
+      --blue-dim: rgba(37, 99, 235, 0.08);
+      --teal: #0f766e;
+      --teal-dim: rgba(15, 118, 110, 0.08);
+      --purple: #7e22ce;
+      --purple-dim: rgba(126, 34, 206, 0.08);
+      --orange: #b45309;
+      --orange-dim: rgba(180, 83, 9, 0.08);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    color: var(--text);
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  /* ============ DECK ENGINE ============ */
+  .deck {
+    height: 100dvh;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .slide {
+    height: 100dvh;
+    scroll-snap-align: start;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(40px, 6vh, 80px) clamp(40px, 8vw, 120px);
+    isolation: isolate;
+    opacity: 0;
+    transform: translateY(40px) scale(0.98);
+    transition:
+      opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .slide.visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  .slide .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition:
+      opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .slide.visible .reveal { opacity: 1; transform: none; }
+  .slide.visible .reveal:nth-child(1) { transition-delay: 0.1s; }
+  .slide.visible .reveal:nth-child(2) { transition-delay: 0.2s; }
+  .slide.visible .reveal:nth-child(3) { transition-delay: 0.3s; }
+  .slide.visible .reveal:nth-child(4) { transition-delay: 0.4s; }
+  .slide.visible .reveal:nth-child(5) { transition-delay: 0.5s; }
+  .slide.visible .reveal:nth-child(6) { transition-delay: 0.6s; }
+  .slide.visible .reveal:nth-child(7) { transition-delay: 0.7s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide, .slide .reveal {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
+    }
+  }
+
+  /* ============ NAV CHROME ============ */
+  .deck-progress {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: var(--accent); z-index: 100;
+    transition: width 0.3s ease; pointer-events: none;
+  }
+
+  .deck-dots {
+    position: fixed; right: clamp(12px, 2vw, 24px); top: 50%;
+    transform: translateY(-50%); display: flex; flex-direction: column;
+    gap: 6px; z-index: 100; padding: 8px;
+    background: color-mix(in srgb, var(--bg) 60%, transparent 40%);
+    border-radius: 20px;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  }
+
+  .deck-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-dim); opacity: 0.3; border: none; padding: 0;
+    cursor: pointer; transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .deck-dot:hover { opacity: 0.6; }
+  .deck-dot.active { opacity: 1; transform: scale(1.5); background: var(--accent); }
+
+  .deck-counter {
+    position: fixed; bottom: clamp(12px, 2vh, 24px); right: clamp(12px, 2vw, 24px);
+    font-family: var(--font-mono); font-size: 12px; color: var(--text-dim);
+    z-index: 100; font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  .deck-hints {
+    position: fixed; bottom: clamp(12px, 2vh, 24px); left: 50%;
+    transform: translateX(-50%); font-family: var(--font-mono);
+    font-size: 11px; color: var(--text-dim); opacity: 0.6; z-index: 100;
+    transition: opacity 0.5s ease; white-space: nowrap;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  .deck-hints.faded { opacity: 0; pointer-events: none; }
+
+  /* ============ SHARED SLIDE ELEMENTS ============ */
+  .slide__display {
+    font-size: clamp(48px, 10vw, 120px);
+    font-weight: 400;
+    letter-spacing: -2px;
+    line-height: 0.95;
+    text-wrap: balance;
+  }
+
+  .slide__heading {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 400;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+
+  .slide__body {
+    font-size: clamp(16px, 2.2vw, 22px);
+    line-height: 1.6;
+    color: var(--text-dim);
+    text-wrap: pretty;
+  }
+
+  .slide__subtitle {
+    font-family: var(--font-mono);
+    font-size: clamp(12px, 1.5vw, 18px);
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .slide__label {
+    font-family: var(--font-mono);
+    font-size: clamp(10px, 1.2vw, 13px);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  /* ============ DECORATIVE SVG ============ */
+  .slide__decor {
+    position: absolute;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ============ SLIDE TYPE: TITLE ============ */
+  .slide--title {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background-image: radial-gradient(ellipse at 50% 30%, var(--accent-dim) 0%, transparent 50%);
+  }
+
+  .slide--title .slide__display { color: var(--accent); }
+
+  /* ============ SLIDE TYPE: DIVIDER ============ */
+  .slide--divider { justify-content: center; }
+
+  .slide--divider .slide__number {
+    font-size: clamp(100px, 22vw, 260px);
+    font-weight: 200;
+    line-height: 0.85;
+    opacity: 0.06;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -55%);
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+  }
+
+  /* ============ SLIDE TYPE: CONTENT ============ */
+  .slide--content .slide__inner {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: clamp(24px, 4vw, 60px);
+    align-items: center;
+    width: 100%;
+  }
+
+  .slide__bullets {
+    list-style: none;
+    padding: 0;
+  }
+
+  .slide__bullets li {
+    padding: 10px 0 10px 24px;
+    position: relative;
+    font-size: clamp(16px, 2vw, 22px);
+    line-height: 1.5;
+    color: var(--text-dim);
+  }
+
+  .slide__bullets li::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 20px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .slide__aside {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+  }
+
+  /* ============ SLIDE TYPE: SPLIT ============ */
+  .slide--split { padding: 0; }
+
+  .slide--split .slide__panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: 100%;
+  }
+
+  .slide--split .slide__panel {
+    padding: clamp(40px, 6vh, 80px) clamp(32px, 4vw, 60px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .slide--split .slide__panel--primary { background: var(--surface); }
+  .slide--split .slide__panel--secondary {
+    background: var(--surface2);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ============ SLIDE TYPE: DIAGRAM ============ */
+  .slide--diagram {
+    padding: clamp(24px, 4vh, 48px) clamp(24px, 4vw, 60px);
+  }
+  .slide--diagram .slide__heading { margin-bottom: clamp(8px, 1.5vh, 20px); }
+
+  .mermaid-wrap {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px 32px 24px;
+    overflow: auto;
+    flex: 1;
+    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .mermaid-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+  .mermaid-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .mermaid-wrap .mermaid {
+    transition: transform 0.2s ease;
+    transform-origin: top center;
+    padding: 8px;
+  }
+
+  .zoom-controls {
+    position: absolute; top: 8px; right: 8px;
+    display: flex; gap: 2px; z-index: 10;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px;
+  }
+  .zoom-controls button {
+    width: 28px; height: 28px; border: none; background: transparent;
+    color: var(--text-dim); font-family: var(--font-mono); font-size: 14px;
+    cursor: pointer; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .zoom-controls button:hover { background: var(--border); color: var(--text); }
+  .mermaid-wrap.is-zoomed { cursor: grab; }
+  .mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+
+  .mermaid .nodeLabel { color: var(--text) !important; }
+  .mermaid .edgeLabel { color: var(--text-dim) !important; background-color: transparent !important; overflow: visible !important; }
+  .mermaid .edgeLabel rect { fill: var(--bg) !important; rx: 3; ry: 3; }
+  .mermaid .edgeLabel span { padding: 0 4px !important; }
+  .mermaid .edgeLabel foreignObject { overflow: visible !important; }
+  .mermaid .statediagram-state .stateLabel .nodeLabel { overflow: visible !important; }
+  .mermaid text.edgeLabel { fill: var(--text-dim) !important; }
+  .slide--diagram .mermaid svg {
+    max-width: 100% !important;
+    max-height: 65vh !important;
+    height: auto !important;
+    width: auto !important;
+    display: block !important;
+    margin: 0 auto !important;
+  }
+
+  .slide--diagram .mermaid .node rect,
+  .slide--diagram .mermaid .node circle,
+  .slide--diagram .mermaid .node polygon { stroke-width: 2px; }
+  .slide--diagram .mermaid .edge-pattern-solid { stroke-width: 2px; }
+
+  /* ============ SLIDE TYPE: DASHBOARD ============ */
+  .slide--dashboard .slide__kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(clamp(140px, 20vw, 220px), 1fr));
+    gap: clamp(12px, 2vw, 24px);
+  }
+
+  .slide__kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: clamp(16px, 3vh, 32px) clamp(16px, 2vw, 24px);
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .slide__kpi-val {
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 400;
+    letter-spacing: -1.5px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .slide__kpi-label {
+    font-family: var(--font-mono);
+    font-size: clamp(9px, 1.2vw, 13px);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin-top: 8px;
+  }
+
+  .slide__kpi-trend {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  /* ============ SLIDE TYPE: TABLE ============ */
+  .slide--table { padding: clamp(24px, 4vh, 48px) clamp(24px, 4vw, 60px); }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    flex: 1;
+    min-height: 0;
+  }
+  .table-scroll { overflow-x: auto; }
+
+  .data-table { width: 100%; border-collapse: collapse; }
+
+  .data-table th {
+    background: var(--surface2);
+    font-family: var(--font-mono);
+    font-size: clamp(10px, 1.3vw, 14px);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    text-align: left;
+    padding: clamp(10px, 1.5vh, 16px) clamp(14px, 2vw, 24px);
+    border-bottom: 2px solid var(--border-bright);
+    white-space: nowrap;
+  }
+
+  .data-table td {
+    padding: clamp(10px, 1.5vh, 16px) clamp(14px, 2vw, 24px);
+    border-bottom: 1px solid var(--border);
+    font-size: clamp(14px, 1.8vw, 20px);
+    vertical-align: top;
+  }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:nth-child(even) { background: var(--surface2); }
+  .data-table tbody tr { transition: background 0.15s; }
+  .data-table tbody tr:hover { background: var(--accent-dim); }
+  .data-table code {
+    font-family: var(--font-mono); font-size: 0.85em;
+    background: var(--accent-dim); color: var(--accent);
+    padding: 1px 5px; border-radius: 3px;
+  }
+
+  /* ============ SLIDE TYPE: CODE ============ */
+  .slide--code { align-items: center; }
+
+  .slide__code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: clamp(24px, 4vh, 48px) clamp(24px, 4vw, 48px);
+    max-width: 900px;
+    width: 100%;
+    position: relative;
+  }
+
+  .slide__code-filename {
+    position: absolute;
+    top: -12px; left: 24px;
+    font-family: var(--font-mono);
+    font-size: 11px; font-weight: 600;
+    padding: 4px 12px; border-radius: 4px;
+    background: var(--accent); color: var(--bg);
+  }
+
+  .slide__code-block pre { margin: 0; overflow-x: auto; }
+  .slide__code-block code {
+    font-family: var(--font-mono);
+    font-size: clamp(14px, 1.6vw, 18px);
+    line-height: 1.7;
+    color: var(--code-text);
+  }
+  .slide__code-block .hl { color: var(--accent); }
+  .slide__code-block .cm { color: var(--text-dim); }
+  .slide__code-block .kw { color: var(--blue); }
+  .slide__code-block .str { color: var(--green); }
+  .slide__code-block .val { color: var(--teal); }
+
+  /* ============ SLIDE TYPE: QUOTE ============ */
+  .slide--quote {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: clamp(60px, 10vh, 120px) clamp(60px, 12vw, 200px);
+  }
+
+  .slide__quote-mark {
+    font-size: clamp(80px, 14vw, 180px);
+    line-height: 0.5;
+    opacity: 0.06;
+    font-family: Georgia, serif;
+    pointer-events: none;
+    margin-bottom: -20px;
+    color: var(--accent);
+  }
+
+  .slide--quote blockquote {
+    font-size: clamp(24px, 4vw, 48px);
+    font-weight: 400;
+    line-height: 1.35;
+    font-style: italic;
+  }
+
+  .slide--quote cite {
+    font-family: var(--font-mono);
+    font-size: clamp(11px, 1.4vw, 14px);
+    font-style: normal;
+    margin-top: clamp(16px, 3vh, 32px);
+    display: block;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* ============ SLIDE TYPE: FULL-BLEED ============ */
+  .slide--bleed {
+    padding: 0;
+    justify-content: flex-end;
+  }
+
+  .slide__bg {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center;
+    z-index: 0;
+  }
+
+  .slide__bg--gradient {
+    background: linear-gradient(135deg, #1a0f3c 0%, #0f1729 40%, #162040 100%);
+  }
+
+  .slide__scrim {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 40%, transparent 100%);
+    z-index: 1;
+  }
+
+  .slide--bleed .slide__content {
+    position: relative; z-index: 2;
+    padding: clamp(40px, 6vh, 80px) clamp(40px, 8vw, 120px);
+    color: #ffffff;
+  }
+  .slide--bleed .slide__heading { color: #ffffff; }
+  .slide--bleed .slide__subtitle { color: rgba(255,255,255,0.7); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-height: 700px) {
+    .slide { padding: clamp(24px, 4vh, 40px) clamp(32px, 6vw, 80px); }
+    .slide__display { font-size: clamp(36px, 8vw, 72px); }
+    .slide--divider .slide__number { font-size: clamp(80px, 16vw, 160px); }
+  }
+
+  @media (max-height: 600px) {
+    .slide__decor { display: none; }
+    .slide--quote { padding: clamp(32px, 6vh, 60px) clamp(40px, 8vw, 100px); }
+    .slide__quote-mark { display: none; }
+  }
+
+  @media (max-height: 500px) {
+    .slide { padding: clamp(16px, 3vh, 24px) clamp(24px, 5vw, 48px); }
+    .deck-dots { display: none; }
+    .slide__display { font-size: clamp(28px, 7vw, 48px); }
+  }
+
+  @media (max-width: 768px) {
+    .slide--content .slide__inner { grid-template-columns: 1fr; }
+    .slide--content .slide__aside { display: none; }
+    .slide--split .slide__panels { grid-template-columns: 1fr; }
+    .slide--dashboard .slide__kpis { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="deck">
+
+  <!-- ==================== SLIDE 1: TITLE ==================== -->
+  <section class="slide slide--title">
+    <svg class="slide__decor" style="top:0;right:0;" width="120" height="120" viewBox="0 0 120 120">
+      <line x1="120" y1="0" x2="120" y2="40" stroke="var(--accent)" stroke-width="2" opacity="0.15"/>
+      <line x1="80" y1="0" x2="120" y2="0" stroke="var(--accent)" stroke-width="2" opacity="0.15"/>
+    </svg>
+    <svg class="slide__decor" style="bottom:0;left:0;" width="120" height="120" viewBox="0 0 120 120">
+      <line x1="0" y1="80" x2="0" y2="120" stroke="var(--accent)" stroke-width="2" opacity="0.15"/>
+      <line x1="0" y1="120" x2="40" y2="120" stroke="var(--accent)" stroke-width="2" opacity="0.15"/>
+    </svg>
+    <div class="reveal">
+      <p class="slide__subtitle" style="margin-bottom:clamp(16px,2vh,32px);">Codebase Deep Dive</p>
+    </div>
+    <h1 class="slide__display reveal">OpenSRM</h1>
+    <div class="reveal">
+      <p class="slide__subtitle" style="margin-top:clamp(16px,2vh,32px);">Service reliability declared as code &mdash; then enforced, correlated, and governed</p>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 2: DASHBOARD — Stats ==================== -->
+  <section class="slide slide--dashboard" style="background-image:radial-gradient(ellipse at 70% 30%, var(--accent-dim) 0%, transparent 40%);">
+    <h2 class="slide__heading reveal">What You&rsquo;ll Learn</h2>
+    <div class="slide__kpis" style="margin-top:clamp(12px,2vh,24px);">
+      <div class="slide__kpi reveal">
+        <div class="slide__kpi-val" style="color:var(--accent);">9</div>
+        <div class="slide__kpi-label">Core Abstractions</div>
+        <div class="slide__kpi-trend" style="color:var(--text-dim);">in learning order</div>
+      </div>
+      <div class="slide__kpi reveal">
+        <div class="slide__kpi-val" style="color:var(--teal);">6</div>
+        <div class="slide__kpi-label">Service Types</div>
+        <div class="slide__kpi-trend" style="color:var(--text-dim);">api, worker, stream, ai-gate, batch, database</div>
+      </div>
+      <div class="slide__kpi reveal">
+        <div class="slide__kpi-val" style="color:var(--blue);">4</div>
+        <div class="slide__kpi-label">Key Flows</div>
+        <div class="slide__kpi-trend" style="color:var(--text-dim);">manifest to governance</div>
+      </div>
+      <div class="slide__kpi reveal">
+        <div class="slide__kpi-val" style="color:var(--green);">3</div>
+        <div class="slide__kpi-label">Component Layers</div>
+        <div class="slide__kpi-trend" style="color:var(--text-dim);">data, tools, agents</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 3: DIAGRAM — High-Level Architecture ==================== -->
+  <section class="slide slide--diagram">
+    <h2 class="slide__heading reveal">Ecosystem Architecture</h2>
+    <div class="mermaid-wrap reveal">
+      <div class="zoom-controls">
+        <button onclick="zoomDiagram(this,1.2)" title="Zoom in">+</button>
+        <button onclick="zoomDiagram(this,0.8)" title="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset">&#8634;</button>
+      </div>
+      <pre class="mermaid">
+graph LR
+  subgraph Static["Static Layer"]
+    M["Manifests"] --> N["NthLayer"]
+    N --> MON["Monitoring"]
+  end
+  subgraph Agents["Agent Layer"]
+    S["Sitrep"] -->|snapshot| MD["Mayday"]
+    AB["Arbiter"]
+  end
+  subgraph OTel["OTel Conventions"]
+    CE["Changes"]
+    DT["Telemetry"]
+  end
+  N -->|topology| S
+  CE --> S
+  MD --> DT
+  S --> DT
+  DT --> AB
+  AB -.->|autonomy| S
+  AB -.->|autonomy| MD
+  style Static fill:transparent,stroke:#60a5fa,stroke-width:2px,stroke-dasharray:5 5
+  style Agents fill:transparent,stroke:#d4a73a,stroke-width:2px,stroke-dasharray:5 5
+  style OTel fill:transparent,stroke:#c084fc,stroke-width:2px,stroke-dasharray:5 5
+      </pre>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 4: DIVIDER — 01 ==================== -->
+  <section class="slide slide--divider" style="background-image:radial-gradient(ellipse at 80% 60%, var(--accent-dim) 0%, transparent 40%);">
+    <span class="slide__number">01</span>
+    <div>
+      <h2 class="slide__heading reveal">The Manifest</h2>
+      <p class="slide__subtitle reveal" style="margin-top:12px;">YAML structure for reliability as code</p>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 5: CONTENT — Manifest Why ==================== -->
+  <section class="slide slide--content" style="background-image:radial-gradient(ellipse at 20% 80%, var(--blue-dim) 0%, transparent 45%);">
+    <div class="slide__inner">
+      <div>
+        <p class="slide__label reveal">Abstraction 1</p>
+        <h2 class="slide__heading reveal">The Reliability Manifest</h2>
+        <ul class="slide__bullets">
+          <li class="reveal">One YAML file per service, versioned in Git</li>
+          <li class="reveal">Kubernetes-style structure: apiVersion, kind, metadata, spec</li>
+          <li class="reveal">Declares SLO targets, ownership, dependencies, contracts</li>
+          <li class="reveal">Moves reliability left &mdash; before deployment, not after incidents</li>
+        </ul>
+      </div>
+      <div class="slide__aside reveal">
+        <svg viewBox="0 0 160 160" width="160" height="160">
+          <rect x="20" y="20" width="120" height="120" rx="12" fill="none" stroke="var(--blue)" stroke-width="1.5" opacity="0.3"/>
+          <rect x="35" y="45" width="90" height="8" rx="3" fill="var(--blue)" opacity="0.2"/>
+          <rect x="35" y="65" width="70" height="8" rx="3" fill="var(--blue)" opacity="0.15"/>
+          <rect x="35" y="85" width="80" height="8" rx="3" fill="var(--blue)" opacity="0.15"/>
+          <rect x="35" y="105" width="50" height="8" rx="3" fill="var(--blue)" opacity="0.1"/>
+          <text x="80" y="148" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--text-dim)">manifest.yaml</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 6: CODE — Minimal Manifest ==================== -->
+  <section class="slide slide--code" style="background-image:radial-gradient(ellipse at 50% 80%, var(--blue-dim) 0%, transparent 40%);">
+    <h2 class="slide__heading reveal" style="text-align:center;">Minimal Manifest</h2>
+    <div class="slide__code-block reveal" style="margin-top:clamp(12px,2vh,24px);">
+      <span class="slide__code-filename">api-minimal.yaml</span>
+      <pre><code><span class="hl">apiVersion</span>: <span class="val">opensrm/v1</span>
+<span class="hl">kind</span>: <span class="val">ServiceReliabilityManifest</span>
+<span class="hl">metadata</span>:
+  <span class="kw">name</span>: <span class="str">payment-api</span>
+  <span class="kw">tier</span>: <span class="str">critical</span>           <span class="cm"># critical | high | standard | low</span>
+<span class="hl">spec</span>:
+  <span class="kw">type</span>: <span class="val">api</span>                  <span class="cm"># determines applicable SLOs</span>
+  <span class="kw">slos</span>:
+    <span class="kw">availability</span>:
+      <span class="kw">target</span>: <span class="val">0.9995</span>         <span class="cm"># ratio 0-1, NOT percentage</span>
+      <span class="kw">window</span>: <span class="str">30d</span></code></pre>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 7: DIVIDER — 02 ==================== -->
+  <section class="slide slide--divider" style="background-image:radial-gradient(ellipse at 30% 40%, var(--accent-dim) 0%, transparent 40%);">
+    <span class="slide__number">02</span>
+    <div>
+      <h2 class="slide__heading reveal">SLO Definitions</h2>
+      <p class="slide__subtitle reveal" style="margin-top:12px;">Reliability targets with teeth</p>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 8: CONTENT — SLOs ==================== -->
+  <section class="slide slide--content" style="background-image:radial-gradient(ellipse at 80% 20%, var(--teal-dim) 0%, transparent 45%);">
+    <div class="slide__inner">
+      <div>
+        <p class="slide__label reveal">Abstraction 2</p>
+        <h2 class="slide__heading reveal">Service Level Objectives</h2>
+        <ul class="slide__bullets">
+          <li class="reveal">Every SLO requires a <code style="font-size:0.85em">target</code> (ratio 0&ndash;1) and a <code style="font-size:0.85em">window</code></li>
+          <li class="reveal">Service type determines which SLOs apply</li>
+          <li class="reveal">Latency SLOs require at least one percentile (p50/p90/p95/p99)</li>
+          <li class="reveal">Prevents nonsensical configs &mdash; no &ldquo;lag&rdquo; on an API</li>
+        </ul>
+      </div>
+      <div class="slide__aside reveal">
+        <svg viewBox="0 0 160 140" width="160" height="140">
+          <line x1="20" y1="120" x2="140" y2="120" stroke="var(--text-dim)" stroke-width="1" opacity="0.3"/>
+          <line x1="20" y1="120" x2="20" y2="20" stroke="var(--text-dim)" stroke-width="1" opacity="0.3"/>
+          <line x1="20" y1="40" x2="140" y2="40" stroke="var(--green)" stroke-width="1" opacity="0.3" stroke-dasharray="4 4"/>
+          <text x="145" y="43" font-family="var(--font-mono)" font-size="9" fill="var(--green)" opacity="0.7">target</text>
+          <path d="M20 100 Q50 90 70 60 Q90 35 110 38 Q130 42 140 50" fill="none" stroke="var(--teal)" stroke-width="2"/>
+          <text x="80" y="135" text-anchor="middle" font-family="var(--font-mono)" font-size="9" fill="var(--text-dim)">30d window</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 9: TABLE — Service Types ==================== -->
+  <section class="slide slide--table">
+    <h2 class="slide__heading reveal">SLOs by Service Type</h2>
+    <div class="table-wrap reveal" style="flex:1; min-height:0; margin-top:clamp(8px,1.5vh,20px);">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Type</th><th>Primary SLOs</th><th>Default Window</th></tr></thead>
+          <tbody>
+            <tr><td><code>api</code></td><td>availability, latency, error_rate, throughput</td><td>30d</td></tr>
+            <tr><td><code>worker</code></td><td>availability, processing_time, success_rate</td><td>7d</td></tr>
+            <tr><td><code>stream</code></td><td>availability, lag, throughput</td><td>7d</td></tr>
+            <tr><td><code>ai-gate</code></td><td>extends <code>api</code> + judgment SLOs</td><td>30d</td></tr>
+            <tr><td><code>batch</code></td><td>availability, duration, schedule_adherence, data_freshness</td><td>30d</td></tr>
+            <tr><td><code>database</code></td><td>availability, query_latency, replication_lag, connection_availability</td><td>30d</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 10: DIVIDER — 03 ==================== -->
+  <section class="slide slide--divider" style="background-image:radial-gradient(ellipse at 70% 50%, var(--accent-dim) 0%, transparent 40%);">
+    <span class="slide__number">03</span>
+    <div>
+      <h2 class="slide__heading reveal">Contracts &amp; Dependencies</h2>
+      <p class="slide__subtitle reveal" style="margin-top:12px;">External promises vs internal targets</p>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 11: SPLIT — Contract vs SLO ==================== -->
+  <section class="slide slide--split">
+    <div class="slide__panels">
+      <div class="slide__panel slide__panel--primary">
+        <p class="slide__label reveal" style="color:var(--accent);">Contract</p>
+        <h2 class="slide__heading reveal" style="font-size:clamp(22px,3.5vw,36px);">What You Promise</h2>
+        <ul class="slide__bullets" style="margin-top:16px;">
+          <li class="reveal"><code style="font-size:0.85em">spec.contract.availability: 0.9995</code></li>
+          <li class="reveal"><code style="font-size:0.85em">spec.contract.latency.p99: 300ms</code></li>
+          <li class="reveal">External guarantees to dependents</li>
+          <li class="reveal">Breaking this means breach of trust</li>
+        </ul>
+      </div>
+      <div class="slide__panel slide__panel--secondary">
+        <p class="slide__label reveal" style="color:var(--green);">Internal SLOs</p>
+        <h2 class="slide__heading reveal" style="font-size:clamp(22px,3.5vw,36px);">What You Target</h2>
+        <ul class="slide__bullets" style="margin-top:16px;">
+          <li class="reveal"><code style="font-size:0.85em">spec.slos.availability.target: 0.9998</code></li>
+          <li class="reveal"><code style="font-size:0.85em">spec.slos.latency.p99: 200ms</code></li>
+          <li class="reveal">Tighter than contract &mdash; headroom for surprises</li>
+          <li class="reveal">Alerting triggers on internal, not contract</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 12: CODE — Dependencies ==================== -->
+  <section class="slide slide--code" style="background-image:radial-gradient(ellipse at 30% 60%, var(--teal-dim) 0%, transparent 40%);">
+    <h2 class="slide__heading reveal" style="text-align:center;">Dependency-Aware SLOs</h2>
+    <div class="slide__code-block reveal" style="margin-top:clamp(12px,2vh,24px);">
+      <span class="slide__code-filename">api-full.yaml</span>
+      <pre><code><span class="hl">dependencies</span>:
+  - <span class="kw">service</span>: <span class="str">user-service</span>
+    <span class="kw">critical</span>: <span class="val">true</span>               <span class="cm"># failure = our failure</span>
+    <span class="kw">expects</span>:                     <span class="cm"># what we NEED from them</span>
+      <span class="kw">availability</span>: <span class="val">0.999</span>
+      <span class="kw">latency</span>:
+        <span class="kw">p99</span>: <span class="str">100ms</span>
+  - <span class="kw">service</span>: <span class="str">stripe-api</span>
+    <span class="kw">type</span>: <span class="str">external</span>
+    <span class="kw">critical</span>: <span class="val">true</span>
+    <span class="kw">expects</span>:
+      <span class="kw">availability</span>: <span class="val">0.9999</span></code></pre>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 13: DIVIDER — 04 ==================== -->
+  <section class="slide slide--divider" style="background-image:radial-gradient(ellipse at 40% 70%, var(--teal-dim) 0%, transparent 40%);">
+    <span class="slide__number">04</span>
+    <div>
+      <h2 class="slide__heading reveal">JSON Schema</h2>
+      <p class="slide__subtitle reveal" style="margin-top:12px;">Machine-readable validation</p>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 14: CODE — Schema Types ==================== -->
+  <section class="slide slide--code" style="background-image:radial-gradient(ellipse at 70% 20%, var(--teal-dim) 0%, transparent 40%);">
+    <h2 class="slide__heading reveal" style="text-align:center;">Core Type Definitions</h2>
+    <div class="slide__code-block reveal" style="margin-top:clamp(12px,2vh,24px);">
+      <span class="slide__code-filename">spec/v1/schema.json</span>
+      <pre><code><span class="str">"Duration"</span>: {
+  <span class="kw">"type"</span>: <span class="str">"string"</span>,
+  <span class="kw">"pattern"</span>: <span class="str">"^[0-9]+(ms|s|m|h|d|w)$"</span>
+}
+<span class="str">"Ratio"</span>: {
+  <span class="kw">"type"</span>: <span class="str">"number"</span>,
+  <span class="kw">"minimum"</span>: <span class="val">0</span>, <span class="kw">"maximum"</span>: <span class="val">1</span>
+}
+<span class="str">"ServiceType"</span>: {
+  <span class="kw">"enum"</span>: [<span class="str">"api"</span>, <span class="str">"worker"</span>, <span class="str">"stream"</span>,
+          <span class="str">"ai-gate"</span>, <span class="str">"batch"</span>, <span class="str">"database"</span>]
+}</code></pre>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 15: CONTENT — Schema CI ==================== -->
+  <section class="slide slide--content" style="background-image:radial-gradient(ellipse at 80% 80%, var(--teal-dim) 0%, transparent 45%);">
+    <div class="slide__inner">
+      <div>
+        <p class="slide__label reveal" style="color:var(--teal);">Enforcement</p>
+        <h2 class="slide__heading reveal">GitHub Action Validation</h2>
+        <ul class="slide__bullets">
+          <li class="reveal">Published as <code style="font-size:0.85em">rsionnach/opensrm@v1</code></li>
+          <li class="reveal">AJV validator with schema embedded in bundle</li>
+          <li class="reveal">Discovers <code style="font-size:0.85em">*.reliability.yaml</code> via glob</li>
+          <li class="reveal">13+ SLO type definitions with strict validation</li>
+        </ul>
+      </div>
+      <div class="slide__aside reveal">
+        <svg viewBox="0 0 120 120" width="120" height="120">
+          <circle cx="60" cy="60" r="40" fill="none" stroke="var(--teal)" stroke-width="2" opacity="0.3"/>
+          <polyline points="40,62 55,76 82,48" fill="none" stroke="var(--green)" stroke-width="3" opacity="0.6"/>
+          <text x="60" y="110" text-anchor="middle" font-family="var(--font-mono)" font-size="9" fill="var(--text-dim)">CI/CD GATE</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 16: DIVIDER — 05 ==================== -->
+  <section class="slide slide--divider" style="background-image:radial-gradient(ellipse at 60% 40%, var(--orange-dim) 0%, transparent 40%);">
+    <span class="slide__number">05</span>
+    <div>
+      <h2 class="slide__heading reveal">AI Gates &amp; Judgment SLOs</h2>
+      <p class="slide__subtitle reveal" style="margin-top:12px;">Measuring AI decision quality</p>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 17: QUOTE — AI Quality ==================== -->
+  <section class="slide slide--quote" style="background-image:radial-gradient(ellipse at 50% 50%, var(--orange-dim) 0%, transparent 35%);">
+    <div class="slide__quote-mark reveal">&ldquo;</div>
+    <blockquote class="reveal">
+      A fast, available AI that makes wrong decisions isn&rsquo;t reliable &mdash; it&rsquo;s confidently wrong at scale.
+    </blockquote>
+    <cite class="reveal">&mdash; The motivation for judgment SLOs</cite>
+  </section>
+
+  <!-- ==================== SLIDE 18: DASHBOARD — Judgment SLOs ==================== -->
+  <section class="slide slide--dashboard" style="background-image:radial-gradient(ellipse at 30% 70%, var(--orange-dim) 0%, transparent 40%);">
+    <h2 class="slide__heading reveal">Four Judgment SLO Metrics</h2>
+    <div class="slide__kpis" style="margin-top:clamp(12px,2vh,24px);">
+      <div class="slide__kpi reveal">
+        <div class="slide__kpi-val" style="color:var(--accent);">&le;3%</div>
+        <div class="slide__kpi-label">Reversal Rate</div>
+        <div class="slide__kpi-trend" style="color:var(--text-dim);">Human override frequency</div>
+      </div>
+      <div class="slide__kpi reveal">
+        <div class="slide__kpi-val" style="color:var(--red);">&le;1%</div>
+        <div class="slide__kpi-label">High-Confidence Failure</div>
+        <div class="slide__kpi-trend" style="color:var(--text-dim);">Confident but wrong</div>
+      </div>
+      <div class="slide__kpi reveal">
+        <div class="slide__kpi-val" style="color:var(--teal);">&le;0.10</div>
+        <div class="slide__kpi-label">Calibration (ECE)</div>
+        <div class="slide__kpi-trend" style="color:var(--text-dim);">80% conf = 80% accuracy?</div>
+      </div>
+      <div class="slide__kpi reveal">
+        <div class="slide__kpi-val" style="color:var(--blue);">48h</div>
+        <div class="slide__kpi-label">Feedback Latency p50</div>
+        <div class="slide__kpi-trend" style="color:var(--text-dim);">Time until outcome known</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 19: CODE — AI Gate Manifest ==================== -->
+  <section class="slide slide--code" style="background-image:radial-gradient(ellipse at 50% 30%, var(--orange-dim) 0%, transparent 40%);">
+    <h2 class="slide__heading reveal" style="text-align:center;">AI Gate Manifest</h2>
+    <div class="slide__code-block reveal" style="margin-top:clamp(12px,2vh,24px);">
+      <span class="slide__code-filename">ai-gate-full.yaml</span>
+      <pre><code><span class="hl">spec</span>:
+  <span class="kw">type</span>: <span class="val">ai-gate</span>
+  <span class="kw">slos</span>:
+    <span class="kw">judgment</span>:
+      <span class="kw">reversal_rate</span>:
+        <span class="kw">target</span>: <span class="val">0.03</span>
+        <span class="kw">window</span>: <span class="str">30d</span>
+        <span class="kw">observation_period</span>: <span class="str">24h</span>
+      <span class="kw">high_confidence_failure</span>:
+        <span class="kw">target</span>: <span class="val">0.01</span>
+        <span class="kw">confidence_threshold</span>: <span class="val">0.9</span>
+  <span class="kw">instrumentation</span>:             <span class="cm"># REQUIRED</span>
+    <span class="kw">events</span>:
+      <span class="kw">decision</span>: <span class="str">ai_gate.decision</span>
+      <span class="kw">reversal</span>: <span class="str">ai_gate.reversal</span></code></pre>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 20: TABLE — Maturity Model ==================== -->
+  <section class="slide slide--table">
+    <h2 class="slide__heading reveal">Judgment SLO Maturity Model</h2>
+    <div class="table-wrap reveal" style="flex:1; min-height:0; margin-top:clamp(8px,1.5vh,20px);">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Level</th><th>Name</th><th>Metrics</th><th>Signal</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Reactive</td><td>reversal_rate, HCF</td><td style="color:var(--accent);">Only when humans engage</td></tr>
+            <tr><td>2</td><td>Proactive</td><td>+ audit sampling (10%)</td><td style="color:var(--green);">Unbiased sample</td></tr>
+            <tr><td>3</td><td>Outcome</td><td>+ defect correlation</td><td style="color:var(--teal);">Ground truth (90d)</td></tr>
+            <tr><td>4</td><td>Behavioral</td><td>+ segments, calibration, stability</td><td style="color:var(--blue);">Full governance</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 21: DIVIDER — 06 ==================== -->
+  <section class="slide slide--divider" style="background-image:radial-gradient(ellipse at 20% 60%, var(--teal-dim) 0%, transparent 40%);">
+    <span class="slide__number">06</span>
+    <div>
+      <h2 class="slide__heading reveal">NthLayer Compiler</h2>
+      <p class="slide__subtitle reveal" style="margin-top:12px;">From declaration to operational reality</p>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 22: DIAGRAM — NthLayer Pipeline ==================== -->
+  <section class="slide slide--diagram">
+    <h2 class="slide__heading reveal">NthLayer Pipeline</h2>
+    <div class="mermaid-wrap reveal">
+      <div class="zoom-controls">
+        <button onclick="zoomDiagram(this,1.2)" title="Zoom in">+</button>
+        <button onclick="zoomDiagram(this,0.8)" title="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset">&#8634;</button>
+      </div>
+      <pre class="mermaid">
+graph TD
+  IN["YAML"] --> VAL{"validate"}
+  VAL -->|pass| GEN["generate"]
+  VAL -->|fail| ERR["Error"]
+  GEN --> PR["Prom"]
+  GEN --> GR["Grafana"]
+  GEN --> PD["PagerDuty"]
+  GEN --> TP["Topology"]
+  TP -.-> SIT["Sitrep"]
+  classDef input fill:#60a5fa22,stroke:#60a5fa,stroke-width:2px
+  classDef toolc fill:#5eead422,stroke:#5eead4,stroke-width:2px
+  classDef output fill:#5eead411,stroke:#5eead444,stroke-width:1px
+  classDef errc fill:#f8717122,stroke:#f87171,stroke-width:2px
+  class IN input
+  class VAL,GEN toolc
+  class PR,GR,PD,TP,SIT output
+  class ERR errc
+      </pre>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 23: CONTENT — Reasoning Boundary ==================== -->
+  <section class="slide slide--content" style="background-image:radial-gradient(ellipse at 70% 80%, var(--teal-dim) 0%, transparent 45%);">
+    <div class="slide__inner">
+      <div>
+        <p class="slide__label reveal" style="color:var(--teal);">Design Principle</p>
+        <h2 class="slide__heading reveal">The Reasoning Boundary</h2>
+        <ul class="slide__bullets">
+          <li class="reveal">Does it need to reason about ambiguous inputs? &rarr; Agent</li>
+          <li class="reveal">Same output every time given same input? &rarr; Tool</li>
+          <li class="reveal">Queryable state? &rarr; Data Source</li>
+          <li class="reveal">NthLayer is a tool &mdash; deterministic template expansion</li>
+        </ul>
+      </div>
+      <div class="slide__aside reveal">
+        <svg viewBox="0 0 160 160" width="160" height="160">
+          <rect x="10" y="100" width="140" height="40" rx="6" fill="var(--blue)" opacity="0.08" stroke="var(--blue)" stroke-width="1"/>
+          <text x="80" y="124" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--blue)">Data Sources</text>
+          <rect x="10" y="55" width="140" height="40" rx="6" fill="var(--teal)" opacity="0.08" stroke="var(--teal)" stroke-width="1"/>
+          <text x="80" y="79" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--teal)">Tools</text>
+          <rect x="10" y="10" width="140" height="40" rx="6" fill="var(--accent)" opacity="0.08" stroke="var(--accent)" stroke-width="1"/>
+          <text x="80" y="34" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--accent)">Agents</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 24: DIVIDER — 07 ==================== -->
+  <section class="slide slide--divider" style="background-image:radial-gradient(ellipse at 80% 30%, var(--accent-dim) 0%, transparent 40%);">
+    <span class="slide__number">07</span>
+    <div>
+      <h2 class="slide__heading reveal">Sitrep Agent</h2>
+      <p class="slide__subtitle reveal" style="margin-top:12px;">Pre-correlated situation awareness</p>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 25: CONTENT — Sitrep ==================== -->
+  <section class="slide slide--content" style="background-image:radial-gradient(ellipse at 20% 30%, var(--accent-dim) 0%, transparent 45%);">
+    <div class="slide__inner">
+      <div>
+        <p class="slide__label reveal">Why It Exists</p>
+        <h2 class="slide__heading reveal">Connecting the Dots</h2>
+        <ul class="slide__bullets">
+          <li class="reveal">Correlates metrics, alerts, changes, logs with topology</li>
+          <li class="reveal">4 generation modes: batch (5m), incident, refresh (1m), manual</li>
+          <li class="reveal">Outputs JSON snapshots for human and LLM consumption</li>
+          <li class="reveal">Is itself an ai-gate with its own judgment SLOs</li>
+        </ul>
+      </div>
+      <div class="slide__aside reveal">
+        <svg viewBox="0 0 160 140" width="160" height="140">
+          <circle cx="80" cy="70" r="35" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.3"/>
+          <circle cx="40" cy="40" r="8" fill="var(--blue)" opacity="0.4"/><text x="40" y="25" text-anchor="middle" font-family="var(--font-mono)" font-size="7" fill="var(--text-dim)">metrics</text>
+          <circle cx="120" cy="40" r="8" fill="var(--red)" opacity="0.4"/><text x="120" y="25" text-anchor="middle" font-family="var(--font-mono)" font-size="7" fill="var(--text-dim)">alerts</text>
+          <circle cx="40" cy="100" r="8" fill="var(--green)" opacity="0.4"/><text x="40" y="120" text-anchor="middle" font-family="var(--font-mono)" font-size="7" fill="var(--text-dim)">changes</text>
+          <circle cx="120" cy="100" r="8" fill="var(--purple)" opacity="0.4"/><text x="120" y="120" text-anchor="middle" font-family="var(--font-mono)" font-size="7" fill="var(--text-dim)">logs</text>
+          <line x1="48" y1="44" x2="70" y2="60" stroke="var(--text-dim)" stroke-width="0.5" opacity="0.4"/>
+          <line x1="112" y1="44" x2="90" y2="60" stroke="var(--text-dim)" stroke-width="0.5" opacity="0.4"/>
+          <line x1="48" y1="96" x2="70" y2="80" stroke="var(--text-dim)" stroke-width="0.5" opacity="0.4"/>
+          <line x1="112" y1="96" x2="90" y2="80" stroke="var(--text-dim)" stroke-width="0.5" opacity="0.4"/>
+          <text x="80" y="74" text-anchor="middle" font-family="var(--font-mono)" font-size="9" fill="var(--accent)">SITREP</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 26: DIAGRAM — Sitrep States ==================== -->
+  <section class="slide slide--diagram">
+    <h2 class="slide__heading reveal">Sitrep Operational States</h2>
+    <div class="mermaid-wrap reveal">
+      <div class="zoom-controls">
+        <button onclick="zoomDiagram(this,1.2)" title="Zoom in">+</button>
+        <button onclick="zoomDiagram(this,0.8)" title="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset">&#8634;</button>
+      </div>
+      <pre class="mermaid">
+stateDiagram-v2
+  [*] --> WATCHING
+  WATCHING --> ALERT : signal elevated
+  ALERT --> INCIDENT : declared
+  ALERT --> WATCHING : subsides
+  INCIDENT --> WATCHING : resolved
+  INCIDENT --> DEGRADED : SLO breach
+  DEGRADED --> WATCHING : recovers
+      </pre>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 27: DIVIDER — 08 ==================== -->
+  <section class="slide slide--divider" style="background-image:radial-gradient(ellipse at 50% 50%, var(--orange-dim) 0%, transparent 40%);">
+    <span class="slide__number">08</span>
+    <div>
+      <h2 class="slide__heading reveal">Mayday &amp; Arbiter</h2>
+      <p class="slide__subtitle reveal" style="margin-top:12px;">Incident response and AI governance</p>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 28: DIAGRAM — Mayday Pipeline ==================== -->
+  <section class="slide slide--diagram">
+    <h2 class="slide__heading reveal">Mayday Agent Pipeline</h2>
+    <div class="mermaid-wrap reveal">
+      <div class="zoom-controls">
+        <button onclick="zoomDiagram(this,1.2)" title="Zoom in">+</button>
+        <button onclick="zoomDiagram(this,0.8)" title="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset">&#8634;</button>
+      </div>
+      <pre class="mermaid">
+graph LR
+  INC["Incident"] ==> TR["Triage"]
+  TR ==> INV["Investigate"]
+  INV ==> REM["Remediate"]
+  TR --> COM["Communicate"]
+  INV --> COM
+  ARB["Arbiter"] -.-> TR
+  classDef inc fill:#f8717122,stroke:#f87171,stroke-width:2px
+  classDef agt fill:#d4a73a22,stroke:#d4a73a,stroke-width:2px
+  classDef comm fill:#4ade8022,stroke:#4ade80,stroke-width:2px
+  classDef arb fill:#60a5fa22,stroke:#60a5fa,stroke-width:2px
+  class INC inc
+  class TR,INV,REM agt
+  class COM comm
+  class ARB arb
+      </pre>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 29: CONTENT — Arbiter ==================== -->
+  <section class="slide slide--content" style="background-image:radial-gradient(ellipse at 80% 60%, var(--blue-dim) 0%, transparent 45%);">
+    <div class="slide__inner">
+      <div>
+        <p class="slide__label reveal" style="color:var(--blue);">Governance</p>
+        <h2 class="slide__heading reveal">Arbiter: One-Way Safety Ratchet</h2>
+        <ul class="slide__bullets">
+          <li class="reveal">Watches Prometheus for all agents&rsquo; judgment SLO metrics</li>
+          <li class="reveal">Can <strong>reduce</strong> autonomy without approval</li>
+          <li class="reveal">Cannot <strong>increase</strong> autonomy without human sign-off</li>
+          <li class="reveal">Reversal rate high &rarr; more human review required</li>
+        </ul>
+      </div>
+      <div class="slide__aside reveal">
+        <svg viewBox="0 0 140 120" width="140" height="120">
+          <path d="M70 15 L120 50 L120 90 L70 110 L20 90 L20 50 Z" fill="none" stroke="var(--blue)" stroke-width="1.5" opacity="0.3"/>
+          <path d="M70 35 L100 55 L100 80 L70 95 L40 80 L40 55 Z" fill="var(--blue)" opacity="0.05" stroke="var(--blue)" stroke-width="1" opacity="0.2"/>
+          <text x="70" y="70" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--blue)">ARBITER</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 30: DIVIDER — 09 ==================== -->
+  <section class="slide slide--divider" style="background-image:radial-gradient(ellipse at 40% 30%, var(--purple-dim) 0%, transparent 40%);">
+    <span class="slide__number">09</span>
+    <div>
+      <h2 class="slide__heading reveal">OTel Conventions</h2>
+      <p class="slide__subtitle reveal" style="margin-top:12px;">The telemetry that closes the loop</p>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 31: SPLIT — OTel Conventions ==================== -->
+  <section class="slide slide--split">
+    <div class="slide__panels">
+      <div class="slide__panel slide__panel--primary">
+        <p class="slide__label reveal" style="color:var(--green);">Change Events</p>
+        <h2 class="slide__heading reveal" style="font-size:clamp(22px,3.5vw,36px);">Operational Changes</h2>
+        <ul class="slide__bullets" style="margin-top:16px;">
+          <li class="reveal"><code style="font-size:0.85em">change.id</code> &mdash; unique identifier</li>
+          <li class="reveal"><code style="font-size:0.85em">change.type</code> &mdash; deploy, config, feature_flag</li>
+          <li class="reveal"><code style="font-size:0.85em">change.risk.score</code> &mdash; 0.0 to 1.0</li>
+          <li class="reveal">Targeting OTel CI/CD SIG</li>
+        </ul>
+      </div>
+      <div class="slide__panel slide__panel--secondary">
+        <p class="slide__label reveal" style="color:var(--purple);">Decision Telemetry</p>
+        <h2 class="slide__heading reveal" style="font-size:clamp(22px,3.5vw,36px);">AI Decision Events</h2>
+        <ul class="slide__bullets" style="margin-top:16px;">
+          <li class="reveal"><code style="font-size:0.85em">gen_ai.decision.*</code> &mdash; decision + confidence</li>
+          <li class="reveal"><code style="font-size:0.85em">gen_ai.reversal.*</code> &mdash; human override</li>
+          <li class="reveal"><code style="font-size:0.85em">gen_ai.outcome.*</code> &mdash; actual result</li>
+          <li class="reveal">Targeting OTel GenAI SIG</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 32: DIVIDER — Flows ==================== -->
+  <section class="slide slide--divider" style="background-image:radial-gradient(ellipse at 50% 50%, var(--accent-dim) 0%, transparent 40%);">
+    <span class="slide__number">&darr;</span>
+    <div>
+      <h2 class="slide__heading reveal">Key Flows</h2>
+      <p class="slide__subtitle reveal" style="margin-top:12px;">How data moves through the ecosystem</p>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 33: DIAGRAM — Flow 1: Manifest to Monitoring ==================== -->
+  <section class="slide slide--diagram">
+    <p class="slide__label reveal">Flow 1</p>
+    <h2 class="slide__heading reveal">Manifest to Monitoring</h2>
+    <div class="mermaid-wrap reveal">
+      <div class="zoom-controls">
+        <button onclick="zoomDiagram(this,1.2)" title="Zoom in">+</button>
+        <button onclick="zoomDiagram(this,0.8)" title="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset">&#8634;</button>
+      </div>
+      <pre class="mermaid">
+sequenceDiagram
+  participant D as Developer
+  participant N as NthLayer
+  participant P as Prometheus
+  participant G as Grafana
+  participant S as Sitrep
+  D->>N: manifest.yaml
+  N->>N: Validate schema + dependency math
+  N->>P: prometheus/rules.yaml
+  N->>G: grafana/dashboard.json
+  N->>S: topology.json
+      </pre>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 34: DIAGRAM — Flow 2: Telemetry to Snapshot ==================== -->
+  <section class="slide slide--diagram">
+    <p class="slide__label reveal">Flow 2</p>
+    <h2 class="slide__heading reveal">Telemetry to Snapshot</h2>
+    <div class="mermaid-wrap reveal">
+      <div class="zoom-controls">
+        <button onclick="zoomDiagram(this,1.2)" title="Zoom in">+</button>
+        <button onclick="zoomDiagram(this,0.8)" title="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset">&#8634;</button>
+      </div>
+      <pre class="mermaid">
+sequenceDiagram
+  participant SYS as Systems
+  participant SIT as Sitrep
+  participant CON as Consumers
+  SYS->>SIT: Metrics via Prometheus
+  SYS->>SIT: Alerts via Alertmanager
+  SYS->>SIT: Change events via webhooks
+  SIT->>SIT: Correlate with topology
+  SIT->>CON: JSON snapshot
+  Note over SIT: Emits decision events
+      </pre>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 35: DIAGRAM — Flow 3: Decision to Governance ==================== -->
+  <section class="slide slide--diagram">
+    <p class="slide__label reveal">Flow 3</p>
+    <h2 class="slide__heading reveal">Decision to Governance</h2>
+    <div class="mermaid-wrap reveal">
+      <div class="zoom-controls">
+        <button onclick="zoomDiagram(this,1.2)" title="Zoom in">+</button>
+        <button onclick="zoomDiagram(this,0.8)" title="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset">&#8634;</button>
+      </div>
+      <pre class="mermaid">
+sequenceDiagram
+  participant AGT as Any Agent
+  participant OT as OTel Collector
+  participant PM as Prometheus
+  participant ARB as Arbiter
+  AGT->>OT: Decision event + confidence
+  OT->>PM: Store as metrics
+  AGT->>OT: Reversal event
+  OT->>PM: Store reversal
+  PM->>ARB: Judgment SLO metrics
+  ARB->>AGT: Autonomy adjustment
+      </pre>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 36: DIAGRAM — Full Dependency Map ==================== -->
+  <section class="slide slide--diagram">
+    <h2 class="slide__heading reveal">Full Dependency Map</h2>
+    <div class="mermaid-wrap reveal">
+      <div class="zoom-controls">
+        <button onclick="zoomDiagram(this,1.2)" title="Zoom in">+</button>
+        <button onclick="zoomDiagram(this,0.8)" title="Zoom out">&minus;</button>
+        <button onclick="resetZoom(this)" title="Reset">&#8634;</button>
+      </div>
+      <pre class="mermaid">
+graph LR
+  subgraph Data["Data Sources"]
+    MAN["Manifests"]
+    CHG["Changes"]
+  end
+  subgraph Tools["Tools"]
+    GHA["GH Action"]
+    NTH["NthLayer"]
+  end
+  subgraph Agents["Agents"]
+    SIT["Sitrep"]
+    MAY["Mayday"]
+    ARB["Arbiter"]
+  end
+  subgraph Telemetry["OTel"]
+    DT["Telemetry"]
+  end
+  MAN -->|validate| GHA
+  MAN -->|compile| NTH
+  NTH -->|rules + dashboards| MON["Monitoring"]
+  NTH -->|topology| SIT
+  CHG -->|deploy, config| SIT
+  SIT -->|snapshot| MAY
+  MAY -->|decision events| DT
+  SIT -->|decision events| DT
+  DT -->|metrics| MON
+  MON -->|SLO metrics| ARB
+  ARB -.->|adjust autonomy| SIT
+  ARB -.->|adjust autonomy| MAY
+  style Data fill:transparent,stroke:#60a5fa,stroke-width:2px,stroke-dasharray:5 5
+  style Tools fill:transparent,stroke:#5eead4,stroke-width:2px,stroke-dasharray:5 5
+  style Agents fill:transparent,stroke:#d4a73a,stroke-width:2px,stroke-dasharray:5 5
+  style Telemetry fill:transparent,stroke:#c084fc,stroke-width:2px,stroke-dasharray:5 5
+      </pre>
+    </div>
+    <p class="slide__subtitle reveal" style="margin-top:12px; text-align:center; font-size:clamp(11px,1.2vw,14px); color:var(--text-dim);">
+      Dashed arrows = feedback loops &nbsp;|&nbsp; Solid arrows = data flow &nbsp;|&nbsp;
+      <span style="color:#60a5fa;">Data</span> &rarr;
+      <span style="color:#5eead4;">Tools</span> &rarr;
+      <span style="color:#d4a73a;">Agents</span> &rarr;
+      <span style="color:#c084fc;">OTel</span> &rarr; Monitoring &rarr; Governance
+    </p>
+  </section>
+
+  <!-- ==================== SLIDE 37: CONTENT — Comprehension Checkpoint ==================== -->
+  <section class="slide slide--content" style="background-image:radial-gradient(ellipse at 50% 50%, var(--accent-dim) 0%, transparent 45%);">
+    <div class="slide__inner" style="grid-template-columns:1fr;">
+      <div>
+        <p class="slide__label reveal">Comprehension Checkpoint</p>
+        <h2 class="slide__heading reveal">If you understood this, explain&hellip;</h2>
+        <ul class="slide__bullets">
+          <li class="reveal">Why <code style="font-size:0.85em">spec.contract</code> and <code style="font-size:0.85em">spec.slos</code> are separate, and which is tighter</li>
+          <li class="reveal">What makes <code style="font-size:0.85em">ai-gate</code> different from <code style="font-size:0.85em">api</code>, and what &ldquo;reversal rate&rdquo; measures</li>
+          <li class="reveal">Why NthLayer is a tool but Sitrep is an agent</li>
+          <li class="reveal">How the Arbiter creates a one-way safety ratchet</li>
+          <li class="reveal">How OTel conventions close the measurement loop</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== SLIDE 38: FULL-BLEED — Closing ==================== -->
+  <section class="slide slide--bleed">
+    <div class="slide__bg slide__bg--gradient"></div>
+    <div class="slide__scrim"></div>
+    <div class="slide__content">
+      <p class="slide__label reveal" style="color:rgba(255,255,255,0.6);">Declare &rarr; Enforce &rarr; Correlate &rarr; Respond &rarr; Measure &rarr; Govern</p>
+      <h2 class="slide__heading reveal">Reliability as Code, End to End</h2>
+      <p class="slide__subtitle reveal" style="color:rgba(255,255,255,0.6); margin-top:12px;">opensrm/v1 &mdash; Draft specification, stabilizing</p>
+    </div>
+  </section>
+
+</div><!-- /deck -->
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+  const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    look: 'classic',
+    flowchart: {
+      padding: 15,
+      nodeSpacing: 25,
+      rankSpacing: 35,
+      useMaxWidth: true,
+    },
+    themeVariables: {
+      primaryColor: isDark ? '#1d2b52' : '#fef3e0',
+      primaryBorderColor: isDark ? '#d4a73a' : '#b8860b',
+      primaryTextColor: isDark ? '#e8e4d8' : '#1a1814',
+      secondaryColor: isDark ? '#162040' : '#eff6ff',
+      secondaryBorderColor: isDark ? '#60a5fa' : '#2563eb',
+      secondaryTextColor: isDark ? '#e8e4d8' : '#1a1814',
+      tertiaryColor: isDark ? '#0f2620' : '#f0fdf4',
+      tertiaryBorderColor: isDark ? '#4ade80' : '#16a34a',
+      tertiaryTextColor: isDark ? '#e8e4d8' : '#1a1814',
+      lineColor: isDark ? '#9a9484' : '#7a7468',
+      fontSize: '16px',
+      fontFamily: "'JetBrains Mono', 'SF Mono', Consolas, monospace",
+      noteBkgColor: isDark ? '#1d2b52' : '#fef3e0',
+      noteTextColor: isDark ? '#e8e4d8' : '#1a1814',
+      noteBorderColor: isDark ? '#d4a73a' : '#b8860b',
+    }
+  });
+
+  function autoFit() {
+    document.querySelectorAll('.mermaid svg').forEach(function(svg) {
+      svg.removeAttribute('height');
+      svg.style.overflow = 'visible';
+
+      // Expand viewBox slightly for breathing room
+      var vb = svg.getAttribute('viewBox');
+      if (vb) {
+        var parts = vb.split(/[\s,]+/).map(Number);
+        if (parts.length === 4) {
+          parts[0] -= 10; parts[1] -= 5;
+          parts[2] += 20; parts[3] += 10;
+          svg.setAttribute('viewBox', parts.join(' '));
+
+          // Let diagrams be their natural size, capped to fit the slide.
+          // Don't stretch small diagrams to 100% width — that makes them enormous.
+          var intrinsicW = parts[2];
+          var intrinsicH = parts[3];
+          svg.style.maxWidth = '100%';
+          svg.style.maxHeight = '65vh';
+          svg.style.height = 'auto';
+          svg.style.width = 'auto';
+          svg.style.display = 'block';
+          svg.style.margin = '0 auto';
+        }
+      }
+    });
+    document.querySelectorAll('.slide__kpi-val').forEach(function(el) {
+      if (el.scrollWidth > el.clientWidth) {
+        var s = el.clientWidth / el.scrollWidth;
+        el.style.transform = 'scale(' + s + ')';
+        el.style.transformOrigin = 'left top';
+      }
+    });
+    document.querySelectorAll('.slide--quote blockquote').forEach(function(el) {
+      var len = el.textContent.trim().length;
+      if (len > 100) {
+        var scale = Math.max(0.5, 100 / len);
+        var fs = parseFloat(getComputedStyle(el).fontSize);
+        el.style.fontSize = Math.max(16, Math.round(fs * scale)) + 'px';
+      }
+    });
+  }
+
+  // Wait for fonts to load BEFORE rendering Mermaid diagrams.
+  // Without this, Mermaid measures text using a fallback font, creates boxes
+  // to fit, then the web font loads with different glyph widths — causing clipping.
+  document.fonts.ready.then(function() {
+    return mermaid.run();
+  }).then(function() {
+    autoFit();
+    new SlideEngine();
+  });
+</script>
+
+<script>
+  // Mermaid zoom controls
+  function updateZoomState(w){var t=w.querySelector('.mermaid');var z=parseFloat(t.dataset.zoom||'1');w.classList.toggle('is-zoomed',z>1);}
+  function zoomDiagram(b,f){var w=b.closest('.mermaid-wrap');var t=w.querySelector('.mermaid');var c=parseFloat(t.dataset.zoom||'1');var n=Math.min(Math.max(c*f,0.3),5);t.dataset.zoom=n;t.style.transform='scale('+n+')';updateZoomState(w);}
+  function resetZoom(b){var w=b.closest('.mermaid-wrap');var t=w.querySelector('.mermaid');t.dataset.zoom='1';t.style.transform='scale(1)';updateZoomState(w);}
+  document.querySelectorAll('.mermaid-wrap').forEach(function(w){w.addEventListener('wheel',function(e){if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();var t=w.querySelector('.mermaid');var c=parseFloat(t.dataset.zoom||'1');var f=e.deltaY<0?1.1:0.9;var n=Math.min(Math.max(c*f,0.3),5);t.dataset.zoom=n;t.style.transform='scale('+n+')';updateZoomState(w);},{passive:false});var sX,sY,sL,sT;w.addEventListener('mousedown',function(e){if(e.target.closest('.zoom-controls'))return;var t=w.querySelector('.mermaid');if(parseFloat(t.dataset.zoom||'1')<=1)return;w.classList.add('is-panning');sX=e.clientX;sY=e.clientY;sL=w.scrollLeft;sT=w.scrollTop;});window.addEventListener('mousemove',function(e){if(!w.classList.contains('is-panning'))return;w.scrollLeft=sL-(e.clientX-sX);w.scrollTop=sT-(e.clientY-sY);});window.addEventListener('mouseup',function(){w.classList.remove('is-panning');});});
+
+  // SlideEngine
+  function SlideEngine(){
+    this.deck=document.querySelector('.deck');
+    this.slides=[].slice.call(document.querySelectorAll('.slide'));
+    this.current=0;
+    this.total=this.slides.length;
+    this.buildChrome();
+    this.bindEvents();
+    this.observe();
+    this.update();
+  }
+  SlideEngine.prototype.buildChrome=function(){
+    var bar=document.createElement('div');bar.className='deck-progress';document.body.appendChild(bar);this.bar=bar;
+    var dots=document.createElement('div');dots.className='deck-dots';var self=this;
+    this.slides.forEach(function(_,i){var d=document.createElement('button');d.className='deck-dot';d.title='Slide '+(i+1);d.onclick=function(){self.goTo(i);};dots.appendChild(d);});
+    document.body.appendChild(dots);this.dots=[].slice.call(dots.children);
+    var ctr=document.createElement('div');ctr.className='deck-counter';document.body.appendChild(ctr);this.counter=ctr;
+    var hints=document.createElement('div');hints.className='deck-hints';hints.textContent='\u2190 \u2192 or scroll to navigate';document.body.appendChild(hints);this.hints=hints;
+    this.hintTimer=setTimeout(function(){hints.classList.add('faded');},4000);
+  };
+  SlideEngine.prototype.bindEvents=function(){
+    var self=this;
+    document.addEventListener('keydown',function(e){
+      if(e.target.closest('.mermaid-wrap,.table-scroll,.code-scroll,input,textarea,[contenteditable]'))return;
+      if(['ArrowDown','ArrowRight',' ','PageDown'].indexOf(e.key)>-1){e.preventDefault();self.next();}
+      else if(['ArrowUp','ArrowLeft','PageUp'].indexOf(e.key)>-1){e.preventDefault();self.prev();}
+      else if(e.key==='Home'){e.preventDefault();self.goTo(0);}
+      else if(e.key==='End'){e.preventDefault();self.goTo(self.total-1);}
+      self.fadeHints();
+    });
+    var tY;
+    this.deck.addEventListener('touchstart',function(e){tY=e.touches[0].clientY;},{passive:true});
+    this.deck.addEventListener('touchend',function(e){var dy=tY-e.changedTouches[0].clientY;if(Math.abs(dy)>50){dy>0?self.next():self.prev();}});
+  };
+  SlideEngine.prototype.observe=function(){
+    var self=this;
+    var obs=new IntersectionObserver(function(entries){entries.forEach(function(entry){if(entry.isIntersecting){entry.target.classList.add('visible');self.current=self.slides.indexOf(entry.target);self.update();}});},{threshold:0.5});
+    this.slides.forEach(function(s){obs.observe(s);});
+  };
+  SlideEngine.prototype.goTo=function(i){this.slides[Math.max(0,Math.min(i,this.total-1))].scrollIntoView({behavior:'smooth'});};
+  SlideEngine.prototype.next=function(){if(this.current<this.total-1)this.goTo(this.current+1);};
+  SlideEngine.prototype.prev=function(){if(this.current>0)this.goTo(this.current-1);};
+  SlideEngine.prototype.update=function(){
+    this.bar.style.width=((this.current+1)/this.total*100)+'%';
+    var c=this.current;this.dots.forEach(function(d,i){d.classList.toggle('active',i===c);});
+    this.counter.textContent=(this.current+1)+' / '+this.total;
+  };
+  SlideEngine.prototype.fadeHints=function(){clearTimeout(this.hintTimer);this.hints.classList.add('faded');};
+</script>
+
+</body>
+</html>

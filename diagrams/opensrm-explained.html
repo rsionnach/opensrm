@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenSRM Deep Dive — Service Reliability as Code</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&family=Noto+Sans+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-display: 'Crimson Pro', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'Noto Sans Mono', 'SF Mono', Consolas, monospace;
+  --bg: #f6f4f0; --surface: #ffffff; --surface2: #eeebe5; --surface-elevated: #fffcf7;
+  --border: rgba(0,0,0,0.07); --border-bright: rgba(0,0,0,0.14);
+  --text: #1e2a3a; --text-dim: #6b7a8d;
+  --spec: #1e3a5f; --spec-dim: rgba(30,58,95,0.08);
+  --tool: #0f766e; --tool-dim: rgba(15,118,110,0.08);
+  --agent: #b45309; --agent-dim: rgba(180,83,9,0.08);
+  --otel: #7e22ce; --otel-dim: rgba(126,34,206,0.08);
+  --gold: #d4a73a; --gold-dim: rgba(212,167,58,0.10);
+  --red: #be123c; --red-dim: rgba(190,18,60,0.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121820; --surface: #1a2332; --surface2: #222d3d; --surface-elevated: #243044;
+    --border: rgba(255,255,255,0.06); --border-bright: rgba(255,255,255,0.12);
+    --text: #dce4ee; --text-dim: #7a8da3;
+    --spec: #7db4e0; --spec-dim: rgba(125,180,224,0.12);
+    --tool: #5eead4; --tool-dim: rgba(94,234,212,0.10);
+    --agent: #fbbf24; --agent-dim: rgba(251,191,36,0.10);
+    --otel: #c084fc; --otel-dim: rgba(192,132,252,0.10);
+    --gold: #fbbf24; --gold-dim: rgba(251,191,36,0.12);
+    --red: #fda4af; --red-dim: rgba(253,164,175,0.10);
+  }
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);background-image:radial-gradient(ellipse at 15% 0%,var(--spec-dim) 0%,transparent 50%),radial-gradient(ellipse at 85% 60%,var(--gold-dim) 0%,transparent 40%);color:var(--text);font-family:var(--font-body);padding:40px;min-height:100vh;line-height:1.6}
+.wrap{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:180px 1fr;gap:0 40px}
+.main{min-width:0}
+.toc{position:sticky;top:24px;align-self:start;padding:14px 0;grid-row:1/-1;max-height:calc(100dvh - 48px);overflow-y:auto}
+.toc::-webkit-scrollbar{width:3px}.toc::-webkit-scrollbar-thumb{background:var(--surface-elevated);border-radius:2px}
+.toc-title{font-family:var(--font-mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--text-dim);padding:0 0 10px;margin-bottom:8px;border-bottom:1px solid var(--border)}
+.toc a{display:block;font-size:11px;color:var(--text-dim);text-decoration:none;padding:4px 8px;border-radius:5px;border-left:2px solid transparent;transition:all .15s;line-height:1.4;margin-bottom:1px}
+.toc a:hover{color:var(--text);background:var(--surface2)}.toc a.active{color:var(--text);border-left-color:var(--gold)}
+@media(max-width:1000px){.wrap{grid-template-columns:1fr;padding-top:0}body{padding:20px;padding-top:0}.toc{position:sticky;top:0;z-index:200;max-height:none;display:flex;gap:4px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--bg);border-bottom:1px solid var(--border);padding:10px 0;margin:0 -20px;padding-left:20px;padding-right:20px;grid-row:auto}.toc::-webkit-scrollbar{display:none}.toc-title{display:none}.toc a{white-space:nowrap;flex-shrink:0;border-left:none;border-bottom:2px solid transparent;border-radius:4px 4px 0 0;padding:6px 10px;font-size:10px}.toc a.active{border-left:none;border-bottom-color:var(--gold);background:var(--surface)}.main{padding-top:20px}.sec-head{scroll-margin-top:52px}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeScale{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+.anim{animation:fadeUp .5s ease-out both;animation-delay:calc(var(--i,0)*.06s)}
+.anim-scale{animation:fadeScale .5s ease-out both;animation-delay:calc(var(--i,0)*.06s)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0ms!important;transition-duration:.01ms!important}}
+h1{font-family:var(--font-display);font-size:44px;font-weight:700;letter-spacing:-1px;line-height:1.1;margin-bottom:8px;text-wrap:balance}
+.subtitle{color:var(--text-dim);font-size:15px;margin-bottom:12px;line-height:1.5}
+h2{font-family:var(--font-display);font-size:30px;font-weight:600;margin-bottom:6px;letter-spacing:-.5px}
+h3{font-size:16px;font-weight:600;margin-bottom:6px}
+h4{font-size:14px;font-weight:600;margin-bottom:4px;color:var(--text-dim)}
+p{margin-bottom:12px;font-size:14px}
+.badge-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px}
+.badge{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-family:var(--font-mono);font-size:12px;display:flex;align-items:center;gap:8px}
+.badge-num{font-size:20px;font-weight:700;line-height:1}.badge-label{color:var(--text-dim);font-size:11px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:20px}
+.card--hero{background:var(--surface-elevated);box-shadow:0 4px 24px rgba(0,0,0,.06);padding:28px 32px}
+.card--recessed{background:var(--surface2);box-shadow:inset 0 1px 3px rgba(0,0,0,.04)}
+.card--spec{border-left:3px solid var(--spec)}.card--tool{border-left:3px solid var(--tool)}
+.card--agent{border-left:3px solid var(--agent)}.card--otel{border-left:3px solid var(--otel)}
+.card--gold{border-left:3px solid var(--gold)}
+.sec-head{font-family:var(--font-mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;display:flex;align-items:center;gap:8px;margin-top:40px;margin-bottom:16px;scroll-margin-top:24px}
+.sec-head .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.lp{display:flex;gap:0;align-items:flex-start;overflow-x:auto;padding:16px 0 20px}
+.lp-s{flex-shrink:0;text-align:center;width:120px}
+.lp-n{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:12px;font-weight:700;margin:0 auto 6px}
+.lp-t{font-size:11px;font-weight:600;margin-bottom:2px}.lp-d{font-size:9px;color:var(--text-dim);line-height:1.3;padding:0 4px}
+.lp-c{flex-shrink:0;width:30px;display:flex;align-items:center;justify-content:center;padding-top:4px}
+.lp-c svg{width:30px;height:10px;fill:none;stroke:var(--border-bright);stroke-width:1.5;stroke-linecap:round}
+.mermaid-wrap{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;overflow:hidden;margin-bottom:20px}
+.mermaid-inner{overflow:auto;cursor:grab;min-height:300px;max-height:80vh;display:flex;justify-content:center;align-items:flex-start;padding:16px;resize:vertical}
+.mermaid-inner.dragging{cursor:grabbing}
+.mermaid-inner svg{transition:transform .1s ease-out;max-width:none!important;min-width:600px;transform-origin:center top}
+.zoom-controls{position:absolute;top:8px;right:8px;display:flex;gap:4px;z-index:10}
+.zoom-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;font-family:var(--font-mono);transition:all .15s}
+.zoom-btn:hover{background:var(--surface2);color:var(--text)}
+.mermaid .nodeLabel{color:var(--text)!important;font-family:var(--font-body)!important;font-size:17px!important}
+.mermaid .edgeLabel{color:var(--text-dim)!important;background-color:var(--bg)!important;font-family:var(--font-mono)!important;font-size:14px!important}
+.mermaid .edgeLabel rect{fill:var(--bg)!important}
+.mermaid .node rect,.mermaid .node circle,.mermaid .node polygon{stroke-width:1.5px}
+.mermaid .edge-pattern-solid{stroke-width:1.5px}
+.code-block{background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px}
+.code-header{background:var(--surface);border-bottom:1px solid var(--border);padding:6px 14px;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);font-weight:500}
+.code-body{padding:14px 18px;font-family:var(--font-mono);font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-x:auto;color:var(--text)}
+.code-body .cm{color:var(--text-dim)}.code-body .kw{color:var(--spec);font-weight:500}.code-body .val{color:var(--tool)}.code-body .str{color:var(--agent)}
+details{background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:16px}
+details summary{padding:10px 16px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-dim);list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:'▸ ';font-family:var(--font-mono);color:var(--gold)}
+details[open] summary::before{content:'▾ '}
+details[open] summary{border-bottom:1px solid var(--border);color:var(--text)}
+.gotcha-content{padding:14px 18px;font-size:13px;line-height:1.6}
+.gotcha-content li{margin-bottom:8px;padding-left:4px}
+.pullquote{border-left:3px solid var(--gold);padding:16px 24px;margin:16px 0;font-family:var(--font-display);font-size:18px;font-style:italic;color:var(--text);line-height:1.5;background:var(--gold-dim);border-radius:0 8px 8px 0}
+.checkpoint{background:var(--spec-dim);border:2px solid var(--spec);border-radius:12px;padding:24px 28px;margin-top:32px}
+.checkpoint h3{color:var(--spec);font-family:var(--font-mono);font-size:12px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px}
+.checkpoint ol{padding-left:20px;font-size:14px;line-height:1.8}.checkpoint li{margin-bottom:4px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.four-col{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+@media(max-width:768px){.two-col,.three-col,.four-col{grid-template-columns:1fr}h1{font-size:32px}}
+code{font-family:var(--font-mono);font-size:.88em;background:var(--surface2);padding:2px 6px;border-radius:4px}
+.sep{height:1px;background:var(--border);margin:32px 0}
+.impl-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px;border-left:3px solid var(--text-dim)}
+.impl-section h4{color:var(--text);margin-bottom:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="toc" id="toc">
+<div class="toc-title">Contents</div>
+<a href="#hero">Overview</a>
+<a href="#learning">Learning Path</a>
+<a href="#s1">1. Manifest Format</a>
+<a href="#s2">2. SLO Definitions</a>
+<a href="#s3">3. Contracts &amp; Deps</a>
+<a href="#s4">4. JSON Schema</a>
+<a href="#s5">5. AI Gates</a>
+<a href="#s6">6. NthLayer</a>
+<a href="#s7">7. Sitrep</a>
+<a href="#s8">8. Mayday &amp; Arbiter</a>
+<a href="#s9">9. OTel Conventions</a>
+<a href="#flows">Key Flows</a>
+<a href="#depmap">Dependency Map</a>
+<a href="#check">Checkpoint</a>
+</nav>
+<div class="main">
+
+<!-- HERO -->
+<div id="hero" class="sec-head" style="margin-top:0;visibility:hidden;height:0;margin-bottom:0;padding:0"></div>
+<h1 class="anim" style="--i:0">OpenSRM Deep Dive</h1>
+<p class="subtitle anim" style="--i:1">Service reliability declared as code &mdash; then enforced, correlated, and governed across an entire ecosystem. This is the comprehensive guide.</p>
+<div class="badge-row anim-scale" style="--i:2">
+<div class="badge"><span class="badge-num" style="color:var(--spec)">9</span><span class="badge-label">Abstractions</span></div>
+<div class="badge"><span class="badge-num" style="color:var(--tool)">4</span><span class="badge-label">Key Flows</span></div>
+<div class="badge"><span class="badge-num" style="color:var(--agent)">6</span><span class="badge-label">Service Types</span></div>
+<div class="badge"><span class="badge-num" style="color:var(--text-dim)">~25 min</span><span class="badge-label">Reading Time</span></div>
+</div>
+
+<div class="mermaid-wrap anim" style="--i:3">
+<div class="zoom-controls"><button class="zoom-btn" onclick="zoom(this,1.2)">+</button><button class="zoom-btn" onclick="zoom(this,0.8)">&minus;</button><button class="zoom-btn" onclick="resetZoom(this)">&#x27F2;</button></div>
+<div class="mermaid-inner"><pre class="mermaid">
+graph TD
+  subgraph Static["Static Layer"]
+    M["OpenSRM Manifests"] --> N["NthLayer Compiler"]
+    N --> A["Prometheus Rules<br/>Grafana Dashboards"]
+  end
+  subgraph AgentLayer["Agent Layer"]
+    S["Sitrep Agent"] -->|snapshot| MD["Mayday Agents"]
+    AB["Arbiter"] -.->|autonomy| S
+    AB -.->|autonomy| MD
+  end
+  subgraph OTelLayer["OTel Conventions"]
+    CE["Change Events"]
+    DT["Decision Telemetry"]
+  end
+  N -->|topology| S
+  CE -->|change data| S
+  MD -->|decisions| DT
+  DT -->|metrics| AB
+  classDef staticCls fill:#1e3a5f22,stroke:#1e3a5f
+  classDef agentCls fill:#b4530922,stroke:#b45309
+  classDef otelCls fill:#7e22ce22,stroke:#7e22ce
+  class M,N,A staticCls
+  class S,MD,AB agentCls
+  class CE,DT otelCls
+</pre></div>
+</div>
+
+<!-- LEARNING PATH -->
+<div id="learning" class="sec-head anim" style="--i:4"><span class="dot" style="background:var(--gold)"></span>Learning Path</div>
+<div class="lp anim" style="--i:5">
+<div class="lp-s"><div class="lp-n" style="background:var(--spec-dim);color:var(--spec)">1</div><div class="lp-t">Manifest</div><div class="lp-d">YAML structure</div></div>
+<div class="lp-c"><svg viewBox="0 0 30 10"><path d="M3 5L27 5M22 2L27 5L22 8"/></svg></div>
+<div class="lp-s"><div class="lp-n" style="background:var(--spec-dim);color:var(--spec)">2</div><div class="lp-t">SLOs</div><div class="lp-d">Reliability targets</div></div>
+<div class="lp-c"><svg viewBox="0 0 30 10"><path d="M3 5L27 5M22 2L27 5L22 8"/></svg></div>
+<div class="lp-s"><div class="lp-n" style="background:var(--spec-dim);color:var(--spec)">3</div><div class="lp-t">Contracts</div><div class="lp-d">Promises vs targets</div></div>
+<div class="lp-c"><svg viewBox="0 0 30 10"><path d="M3 5L27 5M22 2L27 5L22 8"/></svg></div>
+<div class="lp-s"><div class="lp-n" style="background:var(--tool-dim);color:var(--tool)">4</div><div class="lp-t">Schema</div><div class="lp-d">Machine validation</div></div>
+<div class="lp-c"><svg viewBox="0 0 30 10"><path d="M3 5L27 5M22 2L27 5L22 8"/></svg></div>
+<div class="lp-s"><div class="lp-n" style="background:var(--agent-dim);color:var(--agent)">5</div><div class="lp-t">AI Gates</div><div class="lp-d">Judgment SLOs</div></div>
+<div class="lp-c"><svg viewBox="0 0 30 10"><path d="M3 5L27 5M22 2L27 5L22 8"/></svg></div>
+<div class="lp-s"><div class="lp-n" style="background:var(--tool-dim);color:var(--tool)">6</div><div class="lp-t">NthLayer</div><div class="lp-d">Compile manifests</div></div>
+<div class="lp-c"><svg viewBox="0 0 30 10"><path d="M3 5L27 5M22 2L27 5L22 8"/></svg></div>
+<div class="lp-s"><div class="lp-n" style="background:var(--agent-dim);color:var(--agent)">7</div><div class="lp-t">Sitrep</div><div class="lp-d">Correlation agent</div></div>
+<div class="lp-c"><svg viewBox="0 0 30 10"><path d="M3 5L27 5M22 2L27 5L22 8"/></svg></div>
+<div class="lp-s"><div class="lp-n" style="background:var(--agent-dim);color:var(--agent)">8</div><div class="lp-t">Mayday</div><div class="lp-d">Incident response</div></div>
+<div class="lp-c"><svg viewBox="0 0 30 10"><path d="M3 5L27 5M22 2L27 5L22 8"/></svg></div>
+<div class="lp-s"><div class="lp-n" style="background:var(--otel-dim);color:var(--otel)">9</div><div class="lp-t">OTel</div><div class="lp-d">Closes the loop</div></div>
+</div>
+<div class="sep"></div>
+
+<!-- ========== 1. MANIFEST ========== -->
+<div id="s1" class="sec-head anim" style="--i:0"><span class="dot" style="background:var(--spec)"></span>1 &mdash; Manifest Format</div>
+<div class="card card--hero card--spec anim" style="--i:1">
+<h2>The Reliability Manifest</h2>
+<p>Without OpenSRM, reliability lives in Confluence pages, Slack threads, and people&rsquo;s heads. The manifest is a single YAML file per service &mdash; versioned in Git &mdash; that declares exactly what &ldquo;reliable&rdquo; means: SLO targets, ownership, dependencies, and contracts.</p>
+<p>It uses a Kubernetes-style structure (apiVersion, kind, metadata, spec) that ops teams already understand.</p>
+</div>
+<div class="pullquote anim" style="--i:2">&ldquo;A manifest is a contract with the future &mdash; it says what you promise before you&rsquo;re under pressure to promise anything.&rdquo;</div>
+
+<div class="code-block anim" style="--i:3">
+<div class="code-header">examples/api-minimal.yaml &mdash; Minimal manifest</div>
+<div class="code-body"><span class="kw">apiVersion</span>: <span class="val">opensrm/v1</span>          <span class="cm"># MUST: API version</span>
+<span class="kw">kind</span>: <span class="val">ServiceReliabilityManifest</span> <span class="cm"># MUST: Document type</span>
+<span class="kw">metadata</span>:
+  <span class="kw">name</span>: <span class="str">payment-api</span>
+  <span class="kw">tier</span>: <span class="str">critical</span>             <span class="cm"># critical | high | standard | low</span>
+<span class="kw">spec</span>:
+  <span class="kw">type</span>: <span class="val">api</span>                    <span class="cm"># determines applicable SLOs</span>
+  <span class="kw">slos</span>:
+    <span class="kw">availability</span>:
+      <span class="kw">target</span>: <span class="val">0.9995</span>           <span class="cm"># ratio 0-1, NOT percentage</span>
+      <span class="kw">window</span>: <span class="str">30d</span></div>
+</div>
+
+<div class="impl-section anim" style="--i:4">
+<h4>How it&rsquo;s implemented</h4>
+<p style="font-size:13px">The manifest format is defined in <code>spec/v1/specification.md</code> (12 chapters). The GitHub Action at <code>action/src/index.ts</code> implements validation using AJV (Another JSON Validator) with the schema imported from <code>./schema/v1.json</code>. The action uses <code>@actions/glob</code> to discover manifest files and validates each against the schema.</p>
+</div>
+
+<div class="code-block anim" style="--i:5">
+<div class="code-header">action/src/index.ts &mdash; TypeScript manifest interface</div>
+<div class="code-body"><span class="kw">interface</span> SRMManifest {
+  apiVersion: <span class="val">string</span>;          <span class="cm">// "opensrm/v1"</span>
+  kind: <span class="val">string</span>;                <span class="cm">// "ServiceReliabilityManifest" | "Template"</span>
+  metadata: {
+    name: <span class="val">string</span>;
+    team: <span class="val">string</span>;
+    tier: <span class="val">string</span>;             <span class="cm">// "critical" | "high" | "standard" | "low"</span>
+    template?: <span class="val">string</span>;        <span class="cm">// inheritance from Template kind</span>
+  };
+  spec: {
+    type?: <span class="val">string</span>;            <span class="cm">// 6 service types</span>
+    contract?: { availability?: <span class="val">number</span>; latency?: <span class="val">object</span>; judgment?: <span class="val">object</span>; };
+    slos?: { availability?: <span class="val">object</span>; latency?: <span class="val">object</span>; judgment?: <span class="val">object</span>; };
+    dependencies?: Array&lt;{ service: <span class="val">string</span>; critical?: <span class="val">boolean</span>; expects?: <span class="val">object</span>; }&gt;;
+    instrumentation?: { events: { decision: <span class="val">string</span>; reversal: <span class="val">string</span>; }; };
+  };
+}</div>
+</div>
+
+<details class="anim" style="--i:6"><summary>Gotchas and traps</summary><div class="gotcha-content"><ul>
+<li><strong>Ratios, not percentages.</strong> <code>0.999</code> means 99.9%. Schema enforces 0.0&ndash;1.0.</li>
+<li><strong>Duration format is strict:</strong> <code>[0-9]+(ms|s|m|h|d|w)</code>. No spaces, no ISO 8601.</li>
+<li><strong>Six service types</strong> &mdash; <code>api</code>, <code>worker</code>, <code>stream</code>, <code>ai-gate</code>, <code>batch</code>, <code>database</code> &mdash; each with different applicable SLOs.</li>
+<li><strong>Two kinds:</strong> <code>ServiceReliabilityManifest</code> (primary) and <code>Template</code> (reusable defaults for inheritance via <code>metadata.template</code>).</li>
+</ul></div></details>
+<div class="sep"></div>
+
+<!-- ========== 2. SLOs ========== -->
+<div id="s2" class="sec-head anim" style="--i:0"><span class="dot" style="background:var(--spec)"></span>2 &mdash; SLO Definitions</div>
+<div class="card card--spec anim" style="--i:1">
+<h2>Service Level Objectives</h2>
+<p>SLOs are the heart of a manifest. They answer: &ldquo;How good does this service need to be, measured how, over what window?&rdquo; Each service type gets a specific set of applicable SLOs &mdash; preventing nonsensical configs like measuring &ldquo;lag&rdquo; on an API.</p>
+</div>
+
+<div class="pullquote anim" style="--i:2">&ldquo;An SLO without a window is a wish. An SLO without a target is a metric. You need both.&rdquo;</div>
+
+<div class="two-col anim" style="--i:3">
+<div class="card card--recessed"><h3>Standard SLOs (api type)</h3><p style="font-size:13px"><strong>Availability</strong> &mdash; ratio of successful responses<br><strong>Latency</strong> &mdash; percentile targets (p50/p90/p95/p99/p999)<br><strong>Error rate</strong> &mdash; ratio of errors<br><strong>Throughput</strong> &mdash; requests per second</p></div>
+<div class="card card--recessed"><h3>Type-Specific SLOs</h3><p style="font-size:13px"><strong>Worker:</strong> processing_time, success_rate<br><strong>Stream:</strong> lag (max_seconds), throughput<br><strong>Batch:</strong> duration, schedule_adherence, data_freshness<br><strong>Database:</strong> query_latency, replication_lag, connection_availability</p></div>
+</div>
+
+<div class="code-block anim" style="--i:4">
+<div class="code-header">spec/v1/specification.md &mdash; SLO structure patterns</div>
+<div class="code-body"><span class="cm"># Every SLO needs target + window</span>
+<span class="kw">availability</span>:
+  <span class="kw">target</span>: <span class="val">0.9995</span>             <span class="cm"># ratio 0-1</span>
+  <span class="kw">window</span>: <span class="str">30d</span>
+
+<span class="cm"># Latency needs at least one percentile</span>
+<span class="kw">latency</span>:
+  <span class="kw">p50</span>: <span class="str">50ms</span>
+  <span class="kw">p99</span>: <span class="str">200ms</span>                <span class="cm"># at least one percentile required</span>
+  <span class="kw">target</span>: <span class="val">0.99</span>              <span class="cm"># ratio meeting threshold</span>
+  <span class="kw">window</span>: <span class="str">30d</span>
+
+<span class="cm"># Worker-specific: processing time</span>
+<span class="kw">processing_time</span>:
+  <span class="kw">p99</span>: <span class="str">5m</span>                   <span class="cm"># 99% of jobs in 5 minutes</span>
+  <span class="kw">target</span>: <span class="val">0.99</span>
+  <span class="kw">window</span>: <span class="str">7d</span>
+
+<span class="cm"># Stream-specific: consumer lag</span>
+<span class="kw">lag</span>:
+  <span class="kw">max_seconds</span>: <span class="val">30</span>
+  <span class="kw">target</span>: <span class="val">0.99</span>
+  <span class="kw">window</span>: <span class="str">7d</span></div>
+</div>
+
+<div class="impl-section anim" style="--i:5">
+<h4>How it&rsquo;s implemented</h4>
+<p style="font-size:13px">Each SLO type has its own JSON Schema definition in <code>spec/v1/schema.json</code>: <code>AvailabilitySLO</code>, <code>LatencySLO</code>, <code>ErrorRateSLO</code>, <code>ThroughputSLO</code>, <code>ProcessingTimeSLO</code>, <code>LagSLO</code>, <code>SuccessRateSLO</code>, <code>DurationSLO</code>, <code>ScheduleAdherenceSLO</code>, <code>DataFreshnessSLO</code>, <code>QueryLatencySLO</code>, <code>ReplicationLagSLO</code>, <code>ConnectionAvailabilitySLO</code>. The schema uses <code>additionalProperties: false</code> to reject unknown fields and validates Duration via regex pattern <code>^[0-9]+(ms|s|m|h|d|w)$</code>.</p>
+</div>
+
+<details class="anim" style="--i:6"><summary>Gotchas and traps</summary><div class="gotcha-content"><ul>
+<li><strong>Latency SLOs need at least one percentile</strong> plus a <code>target</code> ratio.</li>
+<li><strong>Window defaults vary:</strong> 30d for API/database, 7d for worker/stream.</li>
+<li><strong>success_criteria</strong> on availability is optional &mdash; defaults to 2xx + 3xx status codes.</li>
+</ul></div></details>
+<div class="sep"></div>
+
+<!-- ========== 3. CONTRACTS ========== -->
+<div id="s3" class="sec-head anim" style="--i:0"><span class="dot" style="background:var(--spec)"></span>3 &mdash; Contracts &amp; Dependencies</div>
+<div class="card card--spec anim" style="--i:1">
+<h2>External Promises vs Internal Targets</h2>
+<p>The manifest separates what you <em>guarantee to others</em> (contract) from what you <em>aim for internally</em> (SLOs). Internal targets are always tighter. Dependencies declare what you <em>need</em> from upstream services via the <code>expects</code> field &mdash; enabling tooling to validate feasibility at CI time.</p>
+</div>
+<div class="pullquote anim" style="--i:2">&ldquo;Contracts are what you advertise. SLOs are how you sleep at night.&rdquo;</div>
+
+<div class="code-block anim" style="--i:3">
+<div class="code-header">examples/api-full.yaml &mdash; Contract vs SLO + dependencies</div>
+<div class="code-body"><span class="kw">spec</span>:
+  <span class="kw">contract</span>:                      <span class="cm"># what you PROMISE dependents</span>
+    <span class="kw">availability</span>: <span class="val">0.9995</span>
+    <span class="kw">latency</span>:
+      <span class="kw">p99</span>: <span class="str">300ms</span>               <span class="cm"># external: 300ms</span>
+    <span class="kw">throughput</span>:
+      <span class="kw">max_rps</span>: <span class="val">5000</span>
+  <span class="kw">slos</span>:                          <span class="cm"># internal targets (TIGHTER)</span>
+    <span class="kw">latency</span>:
+      <span class="kw">p99</span>: <span class="str">200ms</span>               <span class="cm"># internal: 200ms (100ms headroom)</span>
+      <span class="kw">target</span>: <span class="val">0.99</span>
+
+  <span class="kw">dependencies</span>:
+    - <span class="kw">service</span>: <span class="str">user-service</span>
+      <span class="kw">critical</span>: <span class="val">true</span>            <span class="cm"># failure = our failure</span>
+      <span class="kw">manifest</span>: <span class="str">https://github.com/.../service.reliability.yaml</span>
+      <span class="kw">expects</span>:                  <span class="cm"># what we NEED from them</span>
+        <span class="kw">availability</span>: <span class="val">0.999</span>
+        <span class="kw">latency</span>:
+          <span class="kw">p99</span>: <span class="str">100ms</span>
+    - <span class="kw">service</span>: <span class="str">stripe-api</span>
+      <span class="kw">type</span>: <span class="str">external</span>
+      <span class="kw">critical</span>: <span class="val">true</span>
+      <span class="kw">expects</span>:
+        <span class="kw">availability</span>: <span class="val">0.9999</span></div>
+</div>
+
+<div class="impl-section anim" style="--i:4">
+<h4>How it&rsquo;s implemented &mdash; Dependency math</h4>
+<p style="font-size:13px">The <code>expects</code> field enables NthLayer to perform feasibility validation. If you promise 99.95% availability but depend critically on a service guaranteeing only 99.9%, the math doesn&rsquo;t work. The combined availability of N critical serial dependencies is the product of their individual availabilities. NthLayer computes this ceiling and rejects manifests that violate it during <code>nthlayer validate</code>.</p>
+</div>
+
+<details class="anim" style="--i:5"><summary>Gotchas and traps</summary><div class="gotcha-content"><ul>
+<li><strong>Contract judgment SLOs use different field names:</strong> <code>spec.contract.judgment.max_reversal_rate</code> (not <code>reversal_rate.target</code>).</li>
+<li><strong>The <code>manifest</code> field</strong> on a dependency is optional &mdash; it points to the dependency&rsquo;s own OpenSRM file for cross-referencing.</li>
+<li><strong><code>critical: false</code></strong> (default) means the dependency is non-critical &mdash; its failure degrades but doesn&rsquo;t break your service.</li>
+</ul></div></details>
+<div class="sep"></div>
+
+<!-- ========== 4. JSON SCHEMA ========== -->
+<div id="s4" class="sec-head anim" style="--i:0"><span class="dot" style="background:var(--tool)"></span>4 &mdash; JSON Schema</div>
+<div class="card card--tool anim" style="--i:1">
+<h2>Machine-Readable Validation</h2>
+<p>Without the schema, manifests are documentation. With it, they&rsquo;re enforceable. The JSON Schema (<code>spec/v1/schema.json</code>, draft-07) makes every YAML field machine-checkable &mdash; CI pipelines, editors, and linters catch errors before they ship.</p>
+</div>
+
+<div class="code-block anim" style="--i:2">
+<div class="code-header">spec/v1/schema.json &mdash; Core type definitions</div>
+<div class="code-body"><span class="str">"Duration"</span>: {
+  <span class="kw">"type"</span>: <span class="str">"string"</span>,
+  <span class="kw">"pattern"</span>: <span class="str">"^[0-9]+(ms|s|m|h|d|w)$"</span>   <span class="cm">// strict, no ISO 8601</span>
+}
+<span class="str">"Ratio"</span>: {
+  <span class="kw">"type"</span>: <span class="str">"number"</span>,
+  <span class="kw">"minimum"</span>: <span class="val">0</span>, <span class="kw">"maximum"</span>: <span class="val">1</span>        <span class="cm">// enforces 0-1 range</span>
+}
+<span class="str">"ServiceType"</span>: {
+  <span class="kw">"enum"</span>: [<span class="str">"api"</span>, <span class="str">"worker"</span>, <span class="str">"stream"</span>, <span class="str">"ai-gate"</span>, <span class="str">"batch"</span>, <span class="str">"database"</span>]
+}
+<span class="str">"Tier"</span>: {
+  <span class="kw">"enum"</span>: [<span class="str">"critical"</span>, <span class="str">"high"</span>, <span class="str">"standard"</span>, <span class="str">"low"</span>]
+}</div>
+</div>
+
+<div class="code-block anim" style="--i:3">
+<div class="code-header">action/src/index.ts &mdash; AJV validation setup</div>
+<div class="code-body"><span class="kw">import</span> Ajv <span class="kw">from</span> <span class="str">'ajv'</span>;
+<span class="kw">import</span> addFormats <span class="kw">from</span> <span class="str">'ajv-formats'</span>;
+<span class="kw">import</span> schemaV1 <span class="kw">from</span> <span class="str">'./schema/v1.json'</span>;  <span class="cm">// schema embedded in bundle</span>
+
+<span class="cm">// Schema ID: https://opensrm.io/schemas/v1/manifest.json</span>
+<span class="cm">// Uses oneOf: ServiceReliabilityManifest | Template</span>
+<span class="cm">// additionalProperties: false on all SLO types</span></div>
+</div>
+
+<div class="impl-section anim" style="--i:4">
+<h4>How it&rsquo;s implemented</h4>
+<p style="font-size:13px">The GitHub Action (<code>action.yml</code> at repo root, published as <code>rsionnach/opensrm@v1</code>) uses <code>@actions/glob</code> to find <code>*.reliability.yaml</code> files, parses with <code>js-yaml</code>, and validates against the schema via AJV. The schema is bundled into <code>action/dist/index.js</code> at build time. Schema defines 13+ SLO type schemas, contract schemas (with separate ContractLatency, ContractThroughput, ContractJudgment), and dependency schemas with the <code>expects</code> field.</p>
+</div>
+
+<details class="anim" style="--i:5"><summary>Gotchas and traps</summary><div class="gotcha-content"><ul>
+<li><strong>Schema is embedded in the Action bundle.</strong> When schema changes, the action must be rebuilt (<code>npm run build</code> in <code>action/</code>).</li>
+<li><strong>Schema ID</strong> is <code>https://json.schemastore.org/opensrm.json</code> for editor integration.</li>
+</ul></div></details>
+<div class="sep"></div>
+
+<!-- ========== 5. AI GATES ========== -->
+<div id="s5" class="sec-head anim" style="--i:0"><span class="dot" style="background:var(--agent)"></span>5 &mdash; AI Gates &amp; Judgment SLOs</div>
+<div class="card card--hero card--agent anim" style="--i:1">
+<h2>Measuring AI Decision Quality</h2>
+<p>Traditional SLOs measure infrastructure: is it up? Is it fast? But AI-powered services make <em>decisions</em>. These need a fundamentally different quality measurement. The <code>ai-gate</code> type extends API SLOs with <strong>judgment SLOs</strong> that measure decision quality over time.</p>
+<p>An AI gate produces three outputs: <strong>approve</strong> (commit to allowing), <strong>reject</strong> (commit to denying), or <strong>escalate</strong> (decline to decide). Escalation is abstention &mdash; it keeps metrics clean.</p>
+</div>
+<div class="pullquote anim" style="--i:2">&ldquo;A fast, available AI that makes wrong decisions isn&rsquo;t reliable &mdash; it&rsquo;s confidently wrong at scale.&rdquo;</div>
+
+<div class="four-col anim" style="--i:3">
+<div class="card card--recessed"><h3 style="color:var(--agent)">Reversal Rate</h3><p style="font-size:11px">How often humans override. Measured after observation_period.</p><code style="font-size:10px">target: 0.03</code></div>
+<div class="card card--recessed"><h3 style="color:var(--agent)">High-Confidence Failure</h3><p style="font-size:11px">Confident but wrong. Most dangerous failure mode.</p><code style="font-size:10px">target: 0.01 threshold: 0.9</code></div>
+<div class="card card--recessed"><h3 style="color:var(--agent)">Calibration (ECE)</h3><p style="font-size:11px">Does 80% confidence = 80% accuracy?</p><code style="font-size:10px">target: 0.10</code></div>
+<div class="card card--recessed"><h3 style="color:var(--agent)">Feedback Latency</h3><p style="font-size:11px">How long until outcome is known.</p><code style="font-size:10px">p50: 48h p90: 168h</code></div>
+</div>
+
+<div class="code-block anim" style="--i:4">
+<div class="code-header">examples/ai-gate-full.yaml &mdash; Full judgment SLOs</div>
+<div class="code-body"><span class="kw">spec</span>:
+  <span class="kw">type</span>: <span class="val">ai-gate</span>
+  <span class="kw">contract</span>:
+    <span class="kw">judgment</span>:
+      <span class="kw">max_reversal_rate</span>: <span class="val">0.05</span>      <span class="cm"># external promise</span>
+      <span class="kw">max_hcf_rate</span>: <span class="val">0.02</span>
+  <span class="kw">slos</span>:
+    <span class="kw">judgment</span>:
+      <span class="kw">reversal_rate</span>:
+        <span class="kw">target</span>: <span class="val">0.03</span>                <span class="cm"># internal target (tighter)</span>
+        <span class="kw">window</span>: <span class="str">30d</span>
+        <span class="kw">observation_period</span>: <span class="str">24h</span>     <span class="cm"># wait before counting</span>
+      <span class="kw">high_confidence_failure</span>:
+        <span class="kw">target</span>: <span class="val">0.01</span>
+        <span class="kw">confidence_threshold</span>: <span class="val">0.9</span>
+      <span class="kw">calibration</span>:
+        <span class="kw">target</span>: <span class="val">0.10</span>                <span class="cm"># Expected Calibration Error</span>
+  <span class="kw">instrumentation</span>:                 <span class="cm"># REQUIRED for ai-gate</span>
+    <span class="kw">events</span>:
+      <span class="kw">decision</span>: <span class="str">ai_gate.decision</span>
+      <span class="kw">reversal</span>: <span class="str">ai_gate.reversal</span>
+      <span class="kw">outcome</span>: <span class="str">ai_gate.outcome</span></div>
+</div>
+
+<div class="impl-section anim" style="--i:5">
+<h4>How it&rsquo;s implemented &mdash; 4-Level Maturity Model</h4>
+<p style="font-size:13px">Defined in <code>spec/v1/judgment-slos.md</code>. Each level builds on the previous:</p>
+<p style="font-size:12px"><strong>Level 1 (Reactive):</strong> reversal_rate + HCF. Minimal effort &mdash; instrument events, set thresholds. Days to implement. Limitation: only measures quality when humans are forced to engage.</p>
+<p style="font-size:12px"><strong>Level 2 (Proactive):</strong> Add audit sampling (10% random sample reviewed by humans). audit_accuracy is your unbiased signal. If reversal_rate is 3% but audit_accuracy is 85%, you have 12% hidden failures.</p>
+<p style="font-size:12px"><strong>Level 3 (Outcome):</strong> Defect correlation via downstream signals (incidents, rollbacks, chargebacks). Ground truth. 90-day windows because outcomes are delayed.</p>
+<p style="font-size:12px"><strong>Level 4 (Behavioral):</strong> Escalation bounds (min/max), segment-level targets, calibration ECE, stability/volatility monitoring. Full governance.</p>
+</div>
+
+<div class="code-block anim" style="--i:6">
+<div class="code-header">spec/v1/judgment-slos.md &mdash; Metric definitions</div>
+<div class="code-body"><span class="cm">// Escalations excluded from both numerator and denominator</span>
+reversal_rate =
+  count(reversals where decision_age &lt; observation_period)
+  / count(decisions where decision &isin; [approve, reject])
+
+hcf_rate =
+  count(reversals where original_confidence &gt;= threshold)
+  / count(decisions where confidence &gt;= threshold)
+
+<span class="cm">// Buckets partition decisions by confidence (0.0-0.1, 0.1-0.2, ...)</span>
+ECE = &Sigma; (|bucket_accuracy - bucket_confidence| * bucket_weight)</div>
+</div>
+
+<details class="anim" style="--i:7"><summary>Gotchas and traps</summary><div class="gotcha-content"><ul>
+<li><strong>Instrumentation is mandatory for ai-gate.</strong> Without event mappings, judgment SLOs can&rsquo;t be measured.</li>
+<li><strong>Contract judgment uses different field names:</strong> <code>max_reversal_rate</code> (not <code>reversal_rate.target</code>).</li>
+<li><strong>Escalation is abstention, not a flagged decision.</strong> The AI hasn&rsquo;t decided; a human must. This keeps reversal_rate clean.</li>
+<li><strong>Level 2 audit is a process, not just a metric.</strong> 10% sample at 1000 decisions/day = 100 reviews/day = ~3.3 hours of review work.</li>
+</ul></div></details>
+<div class="sep"></div>
+
+<!-- ========== 6. NTHLAYER ========== -->
+<div id="s6" class="sec-head anim" style="--i:0"><span class="dot" style="background:var(--tool)"></span>6 &mdash; NthLayer Compiler</div>
+<div class="card card--tool anim" style="--i:1">
+<h2>From Declaration to Reality</h2>
+<p>Without NthLayer, manifests are documentation. With it, they become operational. NthLayer is a deterministic compiler: same manifest in, same artifacts out. No AI, no reasoning &mdash; just template expansion and arithmetic.</p>
+</div>
+
+<div class="mermaid-wrap anim" style="--i:2">
+<div class="zoom-controls"><button class="zoom-btn" onclick="zoom(this,1.2)">+</button><button class="zoom-btn" onclick="zoom(this,0.8)">&minus;</button><button class="zoom-btn" onclick="resetZoom(this)">&#x27F2;</button></div>
+<div class="mermaid-inner"><pre class="mermaid">
+graph TD
+  IN["manifest.yaml"] --> VAL{"nthlayer validate"}
+  VAL -->|pass| GEN["nthlayer generate"]
+  VAL -->|fail| ERR["Schema / dependency<br/>math error"]
+  GEN --> PR["Prometheus rules"]
+  GEN --> GR["Grafana dashboards"]
+  GEN --> PD["PagerDuty config"]
+  GEN --> TP["Topology graph"]
+  GEN --> SL["OpenSLO export"]
+  TP -.->|consumed by| SIT["Sitrep Agent"]
+  classDef input fill:#1e3a5f22,stroke:#1e3a5f
+  classDef toolc fill:#0f766e22,stroke:#0f766e
+  classDef output fill:#0f766e11,stroke:#0f766e44
+  classDef errc fill:#be123c22,stroke:#be123c
+  class IN input
+  class VAL,GEN toolc
+  class PR,GR,PD,TP,SL,SIT output
+  class ERR errc
+</pre></div>
+</div>
+
+<div class="code-block anim" style="--i:3">
+<div class="code-header">ARCHITECTURE.md &mdash; NthLayer CLI interface</div>
+<div class="code-body">nthlayer validate &lt;manifest&gt;           <span class="cm"># Schema + dependency math</span>
+nthlayer generate &lt;manifest&gt; -o &lt;dir&gt;  <span class="cm"># Generate all artifacts</span>
+nthlayer check-deploy &lt;manifest&gt;       <span class="cm"># CI/CD deployment gate</span>
+nthlayer topology export &lt;manifest&gt;    <span class="cm"># Export for Sitrep</span>
+nthlayer verify &lt;manifest&gt;             <span class="cm"># Verify metrics exist in Prometheus</span>
+nthlayer portfolio                     <span class="cm"># Org-wide SLO health view</span></div>
+</div>
+
+<div class="impl-section anim" style="--i:4">
+<h4>Why it&rsquo;s not an agent</h4>
+<p style="font-size:13px">Validation is schema checking. Generation is template expansion. Dependency math is arithmetic. Deployment gating is threshold comparison. All deterministic. The <strong>Reasoning Boundary</strong> principle: agent capabilities are reserved for components requiring interpretation of ambiguous inputs. NthLayer does the same thing every time given the same input &mdash; it&rsquo;s a tool. Agents call NthLayer when they need topology data or artifact regeneration.</p>
+</div>
+<div class="sep"></div>
+
+<!-- ========== 7. SITREP ========== -->
+<div id="s7" class="sec-head anim" style="--i:0"><span class="dot" style="background:var(--agent)"></span>7 &mdash; Sitrep Agent</div>
+<div class="card card--hero card--agent anim" style="--i:1">
+<h2>Pre-Correlated Situation Awareness</h2>
+<p>&ldquo;A deployment happened 12 minutes ago to auth-service, and now checkout latency is spiking, and these two services share a critical dependency path.&rdquo; Connecting those dots requires understanding topology, temporal proximity, and causal plausibility. That&rsquo;s interpretation, not aggregation &mdash; that&rsquo;s why Sitrep is an agent.</p>
+</div>
+
+<div class="two-col anim" style="--i:2">
+<div class="card card--recessed"><h3>Inputs</h3><p style="font-size:12px">Metrics (Prometheus remote write)<br>Alerts (Alertmanager webhook)<br>Changes (GitHub, ArgoCD, LaunchDarkly)<br>Logs (OTLP)<br>Topology (NthLayer tool call)</p></div>
+<div class="card card--recessed"><h3>Generation Modes</h3><p style="font-size:12px"><strong>Batch:</strong> Every 5 min (normal ops)<br><strong>Incident:</strong> Immediate on webhook<br><strong>Refresh:</strong> Every 1 min during incidents<br><strong>Manual:</strong> On-demand API call</p></div>
+</div>
+
+<div class="mermaid-wrap anim" style="--i:3">
+<div class="zoom-controls"><button class="zoom-btn" onclick="zoom(this,1.2)">+</button><button class="zoom-btn" onclick="zoom(this,0.8)">&minus;</button><button class="zoom-btn" onclick="resetZoom(this)">&#x27F2;</button></div>
+<div class="mermaid-inner"><pre class="mermaid">
+stateDiagram-v2
+  [*] --> WATCHING
+  WATCHING --> ALERT : elevated signal
+  ALERT --> INCIDENT : incident declared
+  ALERT --> WATCHING : signal subsides
+  INCIDENT --> WATCHING : resolved
+  INCIDENT --> DEGRADED : own judgment SLO breach
+  DEGRADED --> WATCHING : performance recovers
+</pre></div>
+</div>
+
+<div class="code-block anim" style="--i:4">
+<div class="code-header">components/sitrep/ &mdash; Hybrid generation model (Go)</div>
+<div class="code-body"><span class="kw">type</span> SnapshotGenerator <span class="kw">struct</span> {
+    batchInterval           time.Duration  <span class="cm">// 5 minutes</span>
+    incidentRefreshInterval time.Duration  <span class="cm">// 1 minute</span>
+    activeIncidents <span class="kw">map</span>[<span class="val">string</span>]*IncidentContext
+    windowManager    *WindowManager
+    correlationEngine *CorrelationEngine
+    logSummarizer    *LogSummarizer
+}
+
+<span class="kw">type</span> IncidentContext <span class="kw">struct</span> {
+    Incident      Incident
+    LastRefresh   time.Time
+    RefreshTicker *time.Ticker
+    Snapshots     []<span class="val">string</span>  <span class="cm">// IDs of generated snapshots</span>
+    Done          <span class="kw">chan struct</span>{}
+}</div>
+</div>
+
+<div class="impl-section anim" style="--i:5">
+<h4>How it&rsquo;s implemented</h4>
+<p style="font-size:13px">Sitrep is a long-running Go service with a reasoning loop: <strong>Observe → Correlate → Assess → Publish</strong>. It has 4 states (WATCHING, ALERT, INCIDENT, DEGRADED). In DEGRADED mode, it reduces confidence in correlations and flags for human review. Service identity comes from the OpenSRM manifest catalog &mdash; not auto-discovery. Every correlation assessment emits a <code>gen_ai.decision.*</code> OTel event. When a human disagrees, that emits <code>gen_ai.override.*</code>. Sitrep has its own <code>type: ai-gate</code> manifest with judgment SLOs for correlation accuracy.</p>
+</div>
+
+<details class="anim" style="--i:6"><summary>Gotchas and traps</summary><div class="gotcha-content"><ul>
+<li><strong>Sitrep is itself an ai-gate.</strong> It measures its own correlation accuracy via judgment SLOs. If quality drops, Arbiter puts it in DEGRADED mode.</li>
+<li><strong>Snapshots are JSON, not dashboards.</strong> Designed for both human and LLM consumption.</li>
+<li><strong>Outputs go to REST API + SSE/WebSocket + ClickHouse storage.</strong></li>
+</ul></div></details>
+<div class="sep"></div>
+
+<!-- ========== 8. MAYDAY + ARBITER ========== -->
+<div id="s8" class="sec-head anim" style="--i:0"><span class="dot" style="background:var(--agent)"></span>8 &mdash; Mayday &amp; Arbiter</div>
+<div class="card card--agent anim" style="--i:1">
+<h2>Incident Response &amp; Governance</h2>
+<p><strong>Mayday:</strong> 4 specialized agents in a pipeline. <strong>Arbiter:</strong> the meta-agent that watches all agents&rsquo; judgment SLO metrics and adjusts autonomy. One-way safety ratchet: can reduce autonomy without approval, cannot increase without human sign-off.</p>
+</div>
+
+<div class="mermaid-wrap anim" style="--i:2">
+<div class="zoom-controls"><button class="zoom-btn" onclick="zoom(this,1.2)">+</button><button class="zoom-btn" onclick="zoom(this,0.8)">&minus;</button><button class="zoom-btn" onclick="resetZoom(this)">&#x27F2;</button></div>
+<div class="mermaid-inner"><pre class="mermaid">
+graph TD
+  INC["Incident Declared"] --> TR["Triage<br/>severity, blast radius"]
+  TR --> INV["Investigation<br/>root cause analysis"]
+  TR --> COM1["Communication<br/>initial notification"]
+  INV --> REM["Remediation<br/>suggest + execute fix"]
+  INV --> COM2["Communication<br/>update with cause"]
+  ARB["Arbiter"] -.->|autonomy policy| TR
+  ARB -.->|autonomy policy| INV
+  ARB -.->|autonomy policy| REM
+  classDef inc fill:#be123c22,stroke:#be123c
+  classDef agt fill:#b4530922,stroke:#b45309
+  classDef arb fill:#1e3a5f22,stroke:#1e3a5f
+  class INC inc
+  class TR,INV,COM1,COM2,REM agt
+  class ARB arb
+</pre></div>
+</div>
+
+<div class="code-block anim" style="--i:3">
+<div class="code-header">ARCHITECTURE.md &mdash; Shared incident context</div>
+<div class="code-body"><span class="kw">incident_context</span>:
+  <span class="kw">id</span>: <span class="str">INC-2026-0142</span>
+  <span class="kw">triage</span>:
+    <span class="kw">severity</span>: <span class="str">P1</span>
+    <span class="kw">blast_radius</span>: [<span class="str">checkout-service</span>, <span class="str">payment-gateway</span>]
+    <span class="kw">affected_slos</span>: [<span class="str">checkout-availability</span>, <span class="str">payment-latency-p99</span>]
+  <span class="kw">investigation</span>:
+    <span class="kw">hypotheses</span>:
+      - <span class="kw">id</span>: <span class="str">H1</span>
+        <span class="kw">description</span>: <span class="str">"auth-service deployment introduced latency regression"</span>
+        <span class="kw">confidence</span>: <span class="val">0.82</span>
+    <span class="kw">root_cause</span>: <span class="str">H1</span>
+  <span class="kw">remediation</span>:
+    <span class="kw">proposed_action</span>: <span class="str">rollback_deployment</span>
+    <span class="kw">requires_human_approval</span>: <span class="val">false</span>  <span class="cm"># pre-approved safe action</span></div>
+</div>
+
+<div class="impl-section anim" style="--i:4">
+<h4>How it&rsquo;s implemented &mdash; Arbiter governance</h4>
+<p style="font-size:13px">The Arbiter watches Prometheus for all agents&rsquo; judgment SLO metrics. Its governance actions: reversal rate exceeding target → increase human review threshold. Error budget exhausted → reduce to advisory-only mode. Sustained good performance → <em>propose</em> autonomy increase (requires human approval). Calibration drift → flag for retraining. Multiple agents degrading → escalate to humans for system-wide review. The orchestrator is NOT an agent &mdash; it&rsquo;s a deterministic state machine that sequences execution. The pipeline is fixed; agents reason within their step.</p>
+</div>
+
+<details class="anim" style="--i:5"><summary>Gotchas and traps</summary><div class="gotcha-content"><ul>
+<li><strong>Remediation authority is limited:</strong> pre-approved safe actions (rollback, scale, feature flag) without approval. Novel fixes require human sign-off.</li>
+<li><strong>Both Mayday and Arbiter are architecture-only</strong> &mdash; documented design, not running code.</li>
+<li><strong>Each Mayday agent has its own judgment SLO.</strong> Triage: severity reversal &lt;10%. Investigation: root cause agreement 70%. Communication: human edit rate &lt;15%. Remediation: fix success rate 80%.</li>
+</ul></div></details>
+<div class="sep"></div>
+
+<!-- ========== 9. OTEL ========== -->
+<div id="s9" class="sec-head anim" style="--i:0"><span class="dot" style="background:var(--otel)"></span>9 &mdash; OTel Semantic Conventions</div>
+<div class="card card--otel anim" style="--i:1">
+<h2>The Telemetry That Closes the Loop</h2>
+<p>Two proposed OTel conventions make the ecosystem measurable: <strong>Change Events</strong> (<code>change.*</code>) for change-incident correlation, and <strong>Decision Telemetry</strong> (<code>gen_ai.decision.*</code>, <code>gen_ai.reversal.*</code>) for judgment SLO measurement.</p>
+</div>
+
+<div class="two-col anim" style="--i:2">
+<div class="card card--recessed"><h3>Change Events</h3><p style="font-size:12px"><code>change.id</code> &mdash; unique identifier<br><code>change.type</code> &mdash; deployment, configuration, feature_flag, infrastructure, database<br><code>change.scope.service</code> &mdash; affected service<br><code>change.risk.score</code> &mdash; 0.0-1.0<br><br>Targeting OTel CI/CD SIG</p></div>
+<div class="card card--recessed"><h3>Decision Telemetry</h3><p style="font-size:12px"><code>gen_ai.decision.*</code> &mdash; decision event with confidence<br><code>gen_ai.reversal.*</code> &mdash; human override<br><code>gen_ai.outcome.*</code> &mdash; actual result<br><br>Targeting OTel GenAI SIG<br>Transport: OTel Events</p></div>
+</div>
+
+<div class="impl-section anim" style="--i:3">
+<h4>How it closes the loop</h4>
+<p style="font-size:13px">Every agent decision emits <code>gen_ai.decision.*</code>. Human overrides emit <code>gen_ai.reversal.*</code>. These flow to Prometheus via OTel Collector. NthLayer generates recording rules for each agent&rsquo;s judgment SLOs (from their <code>type: ai-gate</code> manifest). The Arbiter reads these metrics and adjusts autonomy. Agents are monitored by the same system they help operate &mdash; the loop is closed.</p>
+</div>
+<div class="sep"></div>
+
+<!-- ========== KEY FLOWS ========== -->
+<div id="flows" class="sec-head anim" style="--i:0"><span class="dot" style="background:var(--gold)"></span>Key Flows</div>
+
+<h2 class="anim" style="--i:1">Flow 1: Manifest to Monitoring</h2>
+<div class="mermaid-wrap anim" style="--i:2">
+<div class="zoom-controls"><button class="zoom-btn" onclick="zoom(this,1.2)">+</button><button class="zoom-btn" onclick="zoom(this,0.8)">&minus;</button><button class="zoom-btn" onclick="resetZoom(this)">&#x27F2;</button></div>
+<div class="mermaid-inner"><pre class="mermaid">
+sequenceDiagram
+  participant D as Developer
+  participant N as NthLayer
+  participant P as Prometheus
+  participant G as Grafana
+  participant S as Sitrep
+  D->>N: manifest.yaml
+  N->>N: Validate schema + dependency math
+  N->>P: prometheus/rules.yaml
+  N->>G: grafana/dashboard.json
+  N->>S: topology.json
+</pre></div>
+</div>
+
+<h2 class="anim" style="--i:3">Flow 2: Telemetry to Snapshot</h2>
+<div class="mermaid-wrap anim" style="--i:4">
+<div class="zoom-controls"><button class="zoom-btn" onclick="zoom(this,1.2)">+</button><button class="zoom-btn" onclick="zoom(this,0.8)">&minus;</button><button class="zoom-btn" onclick="resetZoom(this)">&#x27F2;</button></div>
+<div class="mermaid-inner"><pre class="mermaid">
+sequenceDiagram
+  participant SYS as Systems
+  participant SIT as Sitrep
+  participant CON as Consumers
+  SYS->>SIT: Metrics via Prometheus remote write
+  SYS->>SIT: Alerts via Alertmanager webhook
+  SYS->>SIT: Change events via webhooks
+  SIT->>SIT: Correlate with topology
+  SIT->>SIT: Assess severity + relevance
+  SIT->>CON: JSON snapshot
+  Note over SIT: Emits gen_ai.decision for each correlation
+</pre></div>
+</div>
+
+<h2 class="anim" style="--i:5">Flow 3: Decision to Governance</h2>
+<div class="mermaid-wrap anim" style="--i:6">
+<div class="zoom-controls"><button class="zoom-btn" onclick="zoom(this,1.2)">+</button><button class="zoom-btn" onclick="zoom(this,0.8)">&minus;</button><button class="zoom-btn" onclick="resetZoom(this)">&#x27F2;</button></div>
+<div class="mermaid-inner"><pre class="mermaid">
+sequenceDiagram
+  participant AGT as Any Agent
+  participant OT as OTel Collector
+  participant PM as Prometheus
+  participant ARB as Arbiter
+  AGT->>OT: Decision event + confidence
+  OT->>PM: Store as metrics
+  Note over AGT: Human reviews decision
+  AGT->>OT: Reversal event
+  OT->>PM: Store reversal
+  PM->>ARB: Judgment SLO metrics
+  ARB->>AGT: Autonomy adjustment
+</pre></div>
+</div>
+
+<h2 class="anim" style="--i:7">Flow 4: Incident Lifecycle</h2>
+<div class="mermaid-wrap anim" style="--i:8">
+<div class="zoom-controls"><button class="zoom-btn" onclick="zoom(this,1.2)">+</button><button class="zoom-btn" onclick="zoom(this,0.8)">&minus;</button><button class="zoom-btn" onclick="resetZoom(this)">&#x27F2;</button></div>
+<div class="mermaid-inner"><pre class="mermaid">
+sequenceDiagram
+  participant PD as PagerDuty
+  participant SIT as Sitrep
+  participant TR as Triage
+  participant INV as Investigation
+  participant REM as Remediation
+  PD->>SIT: Incident trigger
+  SIT->>TR: Enriched snapshot
+  TR->>TR: Severity + blast radius
+  TR->>INV: Incident context
+  INV->>INV: Hypothesis generation
+  INV->>REM: Root cause found
+  REM->>REM: Execute safe action
+</pre></div>
+</div>
+<div class="sep"></div>
+
+<!-- ========== DEPENDENCY MAP ========== -->
+<div id="depmap" class="sec-head anim" style="--i:0"><span class="dot" style="background:var(--text-dim)"></span>Full Dependency Map</div>
+<div class="mermaid-wrap anim" style="--i:1">
+<div class="zoom-controls"><button class="zoom-btn" onclick="zoom(this,1.2)">+</button><button class="zoom-btn" onclick="zoom(this,0.8)">&minus;</button><button class="zoom-btn" onclick="resetZoom(this)">&#x27F2;</button></div>
+<div class="mermaid-inner"><pre class="mermaid">
+graph TD
+  subgraph Spec["Specification"]
+    MAN["Manifests"] --> SLO["SLO Defs"]
+    MAN --> CON["Contracts"]
+    MAN --> AIG["AI Gate Ext"]
+    SCH["JSON Schema"] -->|validates| MAN
+  end
+  subgraph Tools
+    NTH["NthLayer"]
+    GHA["GitHub Action"]
+  end
+  subgraph Agents
+    SIT["Sitrep"]
+    MAY["Mayday"]
+    ARB["Arbiter"]
+  end
+  subgraph Telemetry["OTel"]
+    CHE["Change Events"]
+    DET["Decision Telemetry"]
+  end
+  SLO --> NTH
+  CON --> NTH
+  AIG --> NTH
+  GHA --> SCH
+  NTH -->|topology| SIT
+  NTH -->|rules| PRO["Prometheus + Grafana"]
+  CHE --> SIT
+  SIT -->|snapshots| MAY
+  MAY --> DET
+  SIT --> DET
+  DET --> PRO
+  PRO --> ARB
+  ARB -.-> SIT
+  ARB -.-> MAY
+  classDef specCls fill:#1e3a5f22,stroke:#1e3a5f
+  classDef toolCls fill:#0f766e22,stroke:#0f766e
+  classDef agentCls fill:#b4530922,stroke:#b45309
+  classDef otelCls fill:#7e22ce22,stroke:#7e22ce
+  classDef extCls fill:#00000011,stroke:#00000044
+  class MAN,SLO,CON,SCH,AIG specCls
+  class NTH,GHA toolCls
+  class SIT,MAY,ARB agentCls
+  class CHE,DET otelCls
+  class PRO extCls
+</pre></div>
+</div>
+<div class="sep"></div>
+
+<!-- ========== CHECKPOINT ========== -->
+<div id="check" class="sec-head anim" style="--i:0"><span class="dot" style="background:var(--spec)"></span>Comprehension Checkpoint</div>
+<div class="checkpoint anim" style="--i:1">
+<h3>If you understood this codebase, you should be able to explain&hellip;</h3>
+<ol>
+<li>Why the manifest separates <code>spec.contract</code> from <code>spec.slos</code>, and which is typically tighter.</li>
+<li>What makes <code>ai-gate</code> fundamentally different from <code>api</code>, and what &ldquo;reversal rate&rdquo; measures.</li>
+<li>Why NthLayer is a tool but Sitrep is an agent &mdash; using the component taxonomy test.</li>
+<li>How the 4-level judgment SLO maturity model progresses and why you shouldn&rsquo;t skip Level 2.</li>
+<li>How the Arbiter creates a one-way safety ratchet and why that matters for AI governance.</li>
+</ol>
+</div>
+
+</div><!-- /main -->
+</div><!-- /wrap -->
+
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+mermaid.initialize({
+  startOnLoad: true, theme: 'base', look: 'classic',
+  themeVariables: {
+    primaryColor: isDark ? '#243044' : '#e8edf4',
+    primaryBorderColor: isDark ? '#7db4e0' : '#1e3a5f',
+    primaryTextColor: isDark ? '#dce4ee' : '#1e2a3a',
+    secondaryColor: isDark ? '#1a2a1a' : '#ecfdf5',
+    secondaryBorderColor: isDark ? '#5eead4' : '#0f766e',
+    secondaryTextColor: isDark ? '#dce4ee' : '#1e2a3a',
+    tertiaryColor: isDark ? '#2a2010' : '#fef3c7',
+    tertiaryBorderColor: isDark ? '#fbbf24' : '#b45309',
+    tertiaryTextColor: isDark ? '#dce4ee' : '#1e2a3a',
+    lineColor: isDark ? '#4a5568' : '#94a3b8',
+    fontSize: '18px',
+    fontFamily: "'DM Sans', system-ui, sans-serif",
+    noteBkgColor: isDark ? '#1a2332' : '#fefce8',
+    noteTextColor: isDark ? '#dce4ee' : '#1e2a3a',
+    noteBorderColor: isDark ? '#fbbf24' : '#b45309',
+  }
+});
+</script>
+<script>
+function zoom(btn,f){const w=btn.closest('.mermaid-wrap'),i=w.querySelector('.mermaid-inner');if(!i._z)i._z={s:1};i._z.s=Math.max(.5,Math.min(4,i._z.s*f));const svg=i.querySelector('svg');if(svg)svg.style.transform='scale('+i._z.s+')'}
+function resetZoom(btn){const w=btn.closest('.mermaid-wrap'),i=w.querySelector('.mermaid-inner');i._z={s:1};const svg=i.querySelector('svg');if(svg)svg.style.transform='scale(1)'}
+document.querySelectorAll('.mermaid-inner').forEach(i=>{i._z={s:1};i.addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey){e.preventDefault();const f=e.deltaY>0?.9:1.1;i._z.s=Math.max(.5,Math.min(4,i._z.s*f));const svg=i.querySelector('svg');if(svg)svg.style.transform='scale('+i._z.s+')'}},{passive:false});let d=false,sx,sy,sl,st;i.addEventListener('mousedown',e=>{d=true;sx=e.pageX-i.offsetLeft;sy=e.pageY-i.offsetTop;sl=i.scrollLeft;st=i.scrollTop;i.classList.add('dragging')});document.addEventListener('mousemove',e=>{if(!d)return;e.preventDefault();i.scrollLeft=sl-(e.pageX-i.offsetLeft-sx);i.scrollTop=st-(e.pageY-i.offsetTop-sy)});document.addEventListener('mouseup',()=>{d=false;i.classList.remove('dragging')})});
+</script>
+<script>
+(function(){const toc=document.getElementById('toc'),links=toc.querySelectorAll('a'),sections=[];links.forEach(l=>{const id=l.getAttribute('href').slice(1),el=document.getElementById(id);if(el)sections.push({id,el,link:l})});const obs=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(entry.isIntersecting){links.forEach(l=>l.classList.remove('active'));const m=sections.find(s=>s.el===entry.target);if(m){m.link.classList.add('active');if(window.innerWidth<=1000)m.link.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})}}})},{rootMargin:'-10% 0px -80% 0px'});sections.forEach(s=>obs.observe(s.el));links.forEach(l=>{l.addEventListener('click',e=>{e.preventDefault();const id=l.getAttribute('href').slice(1),el=document.getElementById(id);if(el){el.scrollIntoView({behavior:'smooth',block:'start'});history.replaceState(null,'','#'+id)}})})})();
+</script>
+</body>
+</html>
