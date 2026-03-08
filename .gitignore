@@ -39,3 +39,7 @@ npm-debug.log*
 # Temporary files
 tmp/
 temp/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
