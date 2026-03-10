@@ -23,6 +23,7 @@ Ecosystem components:
 - GitHub Action for CI/CD validation
 - NthLayer: reliability-as-code CLI tool (Alpha, available on PyPI) — validation, artifact generation, deployment gates
 - OTel semantic conventions: Change Events, Decision Telemetry
+- **Verdict**: data primitive (Python library implemented) — schema + transport library for recording AI judgments and closing the loop on correctness; foundation layer all other components depend on; repo: `verdicts/`
 - SitRep: pre-correlation agent (architecture phase) — continuously groups signals; snapshot schema; states: WATCHING/ALERT/INCIDENT/DEGRADED
 - Mayday: multi-agent incident response (architecture phase) — deterministic orchestrator + Triage/Investigation/Communication/Remediation agents; PagerDuty downstream not upstream
 - Arbiter: quality measurement engine + governance (architecture phase) — per-agent tracking, self-calibration, one-way safety ratchet; proven as Guardian in GasTown
@@ -65,7 +66,7 @@ opensrm/
 │   ├── src/
 │   │   ├── project.ts              # Animation project entry point (single scene: ecosystem)
 │   │   ├── project.meta            # Motion Canvas metadata (canvas 1280x720, preview 30fps, rendering 60fps, PNG image-sequence export quality 100, colorSpace srgb, groupByScene false)
-│   │   └── scenes/ecosystem.tsx    # Interactive ecosystem visualization (7-phase narrative, ~977 lines)
+│   │   └── scenes/ecosystem.tsx    # Interactive ecosystem visualization (7-phase narrative)
 │   └── output/                      # Rendered animations (GIF/MP4/PNG sequence)
 ├── articles/                         # Conceptual documentation
 ├── skills/shift-left-reliability/   # Claude Code skill
@@ -73,26 +74,46 @@ opensrm/
 └── .claude/                         # Claude configuration
 ```
 
-Major reorganization complete as of commit df80f12:
-- apiVersion standardized to `opensrm/v1` across all files
-- README unified with ecosystem diagram
-- Conventions and components directories added
-- ARCHITECTURE.md created with comprehensive ecosystem documentation with component taxonomy (data sources, tools, agents)
-- Diagrams added for ecosystem overview, component flow, and AI reliability stack
-- IncidentTown renamed to Mayday across all documentation
-- Arbiter agent added for judgment SLO enforcement
+### 4-Layer System Architecture (from ARCHITECTURE.md)
 
-Latest updates (commit ab2167a and related):
-- ARCHITECTURE.md expanded with detailed component taxonomy, reasoning boundary principle, and system overview diagrams
-- STATUS.md added with comprehensive component status table (stable/partial/in-design/architecture)
-- REPO-SPEC.md added documenting repository expansion from spec-only to full ecosystem hub
-- Components renamed: IncidentTown → Mayday (multi-agent incident response with triage, investigation, communication, remediation agents)
-- New component: Mayday (in components/mayday/) replacing IncidentTown namespace
-- Diagram export tooling (excalidraw-to-svg.mjs) added for automated SVG generation with light+dark themes
+```
+Static Layer (Data + Tools)
+  OpenSRM Manifests → NthLayer Compiler → Generated Artifacts (Prom rules, Grafana, topology)
+  Execution: on-demand (CLI) or CI/CD pipeline. No long-running processes. Fully deterministic.
+        │
+        ▼
+Verdict Layer (Data Primitive)  ← THE shared substrate for all agent feedback
+  verdict.create()  verdict.resolve()  verdict.query()
+  Store: SQLite (Tier 1); PostgreSQL/ClickHouse deferred.
+  OTel events (gen_ai.decision.*, gen_ai.override.*) are SIDE-EFFECTS, not the primary path.
+        │
+        ▼
+Agent Layer (Reasoning)
+  Sitrep → [verdict] → Mayday Agents ← [verdict.accuracy()] → Arbiter
+  All agents emit verdicts with lineage. Verdict store is primary feedback mechanism.
+        │ OTel side-effects
+        ▼
+Semantic Conventions (OTel)
+  Change Events | Decision Telemetry | Outcomes
+  Emitted automatically on verdict create/resolve → Prometheus → Grafana via NthLayer
+```
+
+### Agent Communication
+Three mechanisms (from ARCHITECTURE.md):
+- **Verdicts with lineage** (cross-component, primary): SitRep emits correlation verdicts → Mayday triage consumes and emits triage verdicts linked via lineage → Investigation → Remediation. Traceable chain; verdict store is queryable without direct coupling.
+- **Shared incident context** (within Mayday, same process): agents read/write a single YAML accumulator object. Agents are function calls sequenced by coordinator — no mailboxes, no polling.
+- **OTel events** (observability side-channel, read-only): `gen_ai.decision.*` and `gen_ai.override.*` feed Prometheus/Grafana. Not a communication path.
+
+Mayday coordinator: deterministic state machine, not an agent. Sequences `triage()` → `investigate()` + `communicate()` in parallel → `remediate()` as direct function calls. If scale requires separate processes, transport changes to NATS or direct HTTP.
+
+### Agent Observability
+Each agent has its own OpenSRM manifest (`type: ai-gate`). The same spec/tooling that defines service reliability defines agent reliability.
+- verdict.gaming-check: score-outcome divergence > 0.10 triggers alerts
+- 7-step pipeline: `verdict.create()` → `verdict.resolve()` → OTel events → Prometheus → NthLayer dashboards → `verdict.accuracy()` (Arbiter) → governance decisions
 
 Standalone component repositories (architecture phase, not yet implemented). License: Apache 2.0. Contributing: fork → feature branch from main → PR:
-- `arbiter/`: Quality measurement engine — per-agent quality tracking (rolling windows), degradation detection, self-calibration (false accept rate/precision/recall via gen_ai.decision.* + gen_ai.override.* OTel events), cost-per-quality tracking, governance (one-way safety ratchet). Config: arbiter.yaml. CLI: `arbiter start --config arbiter.yaml`. Adapters: GasTown, generic webhook, Devin (planned). Proven as Guardian in GasTown (PR #2263, Steve Yegge). ZFC canonical doc: arbiter/ZFC.md
-- `sitrep/`: Pre-correlation agent — continuously groups signals (WATCHING→ALERT→INCIDENT→DEGRADED states). Snapshot schema: id, triggered_by, window, severity, summary, signals, correlations (with confidence scores), topology, recommended_actions. Generation modes: batch (5-min), incident-triggered, refresh (1-min during INCIDENT). Change attribution via OpenSRM change event schema. Self-measured: correlation accuracy + false positive rate as judgment SLOs via Arbiter.
+- `arbiter/`: Quality measurement engine — per-agent quality tracking (rolling windows), degradation detection, self-calibration, cost-per-quality tracking, governance (one-way safety ratchet). Config: arbiter.yaml. CLI: `arbiter start --config arbiter.yaml`. Adapters: GasTown, generic webhook, Devin (planned). ZFC canonical doc: arbiter/ZFC.md
+- `sitrep/`: Pre-correlation agent — continuously groups signals (WATCHING→ALERT→INCIDENT→DEGRADED states). Snapshot schema: id, triggered_by, window, severity, summary, signals, correlations (with confidence scores), topology, recommended_actions. Generation modes: batch (5-min), incident-triggered, refresh (1-min during INCIDENT). Self-measured: correlation accuracy + false positive rate as judgment SLOs via Arbiter.
 - `mayday/`: Multi-agent incident response — deterministic state machine orchestrator (transport, not agent framework). Alert flow: Alert Source → SitRep Snapshot → Mayday Orchestrator → Agent Pipeline → Notification Channels. PagerDuty is DOWNSTREAM of Mayday. Agents: Triage (<10% severity reversal), Investigation (70% post-incident agreement), Communication (<15% human edit rate), Remediation (80% fix success). Shared incident context YAML. Pre-approved safe actions in OpenSRM manifest enable automated remediation without human approval.
 <!-- END AUTO-MANAGED -->
 
@@ -198,8 +219,9 @@ Judgment SLOs are defined within `spec.slos.judgment`:
 5. **Reasoning Boundary**: Agent capabilities reserved for components requiring interpretation. Deterministic operations (validation, generation, arithmetic) remain as tools that agents invoke.
 
 ### Component Taxonomy (from ARCHITECTURE.md)
-Three execution models determine how components are built, deployed, tested, and monitored:
+Four execution models determine how components are built, deployed, tested, and monitored:
 - **Data Sources**: Static, queryable, no reasoning (OpenSRM manifests in Git, Prometheus metrics, change event logs)
+- **Data Primitives**: Schema + transport library, no reasoning (Verdict — records AI judgments, sits below all other components in the dependency graph)
 - **Tools**: Deterministic, invocable, no reasoning (NthLayer compiler, schema validator, dependency math engine)
 - **Agents**: Reasoning, adaptive, judgment required (Sitrep, Mayday Triage/Investigation/Communication/Remediation, Arbiter)
 
@@ -208,9 +230,11 @@ Test: Does this component need to reason about ambiguous inputs? If yes, it's an
 Why this matters: Data and tool layers work without any AI. Teams can adopt OpenSRM manifests and NthLayer today with zero agents. The agent layer is additive, not foundational. System degrades gracefully if an agent fails.
 
 ### Data Flows (from ARCHITECTURE.md)
-- **Manifest → Monitoring**: service.reliability.yaml → NthLayer → Prometheus rules/Grafana dashboards
-- **Telemetry → Snapshot → Decision**: Systems telemetry → Sitrep correlation → Consumer decisions → Decision telemetry events
-- **Decision → SLO Measurement**: Decision/reversal events → Prometheus metrics → Alerting on judgment SLO breaches
+- **Flow 1 — Manifest → Monitoring**: service.reliability.yaml → NthLayer (validate + generate) → Prometheus rules / Grafana dashboards / topology → Sitrep
+- **Flow 2 — Events → Verdicts (Sitrep loop)**: Alerts/changes (webhook) + topology (NthLayer tool call) + Arbiter quality verdicts → Sitrep correlates → `verdict.create()` correlation + snapshot verdicts with lineage → [OTel side-effect: gen_ai.decision.* per correlation]
+- **Flow 3 — Decision → Verdict → Measurement**: Any agent `verdict.create()` → [OTel side-effect] → human/CI `verdict.resolve()` → [OTel side-effect] → Arbiter `verdict.accuracy()` + `verdict.gaming-check()` → autonomy policy back to agents
+- **Flow 4 — Agent Tool Invocation**: Agent → `topology_query` to NthLayer → NthLayer reads manifest → returns topology.json; Agent → `check_deploy_gate` → pass/fail
+- **Flow 5 — Incident Lifecycle**: PagerDuty → Sitrep snapshot → Orchestrator creates context → Triage (severity/blast radius) → Investigation + Communication in parallel → Remediation → Communication update
 
 ### Integration Points
 External systems: Prometheus (remote write, query), Alertmanager (webhook), GitHub/ArgoCD/LaunchDarkly (webhooks for change events), PagerDuty (API, webhook), Grafana (JSON import), OTel Collector (OTLP for logs/traces)
@@ -221,6 +245,9 @@ External systems: Prometheus (remote write, query), Alertmanager (webhook), GitH
 ## Ecosystem Components
 
 <!-- AUTO-MANAGED: ecosystem-components -->
+### Data Primitives Layer
+- **Verdict** (repo: `verdicts/`): Schema + Python transport library for recording AI judgments and measuring correctness. Foundation layer — all judgment-producing components (Arbiter, SitRep, Mayday) depend on it. No reasoning, no model calls. Status: Python library implemented (`pip install verdict`). Three phases per verdict: Judgment (at decision time), Outcome (filled later), Lineage (optional links). Key operations: `create()`, `link()`, `resolve()`, `accuracy()`, `gaming-check()` (score-outcome divergence > 0.10 triggers alert), `review()`, `replay()`. Store: SQLite (Tier 1, default); PostgreSQL/ClickHouse deferred until contention warrants. OTel emission (`gen_ai.decision.*`, `gen_ai.override.*`) is a side-effect of verdict operations, not a separate instrumentation step. Verdict store is the shared substrate — not OTel, not Prometheus, not a message bus. See `verdicts/CLAUDE.md` for full API reference.
+
 ### Static Layer (Data + Tools)
 - **OpenSRM Manifests**: Source of truth in Git for service identity, SLO targets, dependencies, contracts, AI gates. No reasoning, fully deterministic.
 - **NthLayer Compiler**: Tool that transforms manifests into operational artifacts. Validates schema, generates Prometheus rules/Grafana dashboards, calculates dependency math, exports topology. Execution: on-demand (CLI) or CI/CD pipeline. No long-running processes.
@@ -229,32 +256,30 @@ External systems: Prometheus (remote write, query), Alertmanager (webhook), GitH
 
 ### Agent Layer (Reasoning)
 - **SitRep Agent** (repo: `sitrep/`): Long-running pre-correlation agent — continuously groups signals in background so correlated view is ready before anyone asks
-  - Signal sources: OTel metrics/traces, Alertmanager, change events (OpenSRM schema), Arbiter quality scores, CI/CD deployment records
-  - Generation modes: batch (5-min periodic), incident-triggered (deeper correlation), refresh/on-demand (1-min cycle during incidents)
+  - Tier 1 inputs: Alerts (webhook), Changes (webhook), Topology (NthLayer tool call), Verdicts (Arbiter quality verdicts as events)
+  - Tier 2/3 deferred inputs: Metrics (Prometheus remote write), Logs (OTLP), Events via NATS/Kafka
+  - Outputs: correlation verdicts + snapshot verdicts stored in SQLite FTS5 (Tier 1); snapshot verdicts link to child correlation verdicts via lineage
   - States: WATCHING → ALERT → INCIDENT → DEGRADED (self-aware: reduces confidence when own accuracy drops)
-  - Snapshot schema: id, triggered_by, window, severity, summary (model-generated), signals, correlations (with confidence scores), topology, recommended_actions
+  - DEGRADED mode: when model unavailable, continues transport pipeline (ingest, group, deduplicate), emits template-based verdicts with `confidence: 0.0`, flagged for human review; fully testable without a model
   - Self-measured via Arbiter: correlation accuracy and false positive rate as judgment SLOs
-  - Streaming layer: Kafka (enterprise, partitioned by service/signal type) or NATS (small deployments)
 
 - **Mayday Agents** (repo: `mayday/`): Multi-agent incident response — architecture phase
-  - Orchestrator: deterministic state machine (transport), not an agent framework — sequences agents (judgment). Pure ZFC.
+  - Orchestrator: deterministic state machine (transport), not an agent framework — sequences agents as direct function calls. Pure ZFC.
   - Alert flow: Alert Source → SitRep Snapshot → Mayday Orchestrator → Agent Pipeline → Notification Channels. PagerDuty is DOWNSTREAM of Mayday, not upstream.
-  - Triage Agent: severity, blast radius, team assignment. Judgment SLO: reversal rate on severity <10%
-  - Investigation Agent: hypotheses from SitRep snapshots, root cause ranking by confidence. Judgment SLO: post-incident agreement target 70%
-  - Communication Agent: audience-appropriate messaging, channel + timing selection. Judgment SLO: human edit rate <15%
-  - Remediation Agent: executes pre-approved safe actions from OpenSRM manifest. Judgment SLO: fix success rate 80%
-  - Incident context: shared YAML object accumulating findings (triage, investigation, communication, remediation sections)
-  - Human-in-the-loop: destructive actions require human approval unless pre-approved in manifest
+  - Triage Agent: severity, blast radius, team assignment. Authority: can set severity, page teams, assign ownership; cannot remediate or override existing classification without human approval. Judgment SLO: <10% severity reversal rate
+  - Investigation Agent: hypotheses from SitRep snapshots, root cause ranking by confidence. Authority: can declare root cause when confidence exceeds threshold; cannot execute remediation. Judgment SLO: 70% post-incident agreement
+  - Communication Agent: audience-appropriate messaging, channel + timing selection. Authority: can draft/send within pre-approved templates; cannot contradict investigation findings or communicate resolution before remediation confirmed. Judgment SLO: <15% human edit rate
+  - Remediation Agent: executes pre-approved safe actions (rollback, scale up, disable feature flag) without human approval; cannot execute novel remediation not pre-approved in manifest; cannot act outside blast radius. Judgment SLO: 80% fix success rate
+  - Incident context: shared YAML object accumulating findings (triage, investigation, communication, remediation sections); agents read/write within same process
   - Post-incident learning: findings → manifest updates, NthLayer rule refinements, Arbiter threshold revisions, SitRep correlation improvements
 
 - **Arbiter** (repo: `arbiter/`): Quality measurement engine + governance — architecture phase
-  - Core: per-agent quality tracking (rolling windows), degradation detection, self-calibration, cost-per-quality tracking
-  - Self-calibration metrics: false accept rate, precision, recall — via `gen_ai.decision.*` and `gen_ai.override.*` OTel events
-  - Governance: one-way safety ratchet — can always reduce agent autonomy (safe direction), can never increase it without human approval
-  - Config: `arbiter.yaml` (evaluator model, dimensions, per-agent judgment SLOs with reversal_rate targets and windows)
-  - CLI: `arbiter start --config arbiter.yaml`
-  - Adapters: GasTown, generic webhook, Devin (planned)
-  - ZFC canonical document lives at `arbiter/ZFC.md` — applies to entire ecosystem
+  - Phase 1 (verdict integration): `pipeline.evaluate()` emits verdict via `verdict.create()`; human overrides call `verdict.resolve(status="overridden")`; self-calibration queries `verdict.accuracy(producer="arbiter")`
+  - Phase 2 (risk tiering): Minimal (auto-approve) | Standard (light eval) | Deep (full multi-dimension) | Critical (frontier model). 5% calibration sampling of auto-approved; 5% deep eval sampling of high-scoring, linked via lineage; verdicts auto-resolve from CI signals (test failure, deploy regression, revert)
+  - Governance triggers: override rate > SLO → increase human review threshold; error budget exhausted → advisory-only mode; sustained good performance → propose autonomy increase (human approval required); calibration drift → flag for retraining; score-outcome divergence > 0.10 → gaming alert
+  - Governance: one-way safety ratchet — can always reduce agent autonomy, can never increase without human approval
+  - Config: `arbiter.yaml` | CLI: `arbiter start --config arbiter.yaml`
+  - ZFC canonical document: `arbiter/ZFC.md` — applies to entire ecosystem
 
 ### Zero Framework Cognition (ZFC)
 Core architectural principle for all ecosystem components. Canonical doc: `arbiter/ZFC.md`.
@@ -301,8 +326,8 @@ From specification section 1.1:
 
 ### Ecosystem Documentation
 - `README.md`: Unified project overview with ecosystem diagram, component status table, core features (contracts & SLOs, dependency-aware feasibility, ownership, observability, deployment gates, templates), quick start examples (as of df80f12)
-- `ARCHITECTURE.md`: Comprehensive ecosystem architecture with design principles (schemas + enforcement, shift-left reliability, operator-agnostic, open standards, reasoning boundary), component taxonomy diagram (data sources vs tools vs agents with decision test), system overview showing static layer (manifests + NthLayer) and agent layer (Sitrep + Mayday + Arbiter), component details, data flows (manifest → monitoring, telemetry → snapshot → decision), integration points
-- `ECOSYSTEM.md`: How components compose — component taxonomy (data sources/tools/agents), integration diagram, data flows (forward/quality/change/learning paths), event volume problem, streaming layer (NATS vs Kafka), deployment tiers (Tier 1–3+), post-incident learning loop, change event ecosystem (traditional + AI-specific change types)
+- `ARCHITECTURE.md`: Comprehensive ecosystem architecture with design principles, component taxonomy (data sources / data primitives / tools / agents with decision test), 4-layer system overview (Static → Verdict → Agent → OTel), component details (Verdict, NthLayer, Sitrep, Mayday, Arbiter), agent communication protocol (verdicts with lineage, shared incident context, OTel side-channel), agent observability (each agent has its own ai-gate manifest), 5 data flows (manifest → monitoring; events → verdicts; decision → verdict → measurement; agent tool invocation; incident lifecycle), integration points
+- `ECOSYSTEM.md`: How components compose — component taxonomy (data sources/tools/agents), integration diagram, data flows (forward/quality/change/learning paths), event volume problem, streaming layer (NATS vs Kafka), deployment tiers (Tier 1–3+), post-incident learning loop, change event ecosystem (traditional + AI-specific change types), security model (data classification, access control, agent authority boundaries — one-way safety ratchet)
 - `IMPLEMENTATIONS.md`: Tools implementing OpenSRM (GitHub Action, NthLayer, Shift-Left Reliability Skill), contribution guidelines for listing new tools
 - `STATUS.md`: Comprehensive component status table with legend (stable/partial/drafted/in-design/architecture), sections for specification, tooling, agent layer, and semantic conventions with progress tracking
 - `REPO-SPEC.md`: Repository expansion specification documenting evolution from spec-only to ecosystem hub, current directory structure, target expanded structure, and new files being added
@@ -320,7 +345,7 @@ From specification section 1.1:
 ### Standalone Component Repositories (Architecture Phase)
 - `arbiter/README.md`: Quality measurement engine full design — ZFC architecture, self-calibration metrics (false accept rate, precision, recall), governance one-way ratchet, cost tracking, adapter list, OpenSRM manifest integration
 - `arbiter/ZFC.md`: Canonical Zero Framework Cognition document — transport vs judgment distinction, practical implications (config as guidance, fail open, self-calibration, model-agnostic), what ZFC is not
-- `arbiter/CONTRIBUTING.md`: Contribution guide referencing ZFC.md and Wasteland Wanted Board
+- `arbiter/CONTRIBUTING.md`: Contribution guide referencing ZFC.md — fork → feature branch from main → PR; issue templates for bug reports and feature requests
 - `sitrep/README.md`: SitRep full design — pre-correlation concept, snapshot schema, generation modes, agent states (WATCHING/ALERT/INCIDENT/DEGRADED), change attribution via OpenSRM change event schema, signal sources, self-measurement via Arbiter
 - `sitrep/CONTRIBUTING.md`: Contribution guide with ZFC transport/judgment split for SitRep (transport=ingest/group/window/count; judgment=interpret correlations/assess causality)
 - `mayday/README.md`: Mayday full design — alert flow (PagerDuty downstream), orchestration model (deterministic state machine), all four agent roles with judgment SLOs, incident context schema, human-in-the-loop design, post-incident learning loop, OpenSRM integration

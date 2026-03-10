@@ -30,7 +30,7 @@ Agent capabilities are reserved for components that require interpretation of am
 
 ## Component Taxonomy
 
-Every component in the ecosystem falls into one of three categories based on its execution model. This distinction is architectural, not cosmetic: it determines how the component is built, deployed, tested, and monitored.
+Every component in the ecosystem falls into one of four categories based on its execution model. This distinction is architectural, not cosmetic: it determines how the component is built, deployed, tested, and monitored.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -42,6 +42,9 @@ Every component in the ecosystem falls into one of three categories based on its
 │  ├── Prometheus/OTel metrics     Time-series, queryable             │
 │  └── Change event logs           Deployment, config, flag history   │
 │                                                                      │
+│  DATA PRIMITIVES (schema + transport, no reasoning)                 │
+│  └── Verdict                     Structured record of AI judgments  │
+│                                                                      │
 │  TOOLS (deterministic, invocable, no reasoning)                     │
 │  ├── NthLayer compiler           Manifest in, artifacts out         │
 │  ├── Schema validator            YAML in, pass/fail out             │
@@ -49,18 +52,18 @@ Every component in the ecosystem falls into one of three categories based on its
 │                                                                      │
 │  AGENTS (reasoning, adaptive, judgment required)                    │
 │  ├── Sitrep                      Continuous correlation             │
-│  ├── IncidentTown Triage         Severity and blast radius          │
-│  ├── IncidentTown Investigation  Root cause analysis                │
-│  ├── IncidentTown Communication  Stakeholder updates                │
-│  ├── IncidentTown Remediation    Fix suggestion and validation      │
-│  └── Reliability Governor        Judgment SLO enforcement           │
+│  ├── Mayday Triage               Severity and blast radius          │
+│  ├── Mayday Investigation        Root cause analysis                │
+│  ├── Mayday Communication        Stakeholder updates                │
+│  ├── Mayday Remediation          Fix suggestion and validation      │
+│  └── Arbiter                     Evaluation + governance            │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**The test:** Does this component need to reason about ambiguous inputs to produce its output? If yes, it's an agent. If it does the same thing every time given the same input, it's a tool. If it's queryable state that other things read, it's a data source.
+**The test:** Does this component need to reason about ambiguous inputs to produce its output? If yes, it's an agent. If it does the same thing every time given the same input, it's a tool. If it's a structured record format that other components read and write, it's a data primitive. If it's queryable state, it's a data source.
 
-**Why this matters:** The data and tool layers work without any AI in the stack. Teams can adopt OpenSRM manifests and NthLayer today with zero agents and still get validated manifests, generated monitoring, and dependency math. The agent layer is additive, not foundational. The system degrades gracefully if an agent fails.
+**Why this matters:** The data, primitive, and tool layers work without any AI in the stack. Teams can adopt OpenSRM manifests, NthLayer, and the verdict library today with zero agents and still get validated manifests, generated monitoring, and structured decision records. The agent layer is additive, not foundational. The system degrades gracefully if an agent fails.
 
 ---
 
@@ -92,38 +95,59 @@ Every component in the ecosystem falls into one of three categories based on its
 │                 │ contracts,         │ (validate, generate,              │
 │                 │ SLO context        │  topology export)                 │
 │                 ▼                    ▼                                    │
+│  ┌───────────────────────────────────────────────────────────────────┐  │
+│  │              VERDICT LAYER (Data Primitive)                        │  │
+│  │                                                                     │  │
+│  │  Every judgment-producing component writes verdicts. Every          │  │
+│  │  feedback-consuming component reads them. The verdict store is      │  │
+│  │  the shared substrate, not OTel, not Prometheus, not a message bus. │  │
+│  │                                                                     │  │
+│  │  ┌────────────────┐  ┌────────────────────┐  ┌────────────────┐   │  │
+│  │  │ verdict.create │  │ verdict.resolve    │  │ verdict.query  │   │  │
+│  │  │                │  │                    │  │                │   │  │
+│  │  │ Agent emits    │  │ Human confirms or  │  │ accuracy()     │   │  │
+│  │  │ judgment with  │  │ overrides. CI auto-│  │ gaming-check() │   │  │
+│  │  │ confidence +   │  │ resolves from test │  │ review()       │   │  │
+│  │  │ lineage links  │  │ failure / revert   │  │ replay()       │   │  │
+│  │  └────────────────┘  └────────────────────┘  └────────────────┘   │  │
+│  │                                                                     │  │
+│  │  Store: SQLite (Tier 1). PostgreSQL, ClickHouse when needed.       │  │
+│  │  OTel emission: side-effect of verdict creation, not the primary   │  │
+│  │  feedback path.                                                     │  │
+│  └───────────────────────────────────────────────────────────────────┘  │
+│                 │ verdicts with                                          │
+│                 │ lineage                                                │
+│                 ▼                                                        │
 │  ╔═══════════════════════════════════════════════════════════════════╗  │
 │  ║                AGENT LAYER (Reasoning)                            ║  │
 │  ║                                                                   ║  │
-│  ║  ┌──────────────────┐            ┌────────────────────────────┐  ║  │
-│  ║  │  Sitrep Agent    │  snapshot  │      IncidentTown Agents   │  ║  │
-│  ║  │                  │───────────▶│                            │  ║  │
+│  ║  ┌──────────────────┐  verdict   ┌────────────────────────────┐  ║  │
+│  ║  │  Sitrep Agent    │───────────▶│      Mayday Agents         │  ║  │
+│  ║  │                  │            │                            │  ║  │
 │  ║  │  Observe:        │            │  ┌──────────────────────┐  │  ║  │
-│  ║  │  • metrics       │            │  │ Triage               │  │  ║  │
-│  ║  │  • alerts        │            │  │ Investigation        │  │  ║  │
-│  ║  │  • changes       │            │  │ Communication        │  │  ║  │
-│  ║  │  • topology      │            │  │ Remediation          │  │  ║  │
-│  ║  │                  │            │  └──────────────────────┘  │  ║  │
-│  ║  │  Reason:         │            │                            │  ║  │
-│  ║  │  • correlate     │            │  Shared: incident context  │  ║  │
-│  ║  │  • assess        │            │  Orchestration: pipeline   │  ║  │
-│  ║  │  • prioritise    │            └────────────────────────────┘  ║  │
-│  ║  └──────────────────┘                        ▲                   ║  │
-│  ║           ▲                                  │                   ║  │
+│  ║  │  • alerts        │            │  │ Triage               │  │  ║  │
+│  ║  │  • changes       │            │  │ Investigation        │  │  ║  │
+│  ║  │  • topology      │            │  │ Communication        │  │  ║  │
+│  ║  │                  │            │  │ Remediation          │  │  ║  │
+│  ║  │  Reason:         │            │  └──────────────────────┘  │  ║  │
+│  ║  │  • correlate     │            │                            │  ║  │
+│  ║  │  • assess        │            │  Shared: incident context  │  ║  │
+│  ║  │  • prioritise    │            │  Orchestration: pipeline   │  ║  │
+│  ║  └──────────────────┘            └────────────────────────────┘  ║  │
+│  ║           ▲                                  ▲                   ║  │
 │  ║           │             ┌──────────────────┐ │                   ║  │
-│  ║           │             │    Reliability   │ │                   ║  │
-│  ║           └─────────────│    Governor      │─┘                   ║  │
-│  ║     judgment SLO        │                  │  autonomy           ║  │
-│  ║     metrics             │  Watches:        │  adjustments        ║  │
-│  ║                         │  • reversal rate │                     ║  │
-│  ║                         │  • error budgets │                     ║  │
+│  ║           │             │    Arbiter       │ │                   ║  │
+│  ║           └─────────────│                  │─┘                   ║  │
+│  ║     verdict.accuracy()  │  Evaluates:      │  autonomy           ║  │
+│  ║     queries             │  • agent output  │  adjustments        ║  │
+│  ║                         │  • risk tier     │                     ║  │
 │  ║                         │  • calibration   │                     ║  │
 │  ║                         └──────────────────┘                     ║  │
 │  ║                                                                   ║  │
-│  ║  Execution: long-running processes. Stateful. Non-deterministic. ║  │
-│  ║  Every agent decision emits OTel telemetry.                       ║  │
+│  ║  All agents emit verdicts with lineage. The verdict store is the  ║  │
+│  ║  primary feedback mechanism. OTel events are a side-effect.       ║  │
 │  ╚══════════════════════════════╤════════════════════════════════════╝  │
-│                                 │ decision + reversal events            │
+│                                 │ OTel side-effects                     │
 │                                 ▼                                        │
 │  ┌───────────────────────────────────────────────────────────────────┐  │
 │  │                  SEMANTIC CONVENTIONS (OTel)                        │  │
@@ -135,6 +159,8 @@ Every component in the ecosystem falls into one of three categories based on its
 │  │  │ change.scope.* │  │                    │  │                │   │  │
 │  │  └────────────────┘  └────────────────────┘  └────────────────┘   │  │
 │  │                                                                     │  │
+│  │  Emitted automatically when verdicts are created and resolved.     │  │
+│  │  Enables Prometheus metrics and Grafana dashboards via NthLayer.   │  │
 │  │  Transport: OTel Events | Storage: Any OTel-compatible backend     │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
 │                                                                          │
@@ -163,6 +189,36 @@ Every component in the ecosystem falls into one of three categories based on its
 - Dependency declarations enable cross-service math
 
 **Why it's not an agent:** Manifests are static declarations stored in Git. They don't interpret, adapt, or reason. Tools read them; agents query them. Nothing about serving structured data requires intelligence.
+
+---
+
+## Component Details: Data Primitives
+
+### Verdict
+
+**Category:** Data primitive
+
+**Purpose:** The structured record format for every AI judgment in the ecosystem. A verdict captures what was decided, with what confidence, and — once outcomes are known — whether it was correct. Every judgment-producing component (Arbiter, SitRep, Mayday agents) writes verdicts. Every feedback-consuming component reads them. The verdict store is the shared substrate for calibration, gaming detection, and human review.
+
+**Three phases per verdict:**
+1. **Judgment** (at decision time): producer, decision, confidence, context
+2. **Outcome** (filled later): human confirms, human overrides, or CI auto-resolves (test failure, deploy regression, revert)
+3. **Lineage** (optional): links to parent/child verdicts forming chains (e.g., triage verdict → investigation verdict → remediation verdict)
+
+**Key operations:**
+- `verdict.create()` — emit a verdict when making a judgment
+- `verdict.resolve()` — confirm or override a verdict (human or automated)
+- `verdict.link()` — connect verdicts via lineage
+- `verdict.accuracy()` — query confirmation rate, override rate, calibration gap per producer
+- `verdict.gaming-check()` — score-outcome divergence per agent over rolling window
+- `verdict.review()` — list pending/overdue verdicts needing human attention
+- `verdict.replay()` — re-evaluate historical verdicts against current model/prompt
+
+**Store:** SQLite (Tier 1, default). PostgreSQL and ClickHouse stores are deferred until SQLite contention or query volume warrants them.
+
+**OTel integration:** `gen_ai.decision.*` and `gen_ai.override.*` events are emitted automatically when verdicts are created and resolved. This is a side-effect of verdict operations, not a separate instrumentation step.
+
+**Why it's not an agent:** Verdict is pure schema and transport. It records decisions — it doesn't make them. No model calls, no reasoning. It's the foundation layer that sits below all agents in the dependency graph.
 
 ---
 
@@ -211,17 +267,21 @@ nthlayer portfolio                     # Org-wide SLO health view
 
 **Why it's an agent:** Correlation is inherently a reasoning task. "A deployment happened 12 minutes ago to auth-service, and now checkout-service latency is spiking, and these two services share a critical dependency path": connecting those dots requires understanding topology, temporal proximity, and causal plausibility. Different situations demand different correlation strategies. This is interpretation, not aggregation.
 
-**Inputs:**
-- Metrics (Prometheus remote write)
-- Alerts (Alertmanager webhook)
-- Changes (GitHub, ArgoCD, LaunchDarkly webhooks)
-- Logs (OTLP)
+**Inputs (Tier 1):**
+- Alerts (webhook ingester)
+- Changes (webhook ingester — GitHub, ArgoCD, etc.)
 - Topology (from NthLayer, via tool call)
+- Verdicts (Arbiter quality verdicts accepted as events)
+
+**Inputs (deferred — Tier 2/3):**
+- Metrics (Prometheus remote write)
+- Logs (OTLP)
+- Events via NATS or Kafka
 
 **Outputs:**
-- JSON snapshots via REST API
-- Streaming updates via SSE/WebSocket
-- Stored snapshots in ClickHouse
+- Correlation verdicts with lineage to child signal groups
+- Snapshot verdicts (model-generated situational assessment)
+- Stored in SQLite FTS5 (Tier 1); PostgreSQL/ClickHouse deferred
 
 **Reasoning loop:**
 ```
@@ -241,7 +301,7 @@ Observe --> Correlate --> Assess --> Publish
 |-------|---------|-----------|
 | WATCHING | Normal operations | Background correlation, 5-minute snapshot cycle |
 | ALERT | Elevated signal detected | Increased correlation frequency, broader signal ingestion |
-| INCIDENT | Incident declared via webhook | Continuous reassessment, 1-minute snapshots, pushes to IncidentTown |
+| INCIDENT | Incident declared via webhook | Continuous reassessment, 1-minute snapshots, pushes to Mayday |
 | DEGRADED | Own judgment SLO metrics below threshold | Conservative mode, reduced confidence in correlations, flags for human review |
 
 **Tools Sitrep calls:**
@@ -253,11 +313,13 @@ Observe --> Correlate --> Assess --> Publish
 - Correlation accuracy: what percentage of Sitrep's "related change" assessments do humans agree with?
 - False positive rate: how often does Sitrep flag a change as incident-related when it isn't?
 
-**Decision telemetry:** Every correlation assessment emits a `gen_ai.decision.*` event. When a human disagrees with a correlation, that emits a `gen_ai.override.*` event. These feed Sitrep's own judgment SLO.
+**Verdict output:** Every correlation assessment is emitted as a verdict via `verdict.create()`. Snapshot verdicts link to child correlation verdicts via lineage. When a human disagrees with a correlation, `verdict.resolve(status="overridden")` closes the loop. OTel events (`gen_ai.decision.*`, `gen_ai.override.*`) are emitted automatically as a side-effect.
+
+**DEGRADED mode:** When the model is unavailable, Sitrep continues the transport pipeline (ingest, group, deduplicate) and emits template-based verdicts with `confidence: 0.0`, flagging them for human review. The pre-correlation engine is fully testable without a model.
 
 ---
 
-### IncidentTown (Incident Response Agents)
+### Mayday (Incident Response Agents)
 
 **Category:** Agents (multiple, collaborating)
 
@@ -291,7 +353,7 @@ Incident Declared
 
 **Shared incident context:**
 
-All IncidentTown agents read from and write to a shared incident context object. This is the accumulating record of what is known about the incident.
+All Mayday agents read from and write to a shared incident context object. This is the accumulating record of what is known about the incident.
 
 ```yaml
 incident_context:
@@ -385,39 +447,53 @@ incident_context:
 
 ---
 
-### Reliability Governor
+### Arbiter
 
 **Category:** Agent
 
-**Purpose:** The meta-agent that watches the watchers. Continuously monitors judgment SLO error budgets for all agents in the ecosystem and makes governance decisions about their autonomy levels.
+**Purpose:** Quality measurement engine and governance layer. The Arbiter evaluates agent output quality, classifies risk, routes evaluations to appropriate model tiers, and self-calibrates using verdict accuracy queries. It also makes governance decisions about agent autonomy levels.
 
-**Why it's an agent:** Governance decisions require interpretation. A spike in reversal rate could mean the agent has degraded, or it could mean a new human reviewer has different standards, or it could mean the problem domain shifted. The Governor needs to reason about context, not just react to threshold crossings.
+**Why it's an agent:** Both evaluation and governance require interpretation. Evaluating whether agent output is correct requires judgment across multiple quality dimensions. A spike in override rate could mean the agent has degraded, a new reviewer has different standards, or the problem domain shifted. The Arbiter reasons about context, not just threshold crossings.
 
-**Inputs:**
-- Judgment SLO metrics from Prometheus (reversal rates, HCF rates, calibration scores for all agents)
-- Error budget burn rates
-- Historical agent performance trends
+**Core pipeline (Phase 1 — verdict integration):**
 
-**Outputs:**
-- Autonomy policy adjustments (pushed to agents via configuration)
-- Alerts when agent error budgets are exhausted
-- Governance reports for human review
+The Arbiter has a fully implemented evaluation pipeline with its own score store and calibration state. Phase 1 refactors this to use verdicts as the storage format:
+
+- `pipeline.evaluate()` emits a verdict via `verdict.create()` instead of writing to the internal score store
+- Human overrides call `verdict.resolve(status="overridden")`
+- Self-calibration queries `verdict.accuracy(producer="arbiter")` instead of maintaining separate calibration state
+- Verdict store configured via `verdict.store` section in `arbiter.yaml`
+
+**Risk classification and tiered routing (Phase 2):**
+
+Not all agent output warrants frontier model evaluation. The Arbiter classifies risk using manifest-declared path lists (not pattern matching):
+
+| Tier | Criteria | Evaluation |
+|------|----------|------------|
+| Minimal | Low-risk paths, small diff | Auto-approve |
+| Standard | Normal paths, moderate diff | Light evaluation |
+| Deep | Critical paths, schema changes | Full multi-dimension evaluation |
+| Critical | Declared critical paths, large blast radius | Frontier model evaluation |
+
+- **Calibration sampling:** 5% of auto-approved outputs are sampled and fully evaluated. Results calibrate the risk classification.
+- **Deep eval sampling:** 5% of high-scoring outputs get a second, more thorough evaluation, linked to the original verdict via lineage.
+- **Downstream outcome tracking:** Verdicts auto-resolve from CI signals (test failure, deploy regression, revert).
 
 **Governance actions:**
 
 | Trigger | Action |
 |---------|--------|
-| Agent reversal rate exceeding SLO target | Increase human review threshold for that agent |
+| Agent override rate exceeding SLO target | Increase human review threshold for that agent |
 | Agent error budget exhausted | Reduce agent to advisory-only mode (suggest, don't act) |
 | Sustained good performance above threshold | Propose autonomy increase for human approval |
 | Calibration drift detected | Flag agent for retraining or prompt adjustment |
-| Multiple agents degrading simultaneously | Escalate to human operators, suggest system-wide review |
+| Score-outcome divergence > 0.10 | Emit gaming alert via notification system |
 
 **Decision authority:** Can reduce agent autonomy (safe direction). Cannot increase agent autonomy without human approval (one-way safety ratchet). Can fire alerts. Can switch agents to degraded mode.
 
-**Judgment SLO:** How often do human operators disagree with the Governor's autonomy adjustments? Target: less than 5% reversal rate on governance decisions.
+**Judgment SLO:** How often do human operators disagree with the Arbiter's autonomy adjustments? Target: less than 5% reversal rate on governance decisions.
 
-**Tools it calls:** Prometheus queries (metric retrieval), NthLayer generate (regenerate alerting thresholds when policy changes)
+**Self-calibration:** The Arbiter measures its own accuracy via `verdict.accuracy(producer="arbiter")`. Every evaluation it makes is itself a verdict, subject to the same feedback loop it enforces on other agents.
 
 ---
 
@@ -425,26 +501,28 @@ incident_context:
 
 ### Protocol
 
-Agents in the OpenSRM ecosystem communicate through two mechanisms:
+Agents in the OpenSRM ecosystem communicate through three mechanisms:
 
-**Shared state (within IncidentTown):** All IncidentTown agents read from and write to a shared incident context object. This is the simplest model and appropriate for agents collaborating on a single incident. The incident context is the accumulating record of truth. Agents append to it; they don't overwrite each other's findings.
+**Verdicts with lineage (cross-component):** The primary inter-component communication format. SitRep emits correlation verdicts. Mayday's triage agent consumes them and emits triage verdicts linked via lineage. Investigation links to triage. Remediation links to investigation. This creates a traceable chain: any override at any point propagates context back through lineage. The verdict store is queryable — components don't need to know about each other directly.
 
-**Event-based (cross-component):** Sitrep publishes snapshots that IncidentTown agents consume. The Reliability Governor reads metrics from Prometheus that all agents emit. These are decoupled, event-driven interactions that don't require agents to know about each other directly.
+**Shared state (within Mayday):** All Mayday agents read from and write to a shared incident context object. This is the simplest model for agents collaborating on a single incident. Agents are functions with model calls inside, called sequentially by the coordinator within a single process. No mailboxes, no message buses, no polling.
+
+**OTel events (observability side-channel):** `gen_ai.decision.*` and `gen_ai.override.*` events are emitted automatically when verdicts are created and resolved. These feed Prometheus metrics and Grafana dashboards via NthLayer. This is a read-only observability channel, not a communication path.
 
 ### Orchestration
 
-IncidentTown uses a pipeline orchestrator that sequences agents based on the incident lifecycle. This is not a general-purpose agent framework: it's a purpose-built flow for incident response.
+Mayday uses a coordinator that sequences agent calls as direct function invocations. This is not a general-purpose agent framework, a message broker, or a mail system: it's a purpose-built pipeline for incident response.
 
-The orchestrator:
-- Receives the incident trigger (from PagerDuty via Sitrep)
+The coordinator:
+- Receives the incident trigger (SitRep correlation verdict)
 - Creates the shared incident context
-- Runs Triage, waits for completion
-- Runs Investigation and Communication in parallel
-- Runs Remediation when Investigation produces a root cause
-- Sends Communication updates as findings accumulate
+- Calls `triage(event)`, gets a result (verdict emitted)
+- Calls `investigate(triage_result)` and `communicate(triage_result)` in parallel
+- Calls `remediate(investigation_result)` when root cause is found
+- Each agent emits verdicts with lineage to its inputs
 - Closes the incident context when remediation is confirmed
 
-The orchestrator itself is not an agent. It's a deterministic state machine that sequences agent execution. It doesn't reason about what to do next: the pipeline is fixed. Agents reason within their step.
+The coordinator is not an agent. It's a deterministic state machine that sequences function calls. It doesn't reason about what to do next: the pipeline is fixed. Agents reason within their step. If agents later need to run as separate processes (scale trigger), the transport changes — NATS or direct HTTP, not a mail abstraction.
 
 ---
 
@@ -472,66 +550,71 @@ Developer              NthLayer              Monitoring Stack
    │                      │  topology.json ──────▶ Sitrep agent
 ```
 
-### Flow 2: Telemetry to Snapshot (Sitrep reasoning loop)
+### Flow 2: Events to Verdicts (Sitrep reasoning loop)
 
 ```
-Systems              Sitrep Agent                Consumers
+Event Sources        Sitrep Agent                Verdict Store
    │                    │                            │
-   │ metrics            │                            │
+   │ alerts (webhook)   │                            │
    ├───────────────────▶│                            │
-   │                    │ observe                    │
-   │ alerts             │                            │
+   │                    │ ingest → SQLite FTS5       │
+   │ changes (webhook)  │                            │
    ├───────────────────▶│                            │
-   │                    │ correlate (reasoning)      │
-   │ change events      │  "deploy X likely caused   │
-   ├───────────────────▶│   alert Y given topology"  │
+   │                    │ pre-correlate (transport)  │
+   │ topology           │  temporal grouping,        │
+   │ (NthLayer export)  │  deduplication,            │
+   ├───────────────────▶│  severity pre-scoring      │
    │                    │                            │
-   │ logs               │ assess                    │
-   ├───────────────────▶│  rank by severity,        │
-   │                    │  relevance                 │
+   │ verdicts           │ model (judgment)           │
+   │ (Arbiter quality)  │  correlate, assess,        │
+   ├───────────────────▶│  rank                      │
    │                    │                            │
-   │                    │ publish                    │
-   │                    │  snapshot (JSON)           │
+   │                    │ verdict.create()           │
+   │                    │  correlation verdict +     │
+   │                    │  snapshot verdict with     │
+   │                    │  lineage to child          │
+   │                    │  correlations              │
    │                    ├───────────────────────────▶│
    │                    │                            │
-   │                    │         [Sitrep emits      │
-   │                    │          gen_ai.decision.* │
-   │                    │          for each           │
-   │                    │          correlation]       │
+   │                    │  [OTel side-effect:        │
+   │                    │   gen_ai.decision.* per    │
+   │                    │   correlation]             │
 ```
 
-### Flow 3: Decision to SLO Measurement
+### Flow 3: Decision to Verdict to Measurement
 
 ```
-Any Agent           OTel Collector       Prometheus           Governor
+Any Agent           Verdict Store        Human / CI           Arbiter
    │                    │                    │                    │
-   │ decision event     │                    │                    │
+   │ verdict.create()   │                    │                    │
+   │ (judgment phase)   │                    │                    │
    ├───────────────────▶│                    │                    │
-   │                    ├───────────────────▶│                    │
+   │                    │  [OTel side-effect: gen_ai.decision.*] │
    │                    │                    │                    │
-   │ [human reviews]    │                    │                    │
+   │                    │  verdict.review()  │                    │
+   │                    │◀───────────────────┤                    │
    │                    │                    │                    │
-   │ reversal event     │                    │                    │
-   ├───────────────────▶│                    │                    │
-   │                    ├───────────────────▶│                    │
+   │                    │  verdict.resolve() │                    │
+   │                    │  (confirm/override │                    │
+   │                    │   or CI auto-      │                    │
+   │                    │   resolve)         │                    │
+   │                    │◀───────────────────┤                    │
+   │                    │  [OTel side-effect: gen_ai.override.*] │
    │                    │                    │                    │
-   │                    │                    │ reversal_rate      │
-   │                    │                    │ = 0.032            │
-   │                    │                    │ (target: 0.05)     │
+   │                    │  verdict.accuracy(producer=X)           │
+   │                    ├───────────────────────────────────────▶│
    │                    │                    │                    │
-   │                    │                    │ judgment SLO       │
-   │                    │                    │ metrics            │
-   │                    │                    ├───────────────────▶│
+   │                    │  verdict.gaming-check(producer=X)      │
+   │                    ├───────────────────────────────────────▶│
    │                    │                    │                    │
-   │                    │                    │                    │ [if
-   │                    │                    │  autonomy policy   │  degraded]
+   │                    │                    │  autonomy policy   │
    │◀────────────────────────────────────────────────────────────┤
 ```
 
 ### Flow 4: Agent Tool Invocation
 
 ```
-Agent (Sitrep/IncidentTown)    Tool (NthLayer)    Data (OpenSRM)
+Agent (Sitrep/Mayday)    Tool (NthLayer)    Data (OpenSRM)
          │                          │                    │
          │  topology_query          │                    │
          ├─────────────────────────▶│                    │
@@ -591,12 +674,13 @@ Every agent in the ecosystem is itself a service with SLOs. The same specificati
 
 ### How it works
 
-1. Every agent decision emits a `gen_ai.decision.*` OTel event (outcome, confidence, decision class)
-2. Human overrides emit `gen_ai.override.*` OTel events (original outcome, new outcome, actor)
-3. These events flow to Prometheus via OTel Collector
-4. NthLayer generates Prometheus recording rules for each agent's judgment SLOs (from the agent's OpenSRM `type: ai-gate` manifest)
-5. NthLayer generates Grafana dashboards for agent decision quality
-6. The Reliability Governor consumes these metrics and adjusts autonomy policy
+1. Every agent decision emits a verdict via `verdict.create()` (judgment phase: outcome, confidence, producer, lineage)
+2. Human overrides and CI signals resolve verdicts via `verdict.resolve()` (outcome phase: confirmed, overridden, or auto-resolved)
+3. OTel events (`gen_ai.decision.*`, `gen_ai.override.*`) are emitted automatically as a side-effect of verdict operations
+4. These OTel events flow to Prometheus via OTel Collector
+5. NthLayer generates Prometheus recording rules and Grafana dashboards from each agent's OpenSRM `type: ai-gate` manifest
+6. The Arbiter queries `verdict.accuracy()` and `verdict.gaming-check()` for calibration and governance decisions
+7. `verdict gaming-check` (score-outcome divergence > 0.10) triggers alerts via the notification system
 
 ### Agent manifests
 
@@ -661,18 +745,27 @@ calibration_ece =
 
 ## Integration Points
 
-### External Systems
+### External Systems (Tier 1)
 
 | System | Integration | Direction |
 |--------|-------------|-----------|
-| Prometheus | Remote write, query | Metrics to Sitrep, judgment SLOs to Governor |
 | Alertmanager | Webhook | Alerts to Sitrep |
-| GitHub | Webhook, API | Deploys to Sitrep, rollback from Remediation agent |
-| ArgoCD | Webhook, API | Deploys to Sitrep, rollback from Remediation agent |
-| LaunchDarkly | Webhook, API | Flags to Sitrep, toggle from Remediation agent |
-| PagerDuty | API, webhook | Incidents to Sitrep, config from NthLayer, pages from Triage agent |
+| GitHub | Webhook, API | Changes to Sitrep, rollback from Remediation agent |
+| ArgoCD | Webhook, API | Changes to Sitrep, rollback from Remediation agent |
+| PagerDuty | API, webhook | Pages from Triage agent, config from NthLayer |
 | Grafana | JSON import | Dashboards from NthLayer (service + agent dashboards) |
-| OTel Collector | OTLP | Logs and traces to Sitrep, decision telemetry from all agents |
+| Prometheus | Query | OTel metrics for NthLayer dashboards and recording rules |
+| OTel Collector | OTLP | Decision telemetry (side-effect of verdict creation) |
+| Slack | API | Governance notifications, overdue reviews (Phase 3) |
+
+### External Systems (Deferred)
+
+| System | Integration | Trigger |
+|--------|-------------|---------|
+| Prometheus | Remote write to Sitrep | Webhook ingestion latency under sustained load |
+| NATS | Event streaming | Small-team scale, Tier 2 |
+| Kafka | Event streaming | Enterprise scale, Tier 3 |
+| LaunchDarkly | Webhook, API | Feature flag changes to Sitrep, toggles from Remediation |
 
 ### Internal Interfaces
 
@@ -682,12 +775,13 @@ calibration_ece =
 | NthLayer | Prometheus | YAML | Alert rules | Tool to data |
 | NthLayer | Grafana | JSON | Dashboards | Tool to data |
 | NthLayer | Sitrep | JSON | Topology graph | Tool to agent |
-| Sitrep | IncidentTown | JSON/SSE | Snapshots | Agent to agent |
-| Sitrep | REST consumers | JSON/SSE | Snapshots | Agent to external |
-| All agents | OTel Collector | Events | Decision telemetry | Agent to data |
-| Prometheus | Governor | PromQL | Judgment SLO metrics | Data to agent |
-| Governor | All agents | Config | Autonomy policy | Agent to agent |
-| IncidentTown agents | Shared context | In-memory | Incident findings | Agent to agent |
+| All agents | Verdict Store | Verdict | Judgments with lineage | Agent to primitive |
+| Verdict Store | Arbiter | Query | accuracy(), gaming-check() | Primitive to agent |
+| Verdict Store | OTel Collector | Events | gen_ai.decision.*, gen_ai.override.* (auto-emitted) | Primitive to data |
+| Sitrep | Mayday | Verdict | Correlation verdicts | Agent to agent |
+| Arbiter | All agents | Config | Autonomy policy | Agent to agent |
+| Mayday agents | Shared context | In-memory | Incident findings (within single process) | Agent to agent |
+| Human / CI | Verdict Store | Resolve | Confirms, overrides, auto-resolves | External to primitive |
 
 ---
 
@@ -695,48 +789,55 @@ calibration_ece =
 
 The ecosystem is designed for incremental adoption. Each tier adds capabilities without requiring changes to the previous tier.
 
-### Tier 1: Static Only
+### Tier 1: Static + Verdicts
 
-**Components:** OpenSRM manifests + NthLayer CLI
+**Components:** OpenSRM manifests + NthLayer CLI + Verdict library + Arbiter evaluation pipeline
 
-**Agents involved:** None
+**Agents involved:** Arbiter (evaluation only, not full governance)
 
 **What you get:**
 - Validated service reliability manifests with schema and dependency math
 - Generated Prometheus alerting rules and Grafana dashboards
 - CI/CD deployment gates based on error budgets
 - Drift detection between declared and actual monitoring
+- Structured verdict records for every AI judgment
+- `verdict accuracy`, `verdict gaming-check`, `verdict review` CLI queries
+- Arbiter evaluating agent output quality with tiered risk classification
+- Human feedback loop via `verdict confirm` / `verdict override`
 
-**Effort:** Write manifests, add NthLayer to CI/CD pipeline. No infrastructure beyond what you already run (Prometheus, Grafana).
+**Effort:** Write manifests, add NthLayer to CI/CD pipeline, `pip install verdict`, configure Arbiter. SQLite verdict store — no additional infrastructure.
 
 ### Tier 2: Static + Correlation
 
 **Components:** Everything in Tier 1 + Sitrep agent
 
-**Agents involved:** Sitrep only
+**Agents involved:** Sitrep, Arbiter
 
 **What you get:**
 - Everything in Tier 1
-- Continuous pre-correlated operational snapshots
+- Continuous pre-correlated operational snapshots as verdicts
 - "What changed?" answers assembled before anyone asks
-- AI-consumable situation reports alongside human dashboards
+- Correlation verdicts with lineage to signal groups
+- Arbiter quality verdicts flow back into Sitrep as events
+- Scenario replay for testing (`sitrep replay`, `arbiter replay`)
 
-**Effort:** Deploy Sitrep as a long-running service. Configure webhook ingestion from Alertmanager, GitHub, ArgoCD. Provide Prometheus read access.
+**Effort:** Deploy Sitrep as a long-running service. Configure webhook ingestion from Alertmanager, GitHub, ArgoCD. SQLite FTS5 event store.
 
-### Tier 3: Full Autonomous
+### Tier 3: Full Chain
 
-**Components:** Everything in Tier 2 + IncidentTown agents + Reliability Governor
+**Components:** Everything in Tier 2 + Mayday agents + full Arbiter governance
 
-**Agents involved:** Sitrep, Triage, Investigation, Communication, Remediation, Governor
+**Agents involved:** Sitrep, Triage, Investigation, Communication, Remediation, Arbiter
 
 **What you get:**
 - Everything in Tier 2
-- Agent-orchestrated incident response
-- Automated triage, investigation, communication, and safe remediation
-- Governance layer monitoring all agent decision quality
-- Autonomy adjustments based on measured performance
+- Agent-orchestrated incident response (Mayday)
+- Full verdict lineage chain: SitRep correlation → Mayday triage → investigation → remediation
+- Human override at any point propagates through lineage
+- Governance layer with gaming detection and autonomy adjustments
+- Slack notifications for governance actions and overdue reviews
 
-**Effort:** Deploy IncidentTown orchestrator and agent processes. Define agent manifests with judgment SLOs. Configure safe action permissions in OpenSRM manifests. Deploy Reliability Governor.
+**Effort:** Deploy Mayday coordinator (single process, direct function calls). Define agent manifests with judgment SLOs. Configure safe action permissions in OpenSRM manifests.
 
 ---
 
@@ -748,22 +849,21 @@ The ecosystem is designed for incremental adoption. Each tier adds capabilities 
 |------|-------------|----------|
 | Manifests | Low | Public or internal Git |
 | Metrics | Low-Medium | Standard observability controls |
-| Logs | Medium-High | PII redaction required |
-| Snapshots | Medium | Access control, tenant isolation |
-| Decision telemetry | Low-Medium | Anonymize actor IDs if needed |
+| Verdicts | Medium | Access control, audit trail via lineage |
 | Incident context | Medium-High | Access restricted to incident responders |
 | Autonomy policy | Medium | Change-controlled, auditable |
+| OTel decision telemetry | Low-Medium | Anonymize actor IDs if needed |
 
 ### Access Control
 
 - **OpenSRM manifests:** Developer write, CI/CD read, agents read
 - **NthLayer:** CI/CD service accounts, agents invoke via tool interface
-- **Sitrep API:** Service accounts for IncidentTown agents, RBAC for humans
-- **IncidentTown:** Agents scoped to incident they're responding to
-- **Reliability Governor:** Read access to all judgment SLO metrics, write access to autonomy policy only
-- **Decision telemetry:** Write from all agents, read for metrics aggregation
+- **Verdict store:** All agents write (create/resolve), Arbiter reads (accuracy/gaming queries), humans read/write (review/confirm/override)
+- **Sitrep:** Webhook ingestion from configured sources, verdict output to store
+- **Mayday:** Agents scoped to incident they're responding to, verdicts linked via lineage
+- **Arbiter:** Read access to all verdict stores, write access to autonomy policy only
 - **Remediation actions:** Pre-approved safe actions defined in OpenSRM manifests, novel actions require human approval
 
 ### Agent Authority Boundaries
 
-No agent can escalate its own permissions. The Reliability Governor can reduce agent autonomy (safe direction) but cannot increase it without human approval. This is a one-way safety ratchet: automation can always be constrained, never self-expanded.
+No agent can escalate its own permissions. The Arbiter can reduce agent autonomy (safe direction) but cannot increase it without human approval. This is a one-way safety ratchet: automation can always be constrained, never self-expanded.
