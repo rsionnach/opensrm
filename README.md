@@ -54,15 +54,11 @@ We have version control for code (Git), infrastructure (Terraform), and policy (
 
 OpenSRM defines reliability requirements in a single manifest that travels with your service:
 
-```
-service.reliability.yaml --> validate --> enforce --> deploy
-         |                     |          |
-         |                     |          +-- Error budget ok? SLO met?
-         |                     |
-         |                     +-- Schema valid? Metrics exist? Dashboard ready?
-         |
-         +-- SLOs, dependencies, ownership, observability, deployment gates
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/svg/manifest-processing-flow-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="diagrams/svg/manifest-processing-flow-light.svg">
+  <img alt="Manifest processing flow: service.reliability.yaml to validate, enforce, and deploy" src="diagrams/svg/manifest-processing-flow-light.svg">
+</picture>
 
 ---
 
@@ -70,7 +66,11 @@ service.reliability.yaml --> validate --> enforce --> deploy
 
 OpenSRM is the foundation for a complete operational reliability stack:
 
-![OpenSRM Ecosystem Flow](assets/ecosystem.gif)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="diagrams/svg/ecosystem-overview-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="diagrams/svg/ecosystem-overview-light.svg">
+  <img alt="OpenSRM ecosystem overview: Specification, NthLayer, Sitrep, Consumers, and OTel Semantic Conventions" src="diagrams/svg/ecosystem-overview-light.svg">
+</picture>
 
 ## Components
 
@@ -80,10 +80,13 @@ OpenSRM is the foundation for a complete operational reliability stack:
 | [ai-gate Extension](spec/v1/specification.md#5-judgment-slos-ai-gates) | AI decision services | Stable |
 | [Judgment SLOs](spec/v1/judgment-slos.md) | Decision quality metrics | Documented |
 | [GitHub Action](action/) | CI/CD validation | Available |
-| [NthLayer](https://github.com/rsionnach/nthlayer) | Reference implementation | Partial |
+| [Verdict](https://github.com/rsionnach/verdicts) | Data primitive for AI judgments | Implemented |
+| [NthLayer](https://github.com/rsionnach/nthlayer) | Reliability-as-code CLI tool | Alpha |
+| [Arbiter](https://github.com/rsionnach/arbiter) | Quality measurement + governance | Implemented |
 | [Change Events](conventions/change-events/) | OTel semantic conventions | Drafted |
 | [Decision Telemetry](conventions/decision-telemetry/) | OTel semantic conventions | Drafted |
-| [Sitrep](components/sitrep/) | Pre-correlation layer | In design |
+| [SitRep](https://github.com/rsionnach/sitrep) | Pre-correlation agent | Architecture |
+| [Mayday](https://github.com/rsionnach/mayday) | Multi-agent incident response | Architecture |
 
 See [STATUS.md](STATUS.md) for detailed progress.
 
@@ -431,11 +434,13 @@ Tools that implement OpenSRM:
 
 ## Design Principles
 
-1. **Declare intent, not implementation** -- Specify *what* reliability you need, not *how* to achieve it
-2. **Schemas + enforcement** -- Define contracts, then validate them
-3. **Tooling-agnostic** -- Works with Prometheus, Datadog, or any backend
-4. **Progressive complexity** -- Simple services need simple manifests; complex services can use advanced features
-5. **AI-native** -- First-class support for AI decision services
+1. **Schemas + enforcement** -- Every component is defined by a specification first. Implementation follows. Define contracts, then validate them.
+2. **Shift-left reliability** -- Reliability concerns move earlier in the lifecycle. Service manifests define SLOs before deployment. CI/CD gates enforce contracts.
+3. **Operator-agnostic** -- The stack supports both human and AI operators. SitRep snapshots work for dashboards (human) and LLMs (AI). Decision telemetry captures human and AI decisions equally.
+4. **Open standards** -- Extend existing standards (OTel) rather than invent new ones. Works with Prometheus, Datadog, or any backend.
+5. **Reasoning boundary** -- Agent capabilities are reserved for components that require interpretation of ambiguous inputs. Deterministic operations (validation, generation, arithmetic) remain as tools. If a component doesn't need to reason, it isn't an agent.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full ecosystem architecture.
 
 ---
 
