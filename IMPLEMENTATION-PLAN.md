@@ -155,24 +155,29 @@ Serialize `IncidentContext` to SQLite after each agent step. Resume on restart.
 
 ---
 
-### Phase 1: Arbiter Verdict Integration [2-3 weekends]
+### Phase 1: Arbiter Verdict Integration [COMPLETE — 2026-03-13]
 
-**1.1 — Add verdict dependency + emission**
-- Modify: `arbiter/pyproject.toml` — path dependency on verdict
-- Modify: `arbiter/src/arbiter/pipeline/router.py` — after `save_score()`, also `verdict.create()` + `verdict_store.put()`
-- Config: `verdict.store.path: verdicts.db` (shared WAL-mode store)
-- ADDITIVE: existing ScoreStore unchanged
+**1.1 — Add verdict dependency + emission** DONE
+- Modified: `arbiter/pyproject.toml` — verdict as named dependency
+- Modified: `arbiter/src/arbiter/pipeline/router.py` — after `save_score()`, creates verdict via `verdict_create()` + `verdict_store.put()`, sets `verdict_id` back-link
+- Config: `VerdictConfig(store_path="verdicts.db")` — optional `verdict` section in `arbiter.yaml`
+- ADDITIVE: existing ScoreStore protocol unchanged
 
-**1.2 — Override to Verdict Resolution**
-- Modify: `arbiter/src/arbiter/store/sqlite.py` — after `save_override()`, call `verdict_store.resolve()`
-- Add `verdict_id` column to evaluations table for mapping
+**1.2 — Override to Verdict Resolution** DONE
+- Modified: `arbiter/src/arbiter/store/sqlite.py` — after `save_override()`, calls `verdict_store.resolve(verdict_id, "overridden")`
+- Added `verdict_id TEXT` column to evaluations table via idempotent migration
+- `set_verdict_id()` method links evaluations to verdicts
 
-**1.3 — Parallel verdict-based calibration**
-- Create: `arbiter/src/arbiter/calibration/verdict_calibration.py`
-- Query `verdict_store.accuracy(AccuracyFilter(producer_system="arbiter"))`
-- Compare with existing JudgmentSLOChecker — DO NOT replace
+**1.3 — Parallel verdict-based calibration** DONE
+- Created: `arbiter/src/arbiter/calibration/verdict_calibration.py` — `VerdictCalibration` strangler fig
+- Queries `verdict_store.accuracy(AccuracyFilter(producer_system="arbiter"))`
+- Runs alongside existing JudgmentSLOChecker — does NOT replace it
+- `--verdict` flag added to `arbiter calibrate` CLI subcommand
+- CLI `_build_pipeline` wires verdict store to both score store and router
 
-**Accept:** Run Arbiter, evaluate agent output, verdict stored. Override it, verdict resolved. `verdict accuracy --producer arbiter` shows updated rates. **This is Demo 1.**
+**Test coverage:** 30 new tests (116 total passing), covering config, schema migration, verdict emission, override resolution, calibration, CLI, and end-to-end feedback loop.
+
+**Accept:** PASSED. Arbiter evaluates agent output, verdict stored. Override triggers verdict resolution. `arbiter calibrate --verdict` shows updated accuracy rates. **This is Demo 1.**
 
 ### >>> DEMO 1: "The Feedback Loop" <<<
 
