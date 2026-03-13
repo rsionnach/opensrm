@@ -70,7 +70,8 @@ opensrm/
 │   └── output/                      # Rendered animations (GIF/MP4/PNG sequence)
 ├── articles/                         # Conceptual documentation
 ├── skills/shift-left-reliability/   # Claude Code skill
-├── .beads/                          # Task tracking
+├── IMPLEMENTATION-PLAN.md           # Cohesive ecosystem implementation plan (v2) — phases, demo milestones, key decisions
+├── .beads/                          # Centralized ecosystem task tracking (component repos use .beads.archived)
 └── .claude/                         # Claude configuration
 ```
 
@@ -246,7 +247,9 @@ External systems: Prometheus (remote write, query), Alertmanager (webhook), GitH
 
 <!-- AUTO-MANAGED: ecosystem-components -->
 ### Data Primitives Layer
-- **Verdict** (repo: `verdicts/`): Schema + Python transport library for recording AI judgments and measuring correctness. Foundation layer — all judgment-producing components (Arbiter, SitRep, Mayday) depend on it. No reasoning, no model calls. Status: Python library implemented (`pip install verdict`). Three phases per verdict: Judgment (at decision time), Outcome (filled later), Lineage (optional links). Key operations: `create()`, `link()`, `resolve()`, `accuracy()`, `gaming-check()` (score-outcome divergence > 0.10 triggers alert), `review()`, `replay()`. Store: SQLite (Tier 1, default); PostgreSQL/ClickHouse deferred until contention warrants. OTel emission (`gen_ai.decision.*`, `gen_ai.override.*`) is a side-effect of verdict operations, not a separate instrumentation step. Verdict store is the shared substrate — not OTel, not Prometheus, not a message bus. See `verdicts/CLAUDE.md` for full API reference.
+- **Verdict** (repo: `verdicts/`): Schema + Python transport library for recording AI judgments and measuring correctness. Foundation layer — all judgment-producing components (Arbiter, SitRep, Mayday) depend on it. No reasoning, no model calls. Status: Phase 0 complete — Python library + CLI implemented (`pip install verdict`). Three phases per verdict: Judgment (at decision time), Outcome (filled later), Lineage (optional links). Key operations: `create()`, `link()`, `resolve()`, `accuracy()`, `gaming-check()` (score-outcome divergence > 0.10 triggers alert), `review()`, `replay()`. CLI: `verdict accuracy --producer <name> [--window 30d]` and `verdict list` query a SQLite store directly — the primary demo interface for the feedback loop. Store: SQLite (Tier 1, default); PostgreSQL/ClickHouse deferred until contention warrants. OTel emission (`gen_ai.decision.*`, `gen_ai.override.*`) is a side-effect of verdict operations, not a separate instrumentation step. Verdict store is the shared substrate — not OTel, not Prometheus, not a message bus. See `verdicts/CLAUDE.md` for full API reference.
+  - `store.resolve(verdict_id, status, ...)`: preferred single-call method on `VerdictStore` — combines `get()` + `core.resolve()` + `update_outcome()`. Use this instead of the two-step pattern; the two-step pattern silently drops persistence with `SQLiteVerdictStore`.
+  - `VALID_SUBJECT_TYPES` (in `verdict/models.py`): `agent_output`, `correlation`, `triage`, `investigation`, `remediation`, `review`, `classification`, `recommendation`, `moderation`, `communication`, `custom`.
 
 ### Static Layer (Data + Tools)
 - **OpenSRM Manifests**: Source of truth in Git for service identity, SLO targets, dependencies, contracts, AI gates. No reasoning, fully deterministic.
@@ -393,6 +396,7 @@ Interactive web documentation:
 - `examples/database-mysql.yaml`: Database service example
 
 ### Development Tools
+- `IMPLEMENTATION-PLAN.md`: Cohesive ecosystem implementation plan (v2) — phase ordering, demo milestones (Demo 1 Feedback Loop / Demo 2 SitRep pre-correlation / Demo 3 Full Chain), key architecture decisions (single shared verdicts.db WAL mode, path-based deps, OTel deferred to Phase 4), and per-phase accept criteria. Phase 0 complete (SQLite store + store.resolve() + CLI). Next: Phase 1 Arbiter verdict integration → Demo 1.
 - `shift-left-reliability-skill.md`: Claude Code skill documentation
 - `skills/shift-left-reliability/`: Claude Code skill implementation with templates and examples
 - `action/`: GitHub Action for CI/CD validation (rsionnach/opensrm@v1)
@@ -400,6 +404,10 @@ Interactive web documentation:
 - `articles/README.md`: Conceptual documentation and drafts
 - `CONTRIBUTING.md`: Contribution guidelines
 - `GOVERNANCE.md`: RFC process for spec changes
+
+### Design Specs
+- `docs/superpowers/specs/2026-03-13-phase-0.2-store-resolve-subject-type-design.md`: Phase 0.2 verdict library design — `store.resolve()` concrete method on `VerdictStore` ABC (eliminates two-step resolve footgun with SQLiteVerdictStore) + adds `"communication"` to `VALID_SUBJECT_TYPES` (unblocks Mayday Communication agent). Files changed: `verdict/store.py`, `verdict/models.py`, `tests/test_store.py`.
+- `docs/superpowers/plans/2026-03-13-phase-0.2-store-resolve-subject-type.md`: Phase 0.2 implementation plan — step-by-step TDD checklist for adding `store.resolve()` to `VerdictStore` ABC and adding `"communication"` to `VALID_SUBJECT_TYPES`. Two tasks: (1) communication subject type (2 tests × 2 backends), (2) store-level `resolve()` (7 tests × 2 backends = 14 new tests); target: 122 total passing.
 
 Files removed as of df80f12:
 - `opensrm-v1-full-spec.md`: Consolidated into spec/v1/specification.md
