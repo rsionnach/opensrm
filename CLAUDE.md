@@ -26,7 +26,7 @@ Ecosystem components:
 - **Verdict**: data primitive (Python library implemented) — schema + transport library for recording AI judgments and closing the loop on correctness; foundation layer all other components depend on; repo: `verdicts/`
 - SitRep: pre-correlation agent (architecture phase) — continuously groups signals; snapshot schema; states: WATCHING/ALERT/INCIDENT/DEGRADED
 - Mayday: multi-agent incident response (architecture phase) — deterministic orchestrator + Triage/Investigation/Communication/Remediation agents; PagerDuty downstream not upstream
-- Arbiter: quality measurement engine + governance (architecture phase) — per-agent tracking, self-calibration, one-way safety ratchet; proven as Guardian in GasTown
+- Arbiter: quality measurement engine + governance (implemented) — per-agent tracking, self-calibration (MAE + judgment SLOs + verdict-based), verdict integration (Phase 1 complete: every evaluation emits a verdict, overrides resolve verdicts, `arbiter calibrate --verdict` queries accuracy), one-way safety ratchet; proven as Guardian in GasTown
 
 Status: Draft specification (v1.0.0-draft, stabilizing)
 <!-- END AUTO-MANAGED -->
@@ -276,8 +276,8 @@ External systems: Prometheus (remote write, query), Alertmanager (webhook), GitH
   - Incident context: shared YAML object accumulating findings (triage, investigation, communication, remediation sections); agents read/write within same process
   - Post-incident learning: findings → manifest updates, NthLayer rule refinements, Arbiter threshold revisions, SitRep correlation improvements
 
-- **Arbiter** (repo: `arbiter/`): Quality measurement engine + governance — architecture phase
-  - Phase 1 (verdict integration): `pipeline.evaluate()` emits verdict via `verdict.create()`; human overrides call `verdict.resolve(status="overridden")`; self-calibration queries `verdict.accuracy(producer="arbiter")`
+- **Arbiter** (repo: `arbiter/`): Quality measurement engine + governance — implemented
+  - Phase 1 (verdict integration, complete): integration point is `PipelineRouter.run()` — verdict created after `save_score()` with `set_verdict_id()` back-link to evaluations table; `DEFAULT_APPROVE_THRESHOLD = 0.5`; `subject.type` always `"agent_output"`, `producer.system` always `"arbiter"`; override calls `verdict_store.resolve(verdict_id, "overridden")`; verdict config optional in `arbiter.yaml` (`verdict.store.path: verdicts.db`) — absent means no verdict ops, fully backwards-compat; `VerdictCalibration` class provides system-wide (not per-agent) accuracy alongside existing `JudgmentSLOChecker` as strangler fig; `--verdict` flag on `calibrate` CLI subcommand; async/sync boundary via `asyncio.to_thread()`; schema migration: `ALTER TABLE evaluations ADD COLUMN verdict_id TEXT`
   - Phase 2 (risk tiering): Minimal (auto-approve) | Standard (light eval) | Deep (full multi-dimension) | Critical (frontier model). 5% calibration sampling of auto-approved; 5% deep eval sampling of high-scoring, linked via lineage; verdicts auto-resolve from CI signals (test failure, deploy regression, revert)
   - Governance triggers: override rate > SLO → increase human review threshold; error budget exhausted → advisory-only mode; sustained good performance → propose autonomy increase (human approval required); calibration drift → flag for retraining; score-outcome divergence > 0.10 → gaming alert
   - Governance: one-way safety ratchet — can always reduce agent autonomy, can never increase without human approval
@@ -396,7 +396,7 @@ Interactive web documentation:
 - `examples/database-mysql.yaml`: Database service example
 
 ### Development Tools
-- `IMPLEMENTATION-PLAN.md`: Cohesive ecosystem implementation plan (v2) — phase ordering, demo milestones (Demo 1 Feedback Loop / Demo 2 SitRep pre-correlation / Demo 3 Full Chain), key architecture decisions (single shared verdicts.db WAL mode, path-based deps, OTel deferred to Phase 4), and per-phase accept criteria. Phase 0 complete (SQLite store + store.resolve() + CLI). Next: Phase 1 Arbiter verdict integration → Demo 1.
+- `IMPLEMENTATION-PLAN.md`: Cohesive ecosystem implementation plan (v2) — phase ordering, demo milestones (Demo 1 Feedback Loop / Demo 2 SitRep pre-correlation / Demo 3 Full Chain), key architecture decisions (single shared verdicts.db WAL mode, path-based deps, OTel deferred to Phase 4), and per-phase accept criteria. Phase 0 complete (SQLite store + store.resolve() + CLI). Phase 1 complete (Arbiter verdict integration: every eval emits a verdict, overrides resolve verdicts, `arbiter calibrate --verdict` queries accuracy). Demo 1 "The Feedback Loop" is live. Phase 2 (SitRep) is next.
 - `shift-left-reliability-skill.md`: Claude Code skill documentation
 - `skills/shift-left-reliability/`: Claude Code skill implementation with templates and examples
 - `action/`: GitHub Action for CI/CD validation (rsionnach/opensrm@v1)
@@ -408,6 +408,7 @@ Interactive web documentation:
 ### Design Specs
 - `docs/superpowers/specs/2026-03-13-phase-0.2-store-resolve-subject-type-design.md`: Phase 0.2 verdict library design — `store.resolve()` concrete method on `VerdictStore` ABC (eliminates two-step resolve footgun with SQLiteVerdictStore) + adds `"communication"` to `VALID_SUBJECT_TYPES` (unblocks Mayday Communication agent). Files changed: `verdict/store.py`, `verdict/models.py`, `tests/test_store.py`.
 - `docs/superpowers/plans/2026-03-13-phase-0.2-store-resolve-subject-type.md`: Phase 0.2 implementation plan — step-by-step TDD checklist for adding `store.resolve()` to `VerdictStore` ABC and adding `"communication"` to `VALID_SUBJECT_TYPES`. Two tasks: (1) communication subject type (2 tests × 2 backends), (2) store-level `resolve()` (7 tests × 2 backends = 14 new tests); target: 122 total passing.
+- `docs/superpowers/specs/2026-03-13-phase-1-arbiter-verdict-integration-design.md`: Phase 1 Arbiter verdict integration design (approved) — `PipelineRouter.run()` as integration point; verdict created after `save_score()` + `set_verdict_id()` back-link; override→resolution in `save_override()` via `verdict_store.resolve(verdict_id, "overridden")`; `DEFAULT_APPROVE_THRESHOLD = 0.5`; `VerdictConfig` dataclass + optional `verdict` section in `arbiter.yaml`; `ALTER TABLE evaluations ADD COLUMN verdict_id TEXT` migration; `VerdictCalibration` strangler fig (system-wide, not per-agent); `--verdict` flag on `calibrate` CLI. Files changed: `config.py`, `router.py`, `sqlite.py`, `cli.py`; created: `verdict_calibration.py`, `tests/test_verdict_integration.py`. Accept criteria: Demo 1 "The Feedback Loop" — evaluate → verdict stored → override → `verdict accuracy --producer arbiter` reflects the change.
 
 Files removed as of df80f12:
 - `opensrm-v1-full-spec.md`: Consolidated into spec/v1/specification.md
