@@ -328,7 +328,7 @@ class AgentBase(ABC):
 
         On model failure:
         1. _degraded_verdict(context, reason)       # transport
-        2. return context unchanged (except verdict_chain and last_completed_step)
+        2. return context unchanged (except verdict_chain updated by _degraded_verdict)
         """
 ```
 
@@ -642,6 +642,8 @@ class ContextStore(Protocol):
     def load(self, incident_id: str) -> IncidentContext | None: ...
     def list_active(self) -> list[str]: ...
     def list_all(self, limit: int = 50) -> list[IncidentContext]: ...
+    def get_metadata(self, key: str) -> str | None: ...
+    def set_metadata(self, key: str, value: str) -> None: ...
 ```
 
 ### SQLite Implementation
@@ -659,6 +661,13 @@ class SQLiteContextStore:
         )
     Indexes: (state), (updated_at DESC)
     WAL mode, busy_timeout=5000.
+
+    Additional table for serve polling state:
+        metadata(
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    Used for last_poll_timestamp and other coordinator state.
     """
 ```
 
