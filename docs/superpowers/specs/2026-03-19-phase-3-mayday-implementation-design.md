@@ -4,7 +4,7 @@
 **Status:** Approved
 **Depends on:** Phase 2 (SitRep) complete, Phase 1 (Arbiter verdict integration) complete, Phase 0 (verdict library + CLI) complete
 **Accept criteria:** `mayday replay --scenario scenarios/synthetic/cascading-failure.yaml` produces expected verdicts with full lineage back to SitRep's correlation verdicts
-**Beads epic:** `opensrm-m50`
+**Beads epic:** `opensrm-m50` (centralized in opensrm repo; supersedes `mayday-bel` from the archived per-repo beads)
 
 ---
 
@@ -20,7 +20,7 @@ Naming: the repo, code, CLI, and all internal references use `mayday`. "Response
 - **Verdict lineage:** Every Mayday verdict links back to SitRep correlation verdicts (via `lineage.context`) and chains to the previous Mayday verdict (via `lineage.parent`). One human override at any point calibrates every component upstream.
 - **Approval ratchet:** The model can escalate approval requirements (request human sign-off) but never downgrade them. If a safe action's default is `requires_approval=True`, the model cannot override it to False. Same principle as the Arbiter's autonomy ratchet.
 - **Degraded mode:** Model failure produces a low-confidence verdict with `action="escalate"` and `tags=["degraded", "human-takeover-required"]`. Never silence, never guessing.
-- **Crash recovery:** `IncidentContext` persisted to SQLite after every agent step. Coordinator resumes from `last_completed_step`.
+- **Crash recovery:** `IncidentContext` persisted to SQLite after every pipeline step. Coordinator resumes from `last_completed_step_index`.
 
 ---
 
@@ -175,11 +175,16 @@ class IncidentContext:
     communication: CommunicationResult | None = None
     remediation: RemediationResult | None = None
     verdict_chain: list[str] = field(default_factory=list)
-    last_completed_step: AgentRole | None = None
+    last_completed_step_index: int | None = None  # pipeline step index (0-3)
+    error: str | None = None                       # for FAILED incidents
     metadata: dict = field(default_factory=dict)
 ```
 
 `trigger_source` tells the triage agent what level of pre-correlated context to expect. `trigger_verdict_ids` is empty when triggered by raw PagerDuty webhook (degraded path). `verdict_chain` is the ordered list of Mayday verdict IDs — each new verdict's `lineage.context` includes the SitRep trigger IDs, and `lineage.parent` points to the previous Mayday verdict in the chain.
+
+`last_completed_step_index` is a pipeline step index (0-3), not an `AgentRole`. This resolves two ambiguities: (1) parallel steps — the index is set after the entire `asyncio.gather` completes, not after each individual agent, so a crash mid-parallel-step causes both agents to re-run; (2) `COMMUNICATION` appears at step index 1 (parallel with investigation) and step index 3 (resolution update) — the index disambiguates which occurrence completed.
+
+`error` stores the error message when the coordinator transitions to FAILED. The context store extracts this into a separate SQLite column for queryability without deserialising the full JSON blob.
 
 ---
 
@@ -196,7 +201,7 @@ ABC with template method pattern. Transport methods on the base, judgment method
 | `_degraded_verdict()` | Transport | Base class |
 | `_request_autonomy_reduction()` | Transport | Base class |
 | `_parse_json()` | Transport | Base class |
-| `_apply_result()` | Judgment | Subclass (abstract) |
+| `_apply_result()` | Transport | Subclass (abstract) — mechanical field assignment, not judgment |
 | `build_prompt()` | Judgment | Subclass (abstract) |
 | `parse_response()` | Judgment | Subclass (abstract) |
 
@@ -262,7 +267,8 @@ class AgentBase(ABC):
     def _degraded_verdict(self, context: IncidentContext, reason: str) -> Verdict:
         """Emit confidence=0.0 verdict for human takeover.
         action="escalate", tags=["degraded", "human-takeover-required"].
-        Also sets context.last_completed_step = self.role."""
+        Note: does NOT set last_completed_step_index — that is the coordinator's
+        responsibility after the full pipeline step completes (including parallel agents)."""
 
     async def _request_autonomy_reduction(
         self,
@@ -311,11 +317,14 @@ class AgentBase(ABC):
         1. build_prompt(context)                    # judgment
         2. _call_model(system, user)                # transport
         3. parse_response(response, context)        # judgment
-        4. _apply_result(context, result)           # judgment
+        4. _apply_result(context, result)           # transport (field assignment)
         5. _emit_verdict(context, ...)              # transport
         6. _post_execute(context, result)           # transport (hook)
-        7. context.last_completed_step = self.role  # transport
-        8. return context
+        7. return context
+
+        Note: last_completed_step_index is set by the COORDINATOR after the
+        full pipeline step completes, not by the agent. This ensures parallel
+        steps (investigation + communication) are checkpointed atomically.
 
         On model failure:
         1. _degraded_verdict(context, reason)       # transport
@@ -565,17 +574,20 @@ class Coordinator:
     async def run(self, context: IncidentContext) -> IncidentContext:
         """Execute full pipeline from current state.
 
-        Crash recovery: if context.last_completed_step is set,
-        _next_step() skips to the step after that one.
+        Crash recovery: if context.last_completed_step_index is set,
+        resume from step index + 1. For parallel steps, a crash mid-step
+        causes the entire parallel group to re-run (both agents).
 
-        After each step:
-        1. context_store.save(context)  — crash recovery checkpoint
-        2. _check_escalation()          — any verdict action=escalate
+        After each pipeline step:
+        1. context.last_completed_step_index = step_index
+        2. context_store.save(context)  — crash recovery checkpoint
+        3. _check_escalation()          — any verdict action=escalate
                                           with confidence < threshold
-        3. Check approval gate          — remediation.requires_human_approval
+        4. Check approval gate          — remediation.requires_human_approval
                                           → AWAITING_APPROVAL, return
 
-        Guard on second communication run: skip if state is ESCALATED or FAILED.
+        Guard on second communication run (step 3): skip if state is
+        ESCALATED or FAILED.
         """
 
     async def resume(self, incident_id: str) -> IncidentContext:
@@ -592,9 +604,13 @@ class Coordinator:
     async def reject(self, incident_id: str, reason: str) -> IncidentContext:
         """Human rejects pending remediation.
         1. Load context (must be AWAITING_APPROVAL)
-        2. Emit override verdict resolving the remediation verdict as "overridden"
-           Include the original proposed action in reasoning:
-           "Human rejected rollback of payment-api: <reason>"
+        2. Resolve the remediation verdict via verdict_store.resolve(
+               remediation_verdict_id, "overridden",
+               override={"by": "human", "reasoning":
+                   "Human rejected {proposed_action} of {target}: {reason}"})
+           This resolves the EXISTING verdict — does NOT create a new one.
+           The override includes the original proposed action for calibration:
+           remediation agent accuracy = proposed actions humans accepted.
         3. Transition to ESCALATED
         """
 ```
@@ -657,7 +673,15 @@ Entry point: `mayday` (pyproject.toml `[project.scripts]`) or `python -m mayday`
 ### Commands
 
 **`mayday serve [--config mayday.yaml]`**
-Start the full pipeline. Poll `verdict_store` for new SitRep correlation verdicts at `poll_interval_seconds`. On new `escalate` or `flag` verdict from producer `"sitrep"` → create `IncidentContext` → run coordinator. Handle SIGINT/SIGTERM for graceful shutdown.
+Start the full pipeline. Poll `verdict_store` for new SitRep correlation verdicts at `poll_interval_seconds`.
+
+Trigger dedup: the coordinator persists a `last_poll_timestamp` in the context store (metadata table). Each poll cycle queries `VerdictFilter(producer_system="sitrep", subject_type="correlation", from_time=last_poll_timestamp)`. After processing, `last_poll_timestamp` is updated to the latest verdict's timestamp. On first startup (no persisted timestamp), look back `poll_interval_seconds * 2` to catch recent verdicts without reprocessing history.
+
+Action filtering: `VerdictFilter` does not support filtering by `judgment.action`. Mayday queries all SitRep correlation verdicts in the window, then filters in Python for `action in ("escalate", "flag")`. Verdicts with `action="defer"` are skipped.
+
+Incident dedup: before creating a new `IncidentContext`, check `context_store.list_active()` for existing incidents with overlapping `trigger_verdict_ids` or affecting the same services. If an active incident already covers the same correlation, skip. Full incident dedup (merging overlapping incidents) is a Tier 2 concern.
+
+Handle SIGINT/SIGTERM for graceful shutdown.
 
 **`mayday status [--config mayday.yaml]`**
 Show active incidents, their states, last action taken, and error messages for failed incidents. Reads from `context_store.list_active()` and `list_all()`.
@@ -820,6 +844,8 @@ From each verdict, Mayday extracts:
 
 No translation layer. Mayday reads verdict fields directly.
 
+Note: `VerdictFilter` does not support filtering by `judgment.action` or `judgment.tags`. Action-based filtering (e.g., only trigger on `"escalate"` or `"flag"`, skip `"defer"`) is done in Python after the verdict store query.
+
 ---
 
 ## 13. Verdict Output
@@ -865,7 +891,19 @@ Human override at any point resolves that verdict as `"overridden"` and the accu
 
 ---
 
-## 15. Files Changed / Created
+## 15. Deferred / Out of Scope
+
+These features are mentioned in `IMPLEMENTATION-PLAN.md` Phase 3.5 or `mayday/CLAUDE.md` but are explicitly deferred from this spec:
+
+- **Post-incident verdict resolution:** When an incident reaches a terminal state, resolve all pending Mayday verdicts in the chain. Deferred to a follow-up task — the verdict chain is complete without this, and manual resolution via `verdict` CLI works in the interim.
+- **Scenario export:** Export a resolved incident's verdict chain + context as a replayable scenario YAML. Deferred — replay works from pre-authored scenarios for now.
+- **Channel integrations (Slack, PagerDuty, email):** Communication agent drafts messages; actual sending is Tier 2 glue code. The agent produces the content, infrastructure delivers it.
+- **Full incident dedup/merging:** Merging overlapping incidents when multiple SitRep correlations identify the same root cause. Tier 1 uses simple dedup (skip if active incident covers same services).
+- **OpenSRM manifest-driven safe actions:** Tier 2 — safe actions are currently defined in code (`actions.py`), not read from manifests.
+
+---
+
+## 16. Files Changed / Created
 
 All files are new (no existing Mayday code).
 
