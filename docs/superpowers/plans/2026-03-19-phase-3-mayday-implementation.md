@@ -83,6 +83,7 @@ dependencies = [
     "pyyaml>=6.0.1",
     "structlog>=24.1",
     "anthropic>=0.39",
+    "verdict @ file:///../verdicts/lib/python",
 ]
 
 [project.optional-dependencies]
@@ -1066,6 +1067,34 @@ def test_approval_ratchet(tmp_path):
     register_builtin_actions(registry)
     rollback = registry.get("rollback")
     assert rollback.requires_approval is True
+
+
+async def test_blast_radius_check_passes(registry):
+    async def handler(target, context, **kwargs):
+        return {"success": True}
+
+    registry.register(SafeAction(
+        name="test_action", description="Test", target_type="service",
+        requires_approval=False, cooldown_seconds=0,
+        handler=handler,
+        blast_radius_check=lambda target, ctx: True,  # always passes
+    ))
+    result = await registry.execute("test_action", "svc", make_context())
+    assert result["success"] is True
+
+
+async def test_blast_radius_check_fails(registry):
+    async def handler(target, context, **kwargs):
+        return {"success": True}
+
+    registry.register(SafeAction(
+        name="test_action", description="Test", target_type="service",
+        requires_approval=False, cooldown_seconds=0,
+        handler=handler,
+        blast_radius_check=lambda target, ctx: False,  # always fails
+    ))
+    with pytest.raises(Exception, match="blast.?radius"):
+        await registry.execute("test_action", "svc", make_context())
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -1090,7 +1119,7 @@ Expected: All 9 tests PASS
 
 ```bash
 git add src/mayday/safe_actions/ tests/test_safe_actions.py
-git commit -m "feat: safe action registry with cooldown persistence (Phase 3.4)"
+git commit -m "feat: safe action registry with cooldown persistence (Phase 3.6)"
 ```
 
 ---
@@ -1131,7 +1160,7 @@ Expected: All tests PASS
 
 ```bash
 git add src/mayday/agents/triage.py tests/test_triage.py
-git commit -m "feat: triage agent with autonomy reduction trigger (Phase 3.2)"
+git commit -m "feat: triage agent with autonomy reduction trigger (Phase 3)"
 ```
 
 ---
@@ -1169,7 +1198,7 @@ Expected: All tests PASS
 
 ```bash
 git add src/mayday/agents/investigation.py tests/test_investigation.py
-git commit -m "feat: investigation agent with root cause threshold (Phase 3.3)"
+git commit -m "feat: investigation agent with root cause threshold (Phase 3)"
 ```
 
 ---
@@ -1195,7 +1224,7 @@ Key tests:
 Same TDD cycle. `CommunicationAgent(AgentBase)` with `role = AgentRole.COMMUNICATION`, `default_timeout = 20`. Two-phase prompt based on context state.
 
 ```bash
-git commit -m "feat: communication agent with two-phase prompting (Phase 3.5)"
+git commit -m "feat: communication agent with two-phase prompting (Phase 3)"
 ```
 
 ---
@@ -1224,7 +1253,7 @@ Key tests:
 `RemediationAgent(AgentBase)` with `role = AgentRole.REMEDIATION`, `default_timeout = 30`. Takes `safe_action_registry` in `__init__`. `_post_execute()` implements the two-step ordering: safe action execution → autonomy reduction.
 
 ```bash
-git commit -m "feat: remediation agent with safe action execution (Phase 3.4)"
+git commit -m "feat: remediation agent with safe action execution (Phase 3)"
 ```
 
 ---
@@ -1466,6 +1495,32 @@ def test_parser_reject():
     args = parser.parse_args(["reject", "INC-2026-0001", "--reason", "Wrong action"])
     assert args.command == "reject"
     assert args.reason == "Wrong action"
+
+
+def test_parser_resume():
+    parser = build_parser()
+    args = parser.parse_args(["resume", "INC-2026-0001"])
+    assert args.command == "resume"
+    assert args.incident_id == "INC-2026-0001"
+
+
+def test_parser_status():
+    parser = build_parser()
+    args = parser.parse_args(["status"])
+    assert args.command == "status"
+
+
+async def test_status_shows_active_incidents(tmp_path, capsys):
+    """Functional test: status command displays active incidents."""
+    # Create a context store with active and resolved incidents,
+    # run status_command(), verify output includes active IDs
+    # and excludes resolved ones
+
+
+async def test_resume_loads_and_runs(tmp_path):
+    """Functional test: resume loads context from store and runs coordinator."""
+    # Save a context with last_completed_step_index=0 (triage done),
+    # run resume_command(), verify investigation runs next
 ```
 
 - [ ] **Step 3: Run tests to verify they fail**
@@ -1487,7 +1542,16 @@ Run: `uv run pytest tests/test_replay.py tests/test_cli.py -v`
 6. For interactions: inject at specified timing points
 7. Print incident timeline + verdict chain
 
-Other commands: `serve_command()`, `status_command()`, `approve_command()`, `reject_command()`, `resume_command()`.
+`serve_command()`:
+- Poll loop: query `verdict_store` for new SitRep correlation verdicts using `VerdictFilter(producer_system="sitrep", subject_type="correlation", from_time=last_poll_timestamp)`
+- `last_poll_timestamp` persisted via `context_store.set_metadata("last_poll_timestamp", ...)`; on first start (None), look back `poll_interval_seconds * 2`
+- Action filtering: post-query Python filter for `judgment.action in ("escalate", "flag")`, skip `"defer"`
+- Incident dedup: skip if `context_store.list_active()` has incident with overlapping services
+- SIGINT/SIGTERM: set shutdown event, drain current pipeline step, save context, exit
+
+`status_command()`: query `context_store.list_active()` and `list_all()`, print table with ID, state, last step, error (for FAILED).
+
+`approve_command()`, `reject_command()`, `resume_command()`: load config, create stores, delegate to coordinator methods.
 
 `main()`: parse args, dispatch to command function.
 
@@ -1573,4 +1637,22 @@ bd update opensrm-m50 --status done     # Phase 3 epic
 ```bash
 git add .beads/
 git commit -m "chore: close Phase 3 beads tasks"
+```
+
+---
+
+## Task 15: Update mayday/CLAUDE.md
+
+**Files:**
+- Modify: `mayday/CLAUDE.md`
+
+- [ ] **Step 1: Update CLAUDE.md**
+
+Add autonomy reduction as a first-class concept in the Key Design Patterns section. Update the implementation phases section to reference the design spec. Update status from "architecture phase only" to "Phase 3 implemented". Add build commands section matching SitRep's pattern (`uv run pytest tests/ -v`, `uv run mayday serve | status | replay`).
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add CLAUDE.md
+git commit -m "docs: update CLAUDE.md with Phase 3 implementation details"
 ```
