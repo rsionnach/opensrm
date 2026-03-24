@@ -16,7 +16,7 @@ Reliability concerns move earlier in the lifecycle. Service manifests define SLO
 
 ### 3. Operator-Agnostic
 
-The stack supports both human and AI operators. Sitrep snapshots work for dashboards (human) and LLMs (AI). Judgment SLOs measure decision quality regardless of decision-maker. Decision telemetry captures human and AI decisions equally.
+The stack supports both human and AI operators. nthlayer-correlate snapshots work for dashboards (human) and LLMs (AI). Judgment SLOs measure decision quality regardless of decision-maker. Decision telemetry captures human and AI decisions equally.
 
 ### 4. Open Standards
 
@@ -51,12 +51,12 @@ Every component in the ecosystem falls into one of four categories based on its 
 │  └── Dependency math engine      Targets in, ceiling out            │
 │                                                                      │
 │  AGENTS (reasoning, adaptive, judgment required)                    │
-│  ├── Sitrep                      Continuous correlation             │
-│  ├── Mayday Triage               Severity and blast radius          │
-│  ├── Mayday Investigation        Root cause analysis                │
-│  ├── Mayday Communication        Stakeholder updates                │
-│  ├── Mayday Remediation          Fix suggestion and validation      │
-│  └── Arbiter                     Evaluation + governance            │
+│  ├── nthlayer-correlate                      Continuous correlation             │
+│  ├── nthlayer-respond Triage               Severity and blast radius          │
+│  ├── nthlayer-respond Investigation        Root cause analysis                │
+│  ├── nthlayer-respond Communication        Stakeholder updates                │
+│  ├── nthlayer-respond Remediation          Fix suggestion and validation      │
+│  └── nthlayer-measure                     Evaluation + governance            │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -122,7 +122,7 @@ Every component in the ecosystem falls into one of four categories based on its 
 │  ║                AGENT LAYER (Reasoning)                            ║  │
 │  ║                                                                   ║  │
 │  ║  ┌──────────────────┐  verdict   ┌────────────────────────────┐  ║  │
-│  ║  │  Sitrep Agent    │───────────▶│      Mayday Agents         │  ║  │
+│  ║  │  nthlayer-correlate Agent    │───────────▶│      nthlayer-respond Agents         │  ║  │
 │  ║  │                  │            │                            │  ║  │
 │  ║  │  Observe:        │            │  ┌──────────────────────┐  │  ║  │
 │  ║  │  • alerts        │            │  │ Triage               │  │  ║  │
@@ -136,7 +136,7 @@ Every component in the ecosystem falls into one of four categories based on its 
 │  ║  └──────────────────┘            └────────────────────────────┘  ║  │
 │  ║           ▲                                  ▲                   ║  │
 │  ║           │             ┌──────────────────┐ │                   ║  │
-│  ║           │             │    Arbiter       │ │                   ║  │
+│  ║           │             │    nthlayer-measure       │ │                   ║  │
 │  ║           └─────────────│                  │─┘                   ║  │
 │  ║     verdict.accuracy()  │  Evaluates:      │  autonomy           ║  │
 │  ║     queries             │  • agent output  │  adjustments        ║  │
@@ -198,7 +198,7 @@ Every component in the ecosystem falls into one of four categories based on its 
 
 **Category:** Data primitive
 
-**Purpose:** The structured record format for every AI judgment in the ecosystem. A verdict captures what was decided, with what confidence, and — once outcomes are known — whether it was correct. Every judgment-producing component (Arbiter, SitRep, Mayday agents) writes verdicts. Every feedback-consuming component reads them. The verdict store is the shared substrate for calibration, gaming detection, and human review.
+**Purpose:** The structured record format for every AI judgment in the ecosystem. A verdict captures what was decided, with what confidence, and — once outcomes are known — whether it was correct. Every judgment-producing component (nthlayer-measure, nthlayer-correlate, nthlayer-respond agents) writes verdicts. Every feedback-consuming component reads them. The verdict store is the shared substrate for calibration, gaming detection, and human review.
 
 **Three phases per verdict:**
 1. **Judgment** (at decision time): producer, decision, confidence, context
@@ -240,7 +240,7 @@ Every component in the ecosystem falls into one of four categories based on its 
 - Grafana dashboards (including agent decision quality dashboards)
 - PagerDuty service configurations
 - OpenSLO specifications
-- Topology graph (consumed by Sitrep agent)
+- Topology graph (consumed by nthlayer-correlate agent)
 - CI/CD gate exit codes
 
 **Key interfaces:**
@@ -248,7 +248,7 @@ Every component in the ecosystem falls into one of four categories based on its 
 nthlayer validate <manifest>           # Validate against schema + dependency math
 nthlayer generate <manifest> -o <dir>  # Generate all artifacts
 nthlayer check-deploy <manifest>       # CI/CD deployment gate
-nthlayer topology export <manifest>    # Export topology for Sitrep
+nthlayer topology export <manifest>    # Export topology for nthlayer-correlate
 nthlayer verify <manifest>             # Verify declared metrics exist in Prometheus
 nthlayer portfolio                     # Org-wide SLO health view
 ```
@@ -259,11 +259,11 @@ nthlayer portfolio                     # Org-wide SLO health view
 
 ## Component Details: Agents
 
-### Sitrep (Correlation Agent)
+### nthlayer-correlate (Correlation Agent)
 
 **Category:** Agent
 
-**Purpose:** Continuously observe operational telemetry and produce pre-correlated situation assessments. Sitrep doesn't just aggregate data: it interprets context, weighs signals against topology, and makes judgment calls about what matters right now.
+**Purpose:** Continuously observe operational telemetry and produce pre-correlated situation assessments. nthlayer-correlate doesn't just aggregate data: it interprets context, weighs signals against topology, and makes judgment calls about what matters right now.
 
 **Why it's an agent:** Correlation is inherently a reasoning task. "A deployment happened 12 minutes ago to auth-service, and now checkout-service latency is spiking, and these two services share a critical dependency path": connecting those dots requires understanding topology, temporal proximity, and causal plausibility. Different situations demand different correlation strategies. This is interpretation, not aggregation.
 
@@ -271,7 +271,7 @@ nthlayer portfolio                     # Org-wide SLO health view
 - Alerts (webhook ingester)
 - Changes (webhook ingester — GitHub, ArgoCD, etc.)
 - Topology (from NthLayer, via tool call)
-- Verdicts (Arbiter quality verdicts accepted as events)
+- Verdicts (nthlayer-measure quality verdicts accepted as events)
 
 **Inputs (deferred — Tier 2/3):**
 - Metrics (Prometheus remote write)
@@ -301,25 +301,25 @@ Observe --> Correlate --> Assess --> Publish
 |-------|---------|-----------|
 | WATCHING | Normal operations | Background correlation, 5-minute snapshot cycle |
 | ALERT | Elevated signal detected | Increased correlation frequency, broader signal ingestion |
-| INCIDENT | Incident declared via webhook | Continuous reassessment, 1-minute snapshots, pushes to Mayday |
+| INCIDENT | Incident declared via webhook | Continuous reassessment, 1-minute snapshots, pushes to nthlayer-respond |
 | DEGRADED | Own judgment SLO metrics below threshold | Conservative mode, reduced confidence in correlations, flags for human review |
 
-**Tools Sitrep calls:**
+**Tools nthlayer-correlate calls:**
 - NthLayer topology export (deterministic: get service graph)
 - Prometheus queries (deterministic: get metric values)
 - Log search (deterministic: retrieve matching entries)
 
-**Judgment SLOs for Sitrep itself:**
-- Correlation accuracy: what percentage of Sitrep's "related change" assessments do humans agree with?
-- False positive rate: how often does Sitrep flag a change as incident-related when it isn't?
+**Judgment SLOs for nthlayer-correlate itself:**
+- Correlation accuracy: what percentage of nthlayer-correlate's "related change" assessments do humans agree with?
+- False positive rate: how often does nthlayer-correlate flag a change as incident-related when it isn't?
 
 **Verdict output:** Every correlation assessment is emitted as a verdict via `verdict.create()`. Snapshot verdicts link to child correlation verdicts via lineage. When a human disagrees with a correlation, `verdict.resolve(status="overridden")` closes the loop. OTel events (`gen_ai.decision.*`, `gen_ai.override.*`) are emitted automatically as a side-effect.
 
-**DEGRADED mode:** When the model is unavailable, Sitrep continues the transport pipeline (ingest, group, deduplicate) and emits template-based verdicts with `confidence: 0.0`, flagging them for human review. The pre-correlation engine is fully testable without a model.
+**DEGRADED mode:** When the model is unavailable, nthlayer-correlate continues the transport pipeline (ingest, group, deduplicate) and emits template-based verdicts with `confidence: 0.0`, flagging them for human review. The pre-correlation engine is fully testable without a model.
 
 ---
 
-### Mayday (Incident Response Agents)
+### nthlayer-respond (Incident Response Agents)
 
 **Category:** Agents (multiple, collaborating)
 
@@ -353,7 +353,7 @@ Incident Declared
 
 **Shared incident context:**
 
-All Mayday agents read from and write to a shared incident context object. This is the accumulating record of what is known about the incident.
+All nthlayer-respond agents read from and write to a shared incident context object. This is the accumulating record of what is known about the incident.
 
 ```yaml
 incident_context:
@@ -399,7 +399,7 @@ incident_context:
 
 #### Triage Agent
 
-**Inputs:** Sitrep snapshot, OpenSRM topology, active SLO status from Prometheus
+**Inputs:** nthlayer-correlate snapshot, OpenSRM topology, active SLO status from Prometheus
 
 **Reasoning:** Severity classification based on blast radius and SLO impact. Determines which services are affected, which teams own them, and how urgent the response needs to be. Weighs competing signals when severity is ambiguous.
 
@@ -411,7 +411,7 @@ incident_context:
 
 #### Investigation Agent
 
-**Inputs:** Sitrep snapshot, triage output from incident context, historical incident data, service topology
+**Inputs:** nthlayer-correlate snapshot, triage output from incident context, historical incident data, service topology
 
 **Reasoning:** Hypothesis generation from correlated signals. Evidence gathering from metrics, logs, and change history. Root cause ranking by confidence. Adapts investigation strategy based on what evidence reveals: follows the data, not a fixed checklist.
 
@@ -447,17 +447,17 @@ incident_context:
 
 ---
 
-### Arbiter
+### nthlayer-measure
 
 **Category:** Agent
 
-**Purpose:** Quality measurement engine and governance layer. The Arbiter evaluates agent output quality, classifies risk, routes evaluations to appropriate model tiers, and self-calibrates using verdict accuracy queries. It also makes governance decisions about agent autonomy levels.
+**Purpose:** Quality measurement engine and governance layer. The nthlayer-measure evaluates agent output quality, classifies risk, routes evaluations to appropriate model tiers, and self-calibrates using verdict accuracy queries. It also makes governance decisions about agent autonomy levels.
 
-**Why it's an agent:** Both evaluation and governance require interpretation. Evaluating whether agent output is correct requires judgment across multiple quality dimensions. A spike in override rate could mean the agent has degraded, a new reviewer has different standards, or the problem domain shifted. The Arbiter reasons about context, not just threshold crossings.
+**Why it's an agent:** Both evaluation and governance require interpretation. Evaluating whether agent output is correct requires judgment across multiple quality dimensions. A spike in override rate could mean the agent has degraded, a new reviewer has different standards, or the problem domain shifted. The nthlayer-measure reasons about context, not just threshold crossings.
 
 **Core pipeline (Phase 1 — verdict integration):**
 
-The Arbiter has a fully implemented evaluation pipeline with its own score store and calibration state. Phase 1 refactors this to use verdicts as the storage format:
+The nthlayer-measure has a fully implemented evaluation pipeline with its own score store and calibration state. Phase 1 refactors this to use verdicts as the storage format:
 
 - `pipeline.evaluate()` emits a verdict via `verdict.create()` instead of writing to the internal score store
 - Human overrides call `verdict.resolve(status="overridden")`
@@ -466,7 +466,7 @@ The Arbiter has a fully implemented evaluation pipeline with its own score store
 
 **Risk classification and tiered routing (Phase 2):**
 
-Not all agent output warrants frontier model evaluation. The Arbiter classifies risk using manifest-declared path lists (not pattern matching):
+Not all agent output warrants frontier model evaluation. The nthlayer-measure classifies risk using manifest-declared path lists (not pattern matching):
 
 | Tier | Criteria | Evaluation |
 |------|----------|------------|
@@ -491,9 +491,9 @@ Not all agent output warrants frontier model evaluation. The Arbiter classifies 
 
 **Decision authority:** Can reduce agent autonomy (safe direction). Cannot increase agent autonomy without human approval (one-way safety ratchet). Can fire alerts. Can switch agents to degraded mode.
 
-**Judgment SLO:** How often do human operators disagree with the Arbiter's autonomy adjustments? Target: less than 5% reversal rate on governance decisions.
+**Judgment SLO:** How often do human operators disagree with the nthlayer-measure's autonomy adjustments? Target: less than 5% reversal rate on governance decisions.
 
-**Self-calibration:** The Arbiter measures its own accuracy via `verdict.accuracy(producer="arbiter")`. Every evaluation it makes is itself a verdict, subject to the same feedback loop it enforces on other agents.
+**Self-calibration:** The nthlayer-measure measures its own accuracy via `verdict.accuracy(producer="arbiter")`. Every evaluation it makes is itself a verdict, subject to the same feedback loop it enforces on other agents.
 
 ---
 
@@ -503,18 +503,18 @@ Not all agent output warrants frontier model evaluation. The Arbiter classifies 
 
 Agents in the OpenSRM ecosystem communicate through three mechanisms:
 
-**Verdicts with lineage (cross-component):** The primary inter-component communication format. SitRep emits correlation verdicts. Mayday's triage agent consumes them and emits triage verdicts linked via lineage. Investigation links to triage. Remediation links to investigation. This creates a traceable chain: any override at any point propagates context back through lineage. The verdict store is queryable — components don't need to know about each other directly.
+**Verdicts with lineage (cross-component):** The primary inter-component communication format. nthlayer-correlate emits correlation verdicts. nthlayer-respond's triage agent consumes them and emits triage verdicts linked via lineage. Investigation links to triage. Remediation links to investigation. This creates a traceable chain: any override at any point propagates context back through lineage. The verdict store is queryable — components don't need to know about each other directly.
 
-**Shared state (within Mayday):** All Mayday agents read from and write to a shared incident context object. This is the simplest model for agents collaborating on a single incident. Agents are functions with model calls inside, called sequentially by the coordinator within a single process. No mailboxes, no message buses, no polling.
+**Shared state (within nthlayer-respond):** All nthlayer-respond agents read from and write to a shared incident context object. This is the simplest model for agents collaborating on a single incident. Agents are functions with model calls inside, called sequentially by the coordinator within a single process. No mailboxes, no message buses, no polling.
 
 **OTel events (observability side-channel):** `gen_ai.decision.*` and `gen_ai.override.*` events are emitted automatically when verdicts are created and resolved. These feed Prometheus metrics and Grafana dashboards via NthLayer. This is a read-only observability channel, not a communication path.
 
 ### Orchestration
 
-Mayday uses a coordinator that sequences agent calls as direct function invocations. This is not a general-purpose agent framework, a message broker, or a mail system: it's a purpose-built pipeline for incident response.
+nthlayer-respond uses a coordinator that sequences agent calls as direct function invocations. This is not a general-purpose agent framework, a message broker, or a mail system: it's a purpose-built pipeline for incident response.
 
 The coordinator:
-- Receives the incident trigger (SitRep correlation verdict)
+- Receives the incident trigger (nthlayer-correlate correlation verdict)
 - Creates the shared incident context
 - Calls `triage(event)`, gets a result (verdict emitted)
 - Calls `investigate(triage_result)` and `communicate(triage_result)` in parallel
@@ -547,13 +547,13 @@ Developer              NthLayer              Monitoring Stack
    │                      │  pagerduty config     │
    │                      ├──────────────────────▶│
    │                      │                       │
-   │                      │  topology.json ──────▶ Sitrep agent
+   │                      │  topology.json ──────▶ nthlayer-correlate agent
 ```
 
-### Flow 2: Events to Verdicts (Sitrep reasoning loop)
+### Flow 2: Events to Verdicts (nthlayer-correlate reasoning loop)
 
 ```
-Event Sources        Sitrep Agent                Verdict Store
+Event Sources        nthlayer-correlate Agent                Verdict Store
    │                    │                            │
    │ alerts (webhook)   │                            │
    ├───────────────────▶│                            │
@@ -566,7 +566,7 @@ Event Sources        Sitrep Agent                Verdict Store
    ├───────────────────▶│  severity pre-scoring      │
    │                    │                            │
    │ verdicts           │ model (judgment)           │
-   │ (Arbiter quality)  │  correlate, assess,        │
+   │ (nthlayer-measure quality)  │  correlate, assess,        │
    ├───────────────────▶│  rank                      │
    │                    │                            │
    │                    │ verdict.create()           │
@@ -584,7 +584,7 @@ Event Sources        Sitrep Agent                Verdict Store
 ### Flow 3: Decision to Verdict to Measurement
 
 ```
-Any Agent           Verdict Store        Human / CI           Arbiter
+Any Agent           Verdict Store        Human / CI           nthlayer-measure
    │                    │                    │                    │
    │ verdict.create()   │                    │                    │
    │ (judgment phase)   │                    │                    │
@@ -614,7 +614,7 @@ Any Agent           Verdict Store        Human / CI           Arbiter
 ### Flow 4: Agent Tool Invocation
 
 ```
-Agent (Sitrep/Mayday)    Tool (NthLayer)    Data (OpenSRM)
+Agent (nthlayer-correlate/nthlayer-respond)    Tool (NthLayer)    Data (OpenSRM)
          │                          │                    │
          │  topology_query          │                    │
          ├─────────────────────────▶│                    │
@@ -637,7 +637,7 @@ Agent (Sitrep/Mayday)    Tool (NthLayer)    Data (OpenSRM)
 ### Flow 5: Incident Lifecycle
 
 ```
-PagerDuty  Sitrep   Orchestrator  Triage  Investigate  Remediate  Comms
+PagerDuty  nthlayer-correlate   Orchestrator  Triage  Investigate  Remediate  Comms
    │         │          │           │         │           │         │
    │incident │          │           │         │           │         │
    ├────────▶│          │           │         │           │         │
@@ -679,8 +679,8 @@ Every agent in the ecosystem is itself a service with SLOs. The same specificati
 3. OTel events (`gen_ai.decision.*`, `gen_ai.override.*`) are emitted automatically as a side-effect of verdict operations
 4. These OTel events flow to Prometheus via OTel Collector
 5. NthLayer generates Prometheus recording rules and Grafana dashboards from each agent's OpenSRM `type: ai-gate` manifest
-6. The Arbiter queries `verdict.accuracy()` and `verdict.gaming-check()` for calibration and governance decisions
-7. `verdict gaming-check` (score-outcome divergence > 0.10) triggers alerts via the notification system
+6. The nthlayer-measure queries `verdict.accuracy()` and `verdict.gaming-check()` for calibration and governance decisions
+7. `nthlayer-learn gaming-check` (score-outcome divergence > 0.10) triggers alerts via the notification system
 
 ### Agent manifests
 
@@ -709,7 +709,7 @@ spec:
         confidence_threshold: 0.8
 ```
 
-This closes the loop: agents are monitored by the same system they help operate. If Sitrep's correlation quality drops, the same Prometheus rules and Grafana dashboards that monitor your services will show you.
+This closes the loop: agents are monitored by the same system they help operate. If nthlayer-correlate's correlation quality drops, the same Prometheus rules and Grafana dashboards that monitor your services will show you.
 
 ---
 
@@ -749,9 +749,9 @@ calibration_ece =
 
 | System | Integration | Direction |
 |--------|-------------|-----------|
-| Alertmanager | Webhook | Alerts to Sitrep |
-| GitHub | Webhook, API | Changes to Sitrep, rollback from Remediation agent |
-| ArgoCD | Webhook, API | Changes to Sitrep, rollback from Remediation agent |
+| Alertmanager | Webhook | Alerts to nthlayer-correlate |
+| GitHub | Webhook, API | Changes to nthlayer-correlate, rollback from Remediation agent |
+| ArgoCD | Webhook, API | Changes to nthlayer-correlate, rollback from Remediation agent |
 | PagerDuty | API, webhook | Pages from Triage agent, config from NthLayer |
 | Grafana | JSON import | Dashboards from NthLayer (service + agent dashboards) |
 | Prometheus | Query | OTel metrics for NthLayer dashboards and recording rules |
@@ -762,10 +762,10 @@ calibration_ece =
 
 | System | Integration | Trigger |
 |--------|-------------|---------|
-| Prometheus | Remote write to Sitrep | Webhook ingestion latency under sustained load |
+| Prometheus | Remote write to nthlayer-correlate | Webhook ingestion latency under sustained load |
 | NATS | Event streaming | Small-team scale, Tier 2 |
 | Kafka | Event streaming | Enterprise scale, Tier 3 |
-| LaunchDarkly | Webhook, API | Feature flag changes to Sitrep, toggles from Remediation |
+| LaunchDarkly | Webhook, API | Feature flag changes to nthlayer-correlate, toggles from Remediation |
 
 ### Internal Interfaces
 
@@ -774,13 +774,13 @@ calibration_ece =
 | Git | NthLayer | YAML | ServiceManifests | Data to tool |
 | NthLayer | Prometheus | YAML | Alert rules | Tool to data |
 | NthLayer | Grafana | JSON | Dashboards | Tool to data |
-| NthLayer | Sitrep | JSON | Topology graph | Tool to agent |
+| NthLayer | nthlayer-correlate | JSON | Topology graph | Tool to agent |
 | All agents | Verdict Store | Verdict | Judgments with lineage | Agent to primitive |
-| Verdict Store | Arbiter | Query | accuracy(), gaming-check() | Primitive to agent |
+| Verdict Store | nthlayer-measure | Query | accuracy(), gaming-check() | Primitive to agent |
 | Verdict Store | OTel Collector | Events | gen_ai.decision.*, gen_ai.override.* (auto-emitted) | Primitive to data |
-| Sitrep | Mayday | Verdict | Correlation verdicts | Agent to agent |
-| Arbiter | All agents | Config | Autonomy policy | Agent to agent |
-| Mayday agents | Shared context | In-memory | Incident findings (within single process) | Agent to agent |
+| nthlayer-correlate | nthlayer-respond | Verdict | Correlation verdicts | Agent to agent |
+| nthlayer-measure | All agents | Config | Autonomy policy | Agent to agent |
+| nthlayer-respond agents | Shared context | In-memory | Incident findings (within single process) | Agent to agent |
 | Human / CI | Verdict Store | Resolve | Confirms, overrides, auto-resolves | External to primitive |
 
 ---
@@ -791,9 +791,9 @@ The ecosystem is designed for incremental adoption. Each tier adds capabilities 
 
 ### Tier 1: Static + Verdicts
 
-**Components:** OpenSRM manifests + NthLayer CLI + Verdict library + Arbiter evaluation pipeline
+**Components:** OpenSRM manifests + NthLayer CLI + Verdict library + nthlayer-measure evaluation pipeline
 
-**Agents involved:** Arbiter (evaluation only, not full governance)
+**Agents involved:** nthlayer-measure (evaluation only, not full governance)
 
 **What you get:**
 - Validated service reliability manifests with schema and dependency math
@@ -801,43 +801,43 @@ The ecosystem is designed for incremental adoption. Each tier adds capabilities 
 - CI/CD deployment gates based on error budgets
 - Drift detection between declared and actual monitoring
 - Structured verdict records for every AI judgment
-- `verdict accuracy`, `verdict gaming-check`, `verdict review` CLI queries
-- Arbiter evaluating agent output quality with tiered risk classification
-- Human feedback loop via `verdict confirm` / `verdict override`
+- `nthlayer-learn accuracy`, `nthlayer-learn gaming-check`, `nthlayer-learn review` CLI queries
+- nthlayer-measure evaluating agent output quality with tiered risk classification
+- Human feedback loop via `nthlayer-learn confirm` / `nthlayer-learn override`
 
-**Effort:** Write manifests, add NthLayer to CI/CD pipeline, `pip install verdict`, configure Arbiter. SQLite verdict store — no additional infrastructure.
+**Effort:** Write manifests, add NthLayer to CI/CD pipeline, `pip install nthlayer-learn`, configure nthlayer-measure. SQLite verdict store — no additional infrastructure.
 
 ### Tier 2: Static + Correlation
 
-**Components:** Everything in Tier 1 + Sitrep agent
+**Components:** Everything in Tier 1 + nthlayer-correlate agent
 
-**Agents involved:** Sitrep, Arbiter
+**Agents involved:** nthlayer-correlate, nthlayer-measure
 
 **What you get:**
 - Everything in Tier 1
 - Continuous pre-correlated operational snapshots as verdicts
 - "What changed?" answers assembled before anyone asks
 - Correlation verdicts with lineage to signal groups
-- Arbiter quality verdicts flow back into Sitrep as events
-- Scenario replay for testing (`sitrep replay`, `arbiter replay`)
+- nthlayer-measure quality verdicts flow back into nthlayer-correlate as events
+- Scenario replay for testing (`nthlayer-correlate replay`, `nthlayer-measure replay`)
 
-**Effort:** Deploy Sitrep as a long-running service. Configure webhook ingestion from Alertmanager, GitHub, ArgoCD. SQLite FTS5 event store.
+**Effort:** Deploy nthlayer-correlate as a long-running service. Configure webhook ingestion from Alertmanager, GitHub, ArgoCD. SQLite FTS5 event store.
 
 ### Tier 3: Full Chain
 
-**Components:** Everything in Tier 2 + Mayday agents + full Arbiter governance
+**Components:** Everything in Tier 2 + nthlayer-respond agents + full nthlayer-measure governance
 
-**Agents involved:** Sitrep, Triage, Investigation, Communication, Remediation, Arbiter
+**Agents involved:** nthlayer-correlate, Triage, Investigation, Communication, Remediation, nthlayer-measure
 
 **What you get:**
 - Everything in Tier 2
-- Agent-orchestrated incident response (Mayday)
-- Full verdict lineage chain: SitRep correlation → Mayday triage → investigation → remediation
+- Agent-orchestrated incident response (nthlayer-respond)
+- Full verdict lineage chain: nthlayer-correlate correlation → nthlayer-respond triage → investigation → remediation
 - Human override at any point propagates through lineage
 - Governance layer with gaming detection and autonomy adjustments
 - Slack notifications for governance actions and overdue reviews
 
-**Effort:** Deploy Mayday coordinator (single process, direct function calls). Define agent manifests with judgment SLOs. Configure safe action permissions in OpenSRM manifests.
+**Effort:** Deploy nthlayer-respond coordinator (single process, direct function calls). Define agent manifests with judgment SLOs. Configure safe action permissions in OpenSRM manifests.
 
 ---
 
@@ -858,12 +858,12 @@ The ecosystem is designed for incremental adoption. Each tier adds capabilities 
 
 - **OpenSRM manifests:** Developer write, CI/CD read, agents read
 - **NthLayer:** CI/CD service accounts, agents invoke via tool interface
-- **Verdict store:** All agents write (create/resolve), Arbiter reads (accuracy/gaming queries), humans read/write (review/confirm/override)
-- **Sitrep:** Webhook ingestion from configured sources, verdict output to store
-- **Mayday:** Agents scoped to incident they're responding to, verdicts linked via lineage
-- **Arbiter:** Read access to all verdict stores, write access to autonomy policy only
+- **Verdict store:** All agents write (create/resolve), nthlayer-measure reads (accuracy/gaming queries), humans read/write (review/confirm/override)
+- **nthlayer-correlate:** Webhook ingestion from configured sources, verdict output to store
+- **nthlayer-respond:** Agents scoped to incident they're responding to, verdicts linked via lineage
+- **nthlayer-measure:** Read access to all verdict stores, write access to autonomy policy only
 - **Remediation actions:** Pre-approved safe actions defined in OpenSRM manifests, novel actions require human approval
 
 ### Agent Authority Boundaries
 
-No agent can escalate its own permissions. The Arbiter can reduce agent autonomy (safe direction) but cannot increase it without human approval. This is a one-way safety ratchet: automation can always be constrained, never self-expanded.
+No agent can escalate its own permissions. The nthlayer-measure can reduce agent autonomy (safe direction) but cannot increase it without human approval. This is a one-way safety ratchet: automation can always be constrained, never self-expanded.

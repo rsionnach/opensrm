@@ -2,7 +2,7 @@
 
 ## Context
 
-Six spec documents define the full ecosystem vision. Currently: verdict Python library (core + MemoryStore), Arbiter (full pipeline), and NthLayer (CLI) have working code. SitRep and Mayday are architecture-only. This plan reconciles 5 conflicting implementation orderings, flags critical issues, and is optimised for a solo developer working evenings/weekends who is also building a portfolio for Reliability Architect / Observability roles.
+Six spec documents define the full ecosystem vision. Currently: verdict Python library (core + MemoryStore), nthlayer-measure (full pipeline), and NthLayer (CLI) have working code. nthlayer-correlate and nthlayer-respond are architecture-only. This plan reconciles 5 conflicting implementation orderings, flags critical issues, and is optimised for a solo developer working evenings/weekends who is also building a portfolio for Reliability Architect / Observability roles.
 
 ---
 
@@ -10,7 +10,7 @@ Six spec documents define the full ecosystem vision. Currently: verdict Python l
 
 ### R1. Timeline is Fiction (BLOCKING)
 
-**Issue:** 11-17 weeks assumes full-time. For evenings/weekends (~10-15 hrs/week), Phase 2 (SitRep from scratch, 8 sub-phases) alone is 8-12 weeks, and Phase 3 (Mayday from scratch) is 6-10 weeks. Realistic total: 20-35 weeks.
+**Issue:** 11-17 weeks assumes full-time. For evenings/weekends (~10-15 hrs/week), Phase 2 (nthlayer-correlate from scratch, 8 sub-phases) alone is 8-12 weeks, and Phase 3 (nthlayer-respond from scratch) is 6-10 weeks. Realistic total: 20-35 weeks.
 
 **Resolution:** Reframe around demo milestones, not completion. Define three checkpoints where the project is demonstrably valuable. Reorder to front-load portfolio impact.
 
@@ -18,7 +18,7 @@ Six spec documents define the full ecosystem vision. Currently: verdict Python l
 
 **Issue:** The plan never answers "what does someone run end-to-end?" At Phase 0 completion, you have a library with no CLI. Nobody runs `pytest` to evaluate a portfolio project.
 
-**Resolution:** Define Demo 1 explicitly: Phase 0 + Phase 1 + a minimal verdict CLI (`verdict accuracy`). Run the Arbiter, evaluate agent output, override it, query accuracy. This demonstrates the core feedback loop thesis in ~3-4 weekends.
+**Resolution:** Define Demo 1 explicitly: Phase 0 + Phase 1 + a minimal verdict CLI (`nthlayer-learn accuracy`). Run the nthlayer-measure, evaluate agent output, override it, query accuracy. This demonstrates the core feedback loop thesis in ~3-4 weekends.
 
 ### R3. OTel Emission Built Too Early (SIGNIFICANT)
 
@@ -28,21 +28,21 @@ Six spec documents define the full ecosystem vision. Currently: verdict Python l
 
 ### R4. Shared SQLite with WAL Mode is Fine for Tier 1 (SIGNIFICANT)
 
-**Issue:** The per-component store split (`verdicts-arbiter.db`, `verdicts-sitrep.db`) breaks cross-component lineage queries — Mayday can't traverse a lineage chain that spans SitRep and Mayday stores. The `connect_readonly()` pattern is SQLite-specific and won't translate to PostgreSQL. This is premature optimization for a project with no real concurrent writers.
+**Issue:** The per-component store split (`verdicts-arbiter.db`, `verdicts-sitrep.db`) breaks cross-component lineage queries — nthlayer-respond can't traverse a lineage chain that spans nthlayer-correlate and nthlayer-respond stores. The `connect_readonly()` pattern is SQLite-specific and won't translate to PostgreSQL. This is premature optimization for a project with no real concurrent writers.
 
 **Resolution:** Single shared `verdicts.db` with WAL mode (`PRAGMA journal_mode=WAL`). WAL allows concurrent readers + one writer. Write contention in a demo/portfolio context is effectively zero. If production contention materialises, upgrade to PostgreSQL (the interface abstracts the backend). The per-component split was solving a problem that doesn't exist yet.
 
 ### R5. Verdict CLI in Phase 5 is Wrong (SIGNIFICANT)
 
-**Issue:** `verdict accuracy --producer arbiter` is a single-file CLI (~80 lines) that makes the entire feedback loop visible. Burying it in Phase 5 ("Quality of Life") means Phase 0+1 has no user-facing artifact.
+**Issue:** `nthlayer-learn accuracy --producer arbiter` is a single-file CLI (~80 lines) that makes the entire feedback loop visible. Burying it in Phase 5 ("Quality of Life") means Phase 0+1 has no user-facing artifact.
 
-**Resolution:** Move verdict CLI into Phase 0. Just `verdict accuracy` and `verdict list` — two subcommands. This is the primary demo interface.
+**Resolution:** Move verdict CLI into Phase 0. Just `nthlayer-learn accuracy` and `nthlayer-learn list` — two subcommands. This is the primary demo interface.
 
-### R6. Scenario Fixtures Must Precede SitRep Code (SIGNIFICANT)
+### R6. Scenario Fixtures Must Precede nthlayer-correlate Code (SIGNIFICANT)
 
-**Issue:** Phase 2 builds SitRep then Phase 4.4 adds scenario replay. But HOW do you test SitRep without scenarios? Each SitRep sub-phase needs synthetic test data. Building SitRep then testing is backwards.
+**Issue:** Phase 2 builds nthlayer-correlate then Phase 4.4 adds scenario replay. But HOW do you test nthlayer-correlate without scenarios? Each nthlayer-correlate sub-phase needs synthetic test data. Building nthlayer-correlate then testing is backwards.
 
-**Resolution:** Phase 2.0 (before any SitRep code) creates 3-5 synthetic scenario fixtures. Each subsequent sub-phase tests against them. Replay is not a Phase 4 bolt-on — it's the test harness for Phase 2.
+**Resolution:** Phase 2.0 (before any nthlayer-correlate code) creates 3-5 synthetic scenario fixtures. Each subsequent sub-phase tests against them. Replay is not a Phase 4 bolt-on — it's the test harness for Phase 2.
 
 ### R7. Phase 4 Items Are Mostly YAGNI (MINOR)
 
@@ -58,13 +58,13 @@ Six spec documents define the full ecosystem vision. Currently: verdict Python l
 
 ### R9. Verdict Mutability Window Is Closing (MINOR)
 
-**Issue:** Once the Arbiter integrates with mutable verdicts in Phase 1, switching to frozen dataclasses becomes a multi-repo breaking change. The decision window is Phase 0.
+**Issue:** Once the nthlayer-measure integrates with mutable verdicts in Phase 1, switching to frozen dataclasses becomes a multi-repo breaking change. The decision window is Phase 0.
 
 **Resolution:** Accept mutability. For this codebase, the `store.put()` / `store.get()` boundary provides effective immutability — the store owns the object, callers get copies (in SQLite, always a new object on `get()`). Document this. Frozen dataclasses add `dataclasses.replace()` boilerplate everywhere for no measurable benefit in a single-developer project.
 
-### R10. SitRep Pre-Correlation Is the Portfolio Centrepiece (SIGNIFICANT)
+### R10. nthlayer-correlate Pre-Correlation Is the Portfolio Centrepiece (SIGNIFICANT)
 
-**Issue:** SitRep's pre-correlation engine (the transport/judgment split that makes AI cost-viable at scale) is the most architecturally interesting part of the ecosystem for a Reliability Architect role. But it's buried as "Phase 2.4" with no visibility.
+**Issue:** nthlayer-correlate's pre-correlation engine (the transport/judgment split that makes AI cost-viable at scale) is the most architecturally interesting part of the ecosystem for a Reliability Architect role. But it's buried as "Phase 2.4" with no visibility.
 
 **Resolution:** The pre-correlation engine (Phase 2.1-2.5) should be explicitly called out as a demo milestone (Demo 2). It demonstrates: FTS5 indexing, temporal/topology grouping, token budget management, and the ZFC transport/judgment boundary. All deterministic, all testable, all demonstrable WITHOUT a model API key.
 
@@ -78,10 +78,10 @@ Six spec documents define the full ecosystem vision. Currently: verdict Python l
 
 ## Critical Issues (Carried Forward, Revised)
 
-### 1. SitRep Must Be Python (not TypeScript)
+### 1. nthlayer-correlate Must Be Python (not TypeScript)
 SITREP-PRECORRELATION.md uses TS interfaces as spec notation. Implementation is Python. Convert to `Protocol` + `@dataclass`.
 
-### 2. Subject Types: Add `"communication"`, Use `"custom"` for Mayday-Specific Types
+### 2. Subject Types: Add `"communication"`, Use `"custom"` for nthlayer-respond-Specific Types
 `escalation` and `incident_summary` map to `"custom"` with `metadata.custom["incident_type"]`.
 
 ### 3. Store-level `resolve()` Convenience Needed
@@ -91,7 +91,7 @@ Add `resolve(verdict_id, status, **kwargs)` to `VerdictStore` ABC.
 NO expression language. Each condition is a registered callable. Unknown names fail at startup.
 
 ### 5. Self-Calibration: Strangler Fig, Not Rewrite
-Keep existing Arbiter calibration. Add verdict-based calibration in parallel. Compare. Deprecate later.
+Keep existing nthlayer-measure calibration. Add verdict-based calibration in parallel. Compare. Deprecate later.
 
 ### 6. Coordinator Crash Recovery: Build in Phase 3.1
 Serialize `IncidentContext` to SQLite after each agent step. Resume on restart.
@@ -112,14 +112,14 @@ Serialize `IncidentContext` to SQLite after each agent step. Resume on restart.
 | Prompt compression | Ship then measure |
 | Local models (lora-forge) | Spec says "not near-term" |
 | `opensrm init` CLI | Manual YAML works |
-| Grafana dashboard | `verdict accuracy` CLI is MVP |
+| Grafana dashboard | `nthlayer-learn accuracy` CLI is MVP |
 | Differential snapshots | After caching works |
 | Criteria rotation / prompt diversity | After verdict history exists |
 | Channel integrations (Slack/PD) | Agents draft messages, sending is glue |
 | OTel emission from verdict library | Production concern, not demo concern |
 | Contract enforcement library | 15 lines of staleness check per component, not a shared library |
 | Staleness policy in NthLayer | Needs real Prometheus infrastructure |
-| Arbiter tiered evaluation | Optimization on working system |
+| nthlayer-measure tiered evaluation | Optimization on working system |
 | Per-component verdict store split | WAL mode handles Tier 1 concurrency |
 
 ---
@@ -129,8 +129,8 @@ Serialize `IncidentContext` to SQLite after each agent step. Resume on restart.
 ### Phase 0: Verdict Foundation + CLI [2-3 weekends]
 
 **0.1 — SQLite Verdict Store** ✅ COMPLETE (2026-03-12)
-- Created: `verdicts/lib/python/verdict/sqlite_store.py` (~260 lines)
-- Modified: `verdicts/lib/python/verdict/__init__.py` (export `SQLiteVerdictStore`)
+- Created: `verdicts/lib/python/nthlayer_learn/sqlite_store.py` (~260 lines)
+- Modified: `verdicts/lib/python/nthlayer_learn/__init__.py` (export `SQLiteVerdictStore`)
 - Modified: `verdicts/lib/python/tests/test_store.py` (parameterized for both backends)
 - Created: `verdicts/lib/python/tests/test_sqlite_concurrency.py` (7 concurrency tests)
 - Single shared store with WAL mode (`PRAGMA journal_mode=WAL`)
@@ -139,23 +139,23 @@ Serialize `IncidentContext` to SQLite after each agent step. Resume on restart.
 - 106 tests passing: 50 store tests (25 x 2 backends) + 7 concurrency + 49 non-store
 
 **0.2 — Store-level `resolve()` + Subject Type Fix**
-- Modify: `verdicts/lib/python/verdict/store.py` — add `resolve()` to ABC, implement in both stores
-- Modify: `verdicts/lib/python/verdict/models.py` — add `"communication"` to `VALID_SUBJECT_TYPES`
+- Modify: `verdicts/lib/python/nthlayer_learn/store.py` — add `resolve()` to ABC, implement in both stores
+- Modify: `verdicts/lib/python/nthlayer_learn/models.py` — add `"communication"` to `VALID_SUBJECT_TYPES`
 
 **0.3 — Verdict CLI (MVP)** ✅ COMPLETE (2026-03-13)
-- Created: `verdicts/lib/python/verdict/cli.py` (~80 lines)
-- Created: `verdicts/lib/python/verdict/__main__.py` (entry point for `python -m verdict`)
+- Created: `verdicts/lib/python/nthlayer_learn/cli.py` (~80 lines)
+- Created: `verdicts/lib/python/nthlayer_learn/__main__.py` (entry point for `python -m nthlayer_learn`)
 - Modified: `verdicts/lib/python/pyproject.toml` (added `[project.scripts]` entry point)
 - Created: `verdicts/lib/python/tests/test_cli.py` (13 tests)
-- Two subcommands: `verdict accuracy --producer <name> [--window 30d] [--db path]` and `verdict list [--producer <name>] [--status pending] [--limit 20] [--db path]`
+- Two subcommands: `nthlayer-learn accuracy --producer <name> [--window 30d] [--db path]` and `nthlayer-learn list [--producer <name>] [--status pending] [--limit 20] [--db path]`
 - Duration parsing: OpenSRM format (ms, s, m, h, d, w)
 - 135 tests passing: 122 prior + 13 CLI tests
 
-**Accept:** `verdict accuracy --producer arbiter` returns a formatted accuracy report from a SQLite store. All 135 tests pass on both store backends.
+**Accept:** `nthlayer-learn accuracy --producer arbiter` returns a formatted accuracy report from a SQLite store. All 135 tests pass on both store backends.
 
 ---
 
-### Phase 1: Arbiter Verdict Integration [COMPLETE — 2026-03-13]
+### Phase 1: nthlayer-measure Verdict Integration [COMPLETE — 2026-03-13]
 
 **1.1 — Add verdict dependency + emission** DONE
 - Modified: `arbiter/pyproject.toml` — verdict as named dependency
@@ -172,24 +172,24 @@ Serialize `IncidentContext` to SQLite after each agent step. Resume on restart.
 - Created: `arbiter/src/arbiter/calibration/verdict_calibration.py` — `VerdictCalibration` strangler fig
 - Queries `verdict_store.accuracy(AccuracyFilter(producer_system="arbiter"))`
 - Runs alongside existing JudgmentSLOChecker — does NOT replace it
-- `--verdict` flag added to `arbiter calibrate` CLI subcommand
+- `--verdict` flag added to `nthlayer-measure calibrate` CLI subcommand
 - CLI `_build_pipeline` wires verdict store to both score store and router
 
 **Test coverage:** 30 new tests (116 total passing), covering config, schema migration, verdict emission, override resolution, calibration, CLI, and end-to-end feedback loop.
 
-**Accept:** PASSED. Arbiter evaluates agent output, verdict stored. Override triggers verdict resolution. `arbiter calibrate --verdict` shows updated accuracy rates. **This is Demo 1.**
+**Accept:** PASSED. nthlayer-measure evaluates agent output, verdict stored. Override triggers verdict resolution. `nthlayer-measure calibrate --verdict` shows updated accuracy rates. **This is Demo 1.**
 
 ### >>> DEMO 1: "The Feedback Loop" <<<
 
-Run the Arbiter against sample agent output. Verdicts are produced. Override one. Query accuracy — the override is reflected. This demonstrates the core thesis: AI decisions become measurable, improvable data.
+Run the nthlayer-measure against sample agent output. Verdicts are produced. Override one. Query accuracy — the override is reflected. This demonstrates the core thesis: AI decisions become measurable, improvable data.
 
 **Portfolio artifact:** README walkthrough with terminal output. ~5 minute demo.
 
 ---
 
-### Phase 2: SitRep Implementation [8-12 weekends]
+### Phase 2: nthlayer-correlate Implementation [8-12 weekends]
 
-**2.0 — Synthetic Scenario Fixtures (BEFORE any SitRep code)**
+**2.0 — Synthetic Scenario Fixtures (BEFORE any nthlayer-correlate code)**
 - Create: `sitrep/scenarios/synthetic/` with 3-5 YAML fixtures:
   - `simple-causal-chain.yaml` (deploy then latency spike)
   - `cascading-failure.yaml` (primary service then dependents)
@@ -236,13 +236,13 @@ Feed a synthetic scenario through the pre-correlation engine. Show: 10,000 raw e
 **2.7 — State Machine + CLI**
 - Create: `sitrep/src/sitrep/state.py`, `cli.py`, `__main__.py`
 - WATCHING/ALERT/INCIDENT/DEGRADED
-- `sitrep serve`, `sitrep status`, `sitrep replay --scenario path.yaml`
+- `nthlayer-correlate serve`, `nthlayer-correlate status`, `nthlayer-correlate replay --scenario path.yaml`
 
-**Accept:** `sitrep replay --scenario scenarios/synthetic/cascading-failure.yaml` produces correlation verdicts. `sitrep serve` starts the full pipeline.
+**Accept:** `nthlayer-correlate replay --scenario scenarios/synthetic/cascading-failure.yaml` produces correlation verdicts. `nthlayer-correlate serve` starts the full pipeline.
 
 ---
 
-### Phase 3: Mayday Implementation [6-10 weekends]
+### Phase 3: nthlayer-respond Implementation [6-10 weekends]
 
 **3.1 — Coordinator + Crash Recovery**
 - Create: `mayday/src/mayday/coordinator.py`, `types.py`, `config.py`, `pyproject.toml`
@@ -267,11 +267,11 @@ Feed a synthetic scenario through the pre-correlation engine. Show: 10,000 raw e
 - Human input handling, verdict resolution on override
 - Post-incident: resolve pending verdicts, export minimal scenario
 
-**Accept:** `mayday replay --scenario scenarios/synthetic/cascading-failure.yaml` runs the full pipeline with mock model responses. Verdict lineage chain is complete from SitRep correlation through Mayday triage/investigation/remediation.
+**Accept:** `nthlayer-respond replay --scenario scenarios/synthetic/cascading-failure.yaml` runs the full pipeline with mock model responses. Verdict lineage chain is complete from nthlayer-correlate correlation through nthlayer-respond triage/investigation/remediation.
 
 ### >>> DEMO 3: "The Full Chain" <<<
 
-Replay a synthetic incident end-to-end: SitRep correlation verdicts feed Mayday's triage agent, investigation identifies root cause, remediation proposes rollback. The verdict lineage chain links every decision. Override one verdict, the accuracy signal propagates.
+Replay a synthetic incident end-to-end: nthlayer-correlate correlation verdicts feed nthlayer-respond's triage agent, investigation identifies root cause, remediation proposes rollback. The verdict lineage chain links every decision. Override one verdict, the accuracy signal propagates.
 
 ---
 
@@ -288,7 +288,7 @@ Replay a synthetic incident end-to-end: SitRep correlation verdicts feed Mayday'
 - OTel emission from verdict library
 - Contract enforcement
 - Staleness policy in NthLayer
-- Arbiter tiered evaluation
+- nthlayer-measure tiered evaluation
 - Criteria rotation / prompt diversity
 - `opensrm init` CLI
 - Grafana dashboards
@@ -303,7 +303,7 @@ Replay a synthetic incident end-to-end: SitRep correlation verdicts feed Mayday'
 **Phase 0:**
 - `pytest verdicts/` — all 106+ tests pass on both MemoryStore and SQLiteVerdictStore
 - 7 concurrent read/write tests for SQLiteVerdictStore
-- Manual: `verdict accuracy --producer test` returns formatted report
+- Manual: `nthlayer-learn accuracy --producer test` returns formatted report
 
 **Phase 1:**
 - `pytest arbiter/tests/` — all existing tests pass (no regressions)
@@ -315,20 +315,20 @@ Replay a synthetic incident end-to-end: SitRep correlation verdicts feed Mayday'
 - Pre-correlation engine: feed each scenario, verify CorrelationGroups match expected
 - Snapshot generator: verify token budget compliance
 - Model interface: mock model responses, verify verdict output
-- Replay: `sitrep replay --scenario scenarios/synthetic/` produces expected verdicts
+- Replay: `nthlayer-correlate replay --scenario scenarios/synthetic/` produces expected verdicts
 - Manual: Demo 2 showing compression ratio
 
 **Phase 3:**
 - Coordinator tested with mock agents (no model required)
 - Each agent tested with predetermined context and mock model response
-- Lineage chain verified: SitRep verdicts linked to Mayday verdicts
-- Replay: `mayday replay --scenario` runs full pipeline
+- Lineage chain verified: nthlayer-correlate verdicts linked to nthlayer-respond verdicts
+- Replay: `nthlayer-respond replay --scenario` runs full pipeline
 - Manual: Demo 3 end-to-end walkthrough
 
 **Synthetic Data Strategy:**
-- 3-5 scenario fixtures created in Phase 2.0 before any SitRep code
+- 3-5 scenario fixtures created in Phase 2.0 before any nthlayer-correlate code
 - Each fixture: event stream with known timeline + expected correlation groups + expected verdicts
-- Fixtures are reusable across SitRep and Mayday testing
+- Fixtures are reusable across nthlayer-correlate and nthlayer-respond testing
 - Additional fixtures added as new edge cases are discovered
 
 ---
@@ -340,8 +340,8 @@ For maximum impact in Reliability Architect / Observability interviews:
 | Priority | What | Why It's Compelling | When Ready |
 |----------|------|-------------------|------------|
 | 1 | Verdict primitive + SQLite store + CLI | Novel data primitive for AI judgment quality | Phase 0 (~3 weekends) |
-| 2 | Arbiter feedback loop (Demo 1) | Measurement-driven AI reliability in action | Phase 1 (~6 weekends cumulative) |
-| 3 | SitRep pre-correlation engine (Demo 2) | Deep observability architecture, ZFC boundary, cost analysis | Phase 2.5 (~14 weekends cumulative) |
+| 2 | nthlayer-measure feedback loop (Demo 1) | Measurement-driven AI reliability in action | Phase 1 (~6 weekends cumulative) |
+| 3 | nthlayer-correlate pre-correlation engine (Demo 2) | Deep observability architecture, ZFC boundary, cost analysis | Phase 2.5 (~14 weekends cumulative) |
 | 4 | ARCHITECTURE.md + specs (already exist) | Systems thinking, component taxonomy, data flows | Now |
 | 5 | Full chain demo (Demo 3) | End-to-end incident response | Phase 3 (~22 weekends cumulative) |
 
@@ -355,19 +355,19 @@ For maximum impact in Reliability Architect / Observability interviews:
 Phase 0: Verdict SQLite Store + CLI + Subject Type Fix  [2-3 weekends]
     |
     v
-Phase 1: Arbiter Verdict Integration  [2-3 weekends]
+Phase 1: nthlayer-measure Verdict Integration  [2-3 weekends]
     |                                    >>> DEMO 1 <<<
     v
 Phase 2.0: Synthetic Scenario Fixtures  [1 weekend]
     |
     v
-Phase 2.1-2.5: SitRep Pre-Correlation (no model)  [4-6 weekends]
+Phase 2.1-2.5: nthlayer-correlate Pre-Correlation (no model)  [4-6 weekends]
     |                                    >>> DEMO 2 <<<
     v
-Phase 2.6-2.7: SitRep Model + State Machine  [2-3 weekends]
+Phase 2.6-2.7: nthlayer-correlate Model + State Machine  [2-3 weekends]
     |
     v
-Phase 3: Mayday (coordinator, agents, safe actions)  [6-10 weekends]
+Phase 3: nthlayer-respond (coordinator, agents, safe actions)  [6-10 weekends]
     |                                    >>> DEMO 3 <<<
     v
 Phase 4: Documentation + Polish  [2-3 weekends]
@@ -389,7 +389,7 @@ Phase 5: Production Hardening  [ongoing]
 | `json_each()` for tag filtering may not be available in all SQLite builds | SQLite 3.38+ (Python 3.11+ ships 3.39+) includes JSON1 by default. Tag filtering done in Python for now. |
 | Expire query timestamp arithmetic might have precision issues | Using Python `timedelta` comparison, not SQL `julianday()`. |
 | `from_dict()` validation on every `get()` adds overhead | Acceptable for Tier 1. The alternative (trusted deserialization) saves ~5% but loses schema validation. |
-| SitRep must be Python, not TypeScript | Convert TS spec interfaces to `Protocol` + `@dataclass`. |
+| nthlayer-correlate must be Python, not TypeScript | Convert TS spec interfaces to `Protocol` + `@dataclass`. |
 | Cross-repo dependency management | Path-based deps for now (`pip install -e ../verdicts`). Verdict API frozen after Phase 0. |
 
 ---

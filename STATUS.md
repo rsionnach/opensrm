@@ -13,8 +13,8 @@ Last updated: February 2026
 | **NthLayer** | External repo | 🟡 Partial | Reference implementation |
 | **Change Events** | `conventions/change-events/` | 📝 Drafted | OTel proposal |
 | **Decision Telemetry** | `conventions/decision-telemetry/` | 📝 Drafted | OTel proposal |
-| **Sitrep** | `components/sitrep/` | 📐 In design | Pre-correlation layer |
-| **IncidentTown** | `components/incidenttown/` | 💭 Architecture | Multi-agent system |
+| **nthlayer-correlate** | `components/sitrep/` | 📐 In design | Pre-correlation layer |
+| **nthlayer-respond** | `components/mayday/` | 💭 Architecture | Multi-agent system |
 
 **Legend:**
 - ✅ Stable / Complete
@@ -131,10 +131,10 @@ Reference implementation of OpenSRM. Generates monitoring artifacts from manifes
 **Location:** External repo ([github.com/rsionnach/nthlayer](https://github.com/rsionnach/nthlayer))
 
 **Next:** 
-- Export topology for Sitrep consumption
+- Export topology for nthlayer-correlate consumption
 - Add judgment SLO alert generation
 
-### Sitrep
+### nthlayer-correlate
 **Status:** 📐 In design
 
 Pre-correlation layer for AI-native observability.
@@ -151,7 +151,7 @@ Pre-correlation layer for AI-native observability.
 
 **Depends on:** NthLayer topology export, Change events spec
 
-### IncidentTown
+### nthlayer-respond
 **Status:** 💭 Architecture only
 
 Multi-agent incident response system.
@@ -162,9 +162,9 @@ Multi-agent incident response system.
 | Agent specs | Partial |
 | Implementation | Not started |
 
-**Location:** `components/incidenttown/`
+**Location:** `components/mayday/`
 
-**Depends on:** Sitrep
+**Depends on:** nthlayer-correlate
 
 ---
 
@@ -196,7 +196,7 @@ Validates OpenSRM manifests in CI pipelines.
 - [ ] NthLayer topology export
 
 **Q2 2026:**
-- [ ] Sitrep MVP
+- [ ] nthlayer-correlate MVP
 - [ ] Change events OTel PR
 
 ---
@@ -206,8 +206,8 @@ Validates OpenSRM manifests in CI pipelines.
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-02-20 | Expand opensrm to include ecosystem | Single repo for spec + vision |
-| 2026-02-20 | Rename "Situations" to "Sitrep" | Avoid Moogsoft/BigPanda terminology |
-| 2026-02-20 | Hybrid generation model for Sitrep | Batch + incident-triggered + refresh |
+| 2026-02-20 | Rename "Situations" to "nthlayer-correlate" | Avoid Moogsoft/BigPanda terminology |
+| 2026-02-20 | Hybrid generation model for nthlayer-correlate | Batch + incident-triggered + refresh |
 | 2026-02-16 | Add audit layer to judgment SLOs | Reversal rate alone misses unreversed bad decisions |
 | 2026-01-23 | Use OpenSRM name | Follows OpenSLO, OpenTelemetry pattern |
 | 2026-01-22 | Position change events as OTel extension | Complement CDEvents, not compete |
@@ -227,11 +227,11 @@ Validates OpenSRM manifests in CI pipelines.
 ### Phase 2: Implementations (Q2 2026)
 - [ ] NthLayer judgment SLO support
 - [ ] NthLayer topology export
-- [ ] Sitrep MVP
+- [ ] nthlayer-correlate MVP
 
 ### Phase 3: Integrations (Q3 2026)
-- [ ] Sitrep + NthLayer integration
-- [ ] IncidentTown consumer
+- [ ] nthlayer-correlate + NthLayer integration
+- [ ] nthlayer-respond consumer
 - [ ] Keep extension (potential)
 
 ### Phase 4: Adoption (Q4 2026)

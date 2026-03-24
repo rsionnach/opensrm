@@ -23,10 +23,10 @@ Ecosystem components:
 - GitHub Action for CI/CD validation
 - NthLayer: reliability-as-code CLI tool (Alpha, available on PyPI) — validation, artifact generation, deployment gates
 - OTel semantic conventions: Change Events, Decision Telemetry
-- **Verdict**: data primitive (Python library implemented) — schema + transport library for recording AI judgments and closing the loop on correctness; foundation layer all other components depend on; repo: `verdicts/`
-- SitRep: pre-correlation agent (architecture phase) — continuously groups signals; snapshot schema; states: WATCHING/ALERT/INCIDENT/DEGRADED
-- Mayday: multi-agent incident response (architecture phase) — deterministic orchestrator + Triage/Investigation/Communication/Remediation agents; PagerDuty downstream not upstream
-- Arbiter: quality measurement engine + governance (implemented) — per-agent tracking, self-calibration (MAE + judgment SLOs + verdict-based), verdict integration (Phase 1 complete: every evaluation emits a verdict, overrides resolve verdicts, `arbiter calibrate --verdict` queries accuracy), one-way safety ratchet; proven as Guardian in GasTown
+- **Verdict**: data primitive (Python library implemented) — schema + transport library for recording AI judgments and closing the loop on correctness; foundation layer all other components depend on; repo: `nthlayer-learn/`
+- nthlayer-correlate: pre-correlation agent (architecture phase) — continuously groups signals; snapshot schema; states: WATCHING/ALERT/INCIDENT/DEGRADED
+- nthlayer-respond: multi-agent incident response (Phase 3 design approved) — deterministic orchestrator + Triage/Investigation/Communication/Remediation agents; PagerDuty downstream not upstream; accept criteria: `nthlayer-respond replay --scenario scenarios/synthetic/cascading-failure.yaml`
+- nthlayer-measure: quality measurement engine + governance (implemented) — per-agent tracking, self-calibration (MAE + judgment SLOs + verdict-based), verdict integration (Phase 1 complete: every evaluation emits a verdict, overrides resolve verdicts, `nthlayer-measure calibrate --verdict` queries accuracy), one-way safety ratchet; proven as Guardian in GasTown
 
 Status: Draft specification (v1.0.0-draft, stabilizing)
 <!-- END AUTO-MANAGED -->
@@ -54,8 +54,8 @@ opensrm/
 │   ├── change-events/               # Deploy, config, feature flag telemetry
 │   └── decision-telemetry/          # AI decision quality telemetry
 ├── components/                       # Ecosystem component specifications
-│   ├── sitrep/                      # Pre-correlation layer
-│   └── mayday/                      # Multi-agent incident response
+│   ├── nthlayer-correlate/                      # Pre-correlation layer
+│   └── nthlayer-respond/                      # Multi-agent incident response
 ├── diagrams/                         # Visual documentation
 │   ├── src/                         # Excalidraw source files
 │   ├── svg/                         # Exported SVG diagrams (light + dark themes)
@@ -90,7 +90,7 @@ Verdict Layer (Data Primitive)  ← THE shared substrate for all agent feedback
         │
         ▼
 Agent Layer (Reasoning)
-  Sitrep → [verdict] → Mayday Agents ← [verdict.accuracy()] → Arbiter
+  nthlayer-correlate → [verdict] → nthlayer-respond Agents ← [verdict.accuracy()] → nthlayer-measure
   All agents emit verdicts with lineage. Verdict store is primary feedback mechanism.
         │ OTel side-effects
         ▼
@@ -101,21 +101,21 @@ Semantic Conventions (OTel)
 
 ### Agent Communication
 Three mechanisms (from ARCHITECTURE.md):
-- **Verdicts with lineage** (cross-component, primary): SitRep emits correlation verdicts → Mayday triage consumes and emits triage verdicts linked via lineage → Investigation → Remediation. Traceable chain; verdict store is queryable without direct coupling.
-- **Shared incident context** (within Mayday, same process): agents read/write a single YAML accumulator object. Agents are function calls sequenced by coordinator — no mailboxes, no polling.
+- **Verdicts with lineage** (cross-component, primary): nthlayer-correlate emits correlation verdicts → nthlayer-respond triage consumes and emits triage verdicts linked via lineage → Investigation → Remediation. Traceable chain; verdict store is queryable without direct coupling.
+- **Shared incident context** (within nthlayer-respond, same process): agents read/write a single YAML accumulator object. Agents are function calls sequenced by coordinator — no mailboxes, no polling.
 - **OTel events** (observability side-channel, read-only): `gen_ai.decision.*` and `gen_ai.override.*` feed Prometheus/Grafana. Not a communication path.
 
-Mayday coordinator: deterministic state machine, not an agent. Sequences `triage()` → `investigate()` + `communicate()` in parallel → `remediate()` as direct function calls. If scale requires separate processes, transport changes to NATS or direct HTTP.
+nthlayer-respond coordinator: deterministic state machine, not an agent. Sequences `triage()` → `investigate()` + `communicate()` in parallel → `remediate()` as direct function calls. If scale requires separate processes, transport changes to NATS or direct HTTP.
 
 ### Agent Observability
 Each agent has its own OpenSRM manifest (`type: ai-gate`). The same spec/tooling that defines service reliability defines agent reliability.
 - verdict.gaming-check: score-outcome divergence > 0.10 triggers alerts
-- 7-step pipeline: `verdict.create()` → `verdict.resolve()` → OTel events → Prometheus → NthLayer dashboards → `verdict.accuracy()` (Arbiter) → governance decisions
+- 7-step pipeline: `verdict.create()` → `verdict.resolve()` → OTel events → Prometheus → NthLayer dashboards → `verdict.accuracy()` (nthlayer-measure) → governance decisions
 
 Standalone component repositories (architecture phase, not yet implemented). License: Apache 2.0. Contributing: fork → feature branch from main → PR:
-- `arbiter/`: Quality measurement engine — per-agent quality tracking (rolling windows), degradation detection, self-calibration, cost-per-quality tracking, governance (one-way safety ratchet). Config: arbiter.yaml. CLI: `arbiter start --config arbiter.yaml`. Adapters: GasTown, generic webhook, Devin (planned). ZFC canonical doc: arbiter/ZFC.md
-- `sitrep/`: Pre-correlation agent — continuously groups signals (WATCHING→ALERT→INCIDENT→DEGRADED states). Snapshot schema: id, triggered_by, window, severity, summary, signals, correlations (with confidence scores), topology, recommended_actions. Generation modes: batch (5-min), incident-triggered, refresh (1-min during INCIDENT). Self-measured: correlation accuracy + false positive rate as judgment SLOs via Arbiter.
-- `mayday/`: Multi-agent incident response — deterministic state machine orchestrator (transport, not agent framework). Alert flow: Alert Source → SitRep Snapshot → Mayday Orchestrator → Agent Pipeline → Notification Channels. PagerDuty is DOWNSTREAM of Mayday. Agents: Triage (<10% severity reversal), Investigation (70% post-incident agreement), Communication (<15% human edit rate), Remediation (80% fix success). Shared incident context YAML. Pre-approved safe actions in OpenSRM manifest enable automated remediation without human approval.
+- `nthlayer-measure/`: Quality measurement engine — per-agent quality tracking (rolling windows), degradation detection, self-calibration, cost-per-quality tracking, governance (one-way safety ratchet). Config: arbiter.yaml. CLI: `nthlayer-measure start --config arbiter.yaml`. Adapters: GasTown, generic webhook, Devin (planned). ZFC canonical doc: nthlayer-measure/ZFC.md
+- `nthlayer-correlate/`: Pre-correlation agent — continuously groups signals (WATCHING→ALERT→INCIDENT→DEGRADED states). Snapshot schema: id, triggered_by, window, severity, summary, signals, correlations (with confidence scores), topology, recommended_actions. Generation modes: batch (5-min), incident-triggered, refresh (1-min during INCIDENT). Self-measured: correlation accuracy + false positive rate as judgment SLOs via nthlayer-measure.
+- `nthlayer-respond/`: Multi-agent incident response — deterministic state machine orchestrator (transport, not agent framework). Alert flow: Alert Source → nthlayer-correlate Snapshot → nthlayer-respond Orchestrator → Agent Pipeline → Notification Channels. PagerDuty is DOWNSTREAM of nthlayer-respond. Agents: Triage (<10% severity reversal), Investigation (70% post-incident agreement), Communication (<15% human edit rate), Remediation (80% fix success). Shared incident context YAML. Pre-approved safe actions in OpenSRM manifest enable automated remediation without human approval.
 <!-- END AUTO-MANAGED -->
 
 ---
@@ -215,7 +215,7 @@ Judgment SLOs are defined within `spec.slos.judgment`:
 ### Design Principles (from ARCHITECTURE.md)
 1. **Schemas + Enforcement**: Every component is defined by a specification first. Implementation follows.
 2. **Shift-Left Reliability**: Reliability concerns move earlier in the lifecycle (manifests define SLOs before deployment)
-3. **Operator-Agnostic**: Stack supports both human and AI operators (Sitrep outputs work for dashboards and LLMs)
+3. **Operator-Agnostic**: Stack supports both human and AI operators (nthlayer-correlate outputs work for dashboards and LLMs)
 4. **Open Standards**: Extend existing standards (OTel) rather than invent new ones
 5. **Reasoning Boundary**: Agent capabilities reserved for components requiring interpretation. Deterministic operations (validation, generation, arithmetic) remain as tools that agents invoke.
 
@@ -224,18 +224,18 @@ Four execution models determine how components are built, deployed, tested, and 
 - **Data Sources**: Static, queryable, no reasoning (OpenSRM manifests in Git, Prometheus metrics, change event logs)
 - **Data Primitives**: Schema + transport library, no reasoning (Verdict — records AI judgments, sits below all other components in the dependency graph)
 - **Tools**: Deterministic, invocable, no reasoning (NthLayer compiler, schema validator, dependency math engine)
-- **Agents**: Reasoning, adaptive, judgment required (Sitrep, Mayday Triage/Investigation/Communication/Remediation, Arbiter)
+- **Agents**: Reasoning, adaptive, judgment required (nthlayer-correlate/nthlayer-correlate, nthlayer-respond/nthlayer-respond Triage/Investigation/Communication/Remediation, nthlayer-measure/nthlayer-measure)
 
 Test: Does this component need to reason about ambiguous inputs? If yes, it's an agent. If it does the same thing every time given the same input, it's a tool. If it's queryable state, it's a data source.
 
 Why this matters: Data and tool layers work without any AI. Teams can adopt OpenSRM manifests and NthLayer today with zero agents. The agent layer is additive, not foundational. System degrades gracefully if an agent fails.
 
 ### Data Flows (from ARCHITECTURE.md)
-- **Flow 1 — Manifest → Monitoring**: service.reliability.yaml → NthLayer (validate + generate) → Prometheus rules / Grafana dashboards / topology → Sitrep
-- **Flow 2 — Events → Verdicts (Sitrep loop)**: Alerts/changes (webhook) + topology (NthLayer tool call) + Arbiter quality verdicts → Sitrep correlates → `verdict.create()` correlation + snapshot verdicts with lineage → [OTel side-effect: gen_ai.decision.* per correlation]
-- **Flow 3 — Decision → Verdict → Measurement**: Any agent `verdict.create()` → [OTel side-effect] → human/CI `verdict.resolve()` → [OTel side-effect] → Arbiter `verdict.accuracy()` + `verdict.gaming-check()` → autonomy policy back to agents
+- **Flow 1 — Manifest → Monitoring**: service.reliability.yaml → NthLayer (validate + generate) → Prometheus rules / Grafana dashboards / topology → nthlayer-correlate (nthlayer-correlate)
+- **Flow 2 — Events → Verdicts (nthlayer-correlate loop)**: Alerts/changes (webhook) + topology (NthLayer tool call) + nthlayer-measure (nthlayer-measure) quality verdicts → nthlayer-correlate (nthlayer-correlate) correlates → `verdict.create()` correlation + snapshot verdicts with lineage → [OTel side-effect: gen_ai.decision.* per correlation]
+- **Flow 3 — Decision → Verdict → Measurement**: Any agent `verdict.create()` → [OTel side-effect] → human/CI `verdict.resolve()` → [OTel side-effect] → nthlayer-measure (nthlayer-measure) `verdict.accuracy()` + `verdict.gaming-check()` → autonomy policy back to agents
 - **Flow 4 — Agent Tool Invocation**: Agent → `topology_query` to NthLayer → NthLayer reads manifest → returns topology.json; Agent → `check_deploy_gate` → pass/fail
-- **Flow 5 — Incident Lifecycle**: PagerDuty → Sitrep snapshot → Orchestrator creates context → Triage (severity/blast radius) → Investigation + Communication in parallel → Remediation → Communication update
+- **Flow 5 — Incident Lifecycle**: PagerDuty → nthlayer-correlate (nthlayer-correlate) snapshot → Orchestrator creates context → Triage (severity/blast radius) → Investigation + Communication in parallel → Remediation → Communication update
 
 ### Integration Points
 External systems: Prometheus (remote write, query), Alertmanager (webhook), GitHub/ArgoCD/LaunchDarkly (webhooks for change events), PagerDuty (API, webhook), Grafana (JSON import), OTel Collector (OTLP for logs/traces)
@@ -247,9 +247,9 @@ External systems: Prometheus (remote write, query), Alertmanager (webhook), GitH
 
 <!-- AUTO-MANAGED: ecosystem-components -->
 ### Data Primitives Layer
-- **Verdict** (repo: `verdicts/`): Schema + Python transport library for recording AI judgments and measuring correctness. Foundation layer — all judgment-producing components (Arbiter, SitRep, Mayday) depend on it. No reasoning, no model calls. Status: Phase 0 complete — Python library + CLI implemented (`pip install verdict`). Three phases per verdict: Judgment (at decision time), Outcome (filled later), Lineage (optional links). Key operations: `create()`, `link()`, `resolve()`, `accuracy()`, `gaming-check()` (score-outcome divergence > 0.10 triggers alert), `review()`, `replay()`. CLI: `verdict accuracy --producer <name> [--window 30d]` and `verdict list` query a SQLite store directly — the primary demo interface for the feedback loop. Store: SQLite (Tier 1, default); PostgreSQL/ClickHouse deferred until contention warrants. OTel emission (`gen_ai.decision.*`, `gen_ai.override.*`) is a side-effect of verdict operations, not a separate instrumentation step. Verdict store is the shared substrate — not OTel, not Prometheus, not a message bus. See `verdicts/CLAUDE.md` for full API reference.
+- **Verdict** (repo: `nthlayer-learn/`): Schema + Python transport library for recording AI judgments and measuring correctness. Foundation layer — all judgment-producing components (nthlayer-measure, nthlayer-correlate, nthlayer-respond) depend on it. No reasoning, no model calls. Status: Phase 0 complete — Python library + CLI implemented (`pip install nthlayer-learn`). Three phases per verdict: Judgment (at decision time), Outcome (filled later), Lineage (optional links). Key operations: `create()`, `link()`, `resolve()`, `accuracy()`, `gaming-check()` (score-outcome divergence > 0.10 triggers alert), `review()`, `replay()`. CLI: `nthlayer-learn accuracy --producer <name> [--window 30d]` and `nthlayer-learn list` query a SQLite store directly — the primary demo interface for the feedback loop. Store: SQLite (Tier 1, default); PostgreSQL/ClickHouse deferred until contention warrants. OTel emission (`gen_ai.decision.*`, `gen_ai.override.*`) is a side-effect of verdict operations, not a separate instrumentation step. Verdict store is the shared substrate — not OTel, not Prometheus, not a message bus. See `nthlayer-learn/CLAUDE.md` for full API reference.
   - `store.resolve(verdict_id, status, ...)`: preferred single-call method on `VerdictStore` — combines `get()` + `core.resolve()` + `update_outcome()`. Use this instead of the two-step pattern; the two-step pattern silently drops persistence with `SQLiteVerdictStore`.
-  - `VALID_SUBJECT_TYPES` (in `verdict/models.py`): `agent_output`, `correlation`, `triage`, `investigation`, `remediation`, `review`, `classification`, `recommendation`, `moderation`, `communication`, `custom`.
+  - `VALID_SUBJECT_TYPES` (in `nthlayer_learn/models.py`): `agent_output`, `correlation`, `triage`, `investigation`, `remediation`, `review`, `classification`, `recommendation`, `moderation`, `communication`, `custom`.
 
 ### Static Layer (Data + Tools)
 - **OpenSRM Manifests**: Source of truth in Git for service identity, SLO targets, dependencies, contracts, AI gates. No reasoning, fully deterministic.
@@ -258,34 +258,45 @@ External systems: Prometheus (remote write, query), Alertmanager (webhook), GitH
 - **Shift-Left Reliability Skill**: Claude Code skill for generating manifests, suggesting SLOs, and validating reliability decisions during development
 
 ### Agent Layer (Reasoning)
-- **SitRep Agent** (repo: `sitrep/`): Long-running pre-correlation agent — continuously groups signals in background so correlated view is ready before anyone asks
-  - Tier 1 inputs: Alerts (webhook), Changes (webhook), Topology (NthLayer tool call), Verdicts (Arbiter quality verdicts as events)
+- **nthlayer-correlate Agent** (repo: `nthlayer-correlate/`): Long-running pre-correlation agent — continuously groups signals in background so correlated view is ready before anyone asks
+  - Tier 1 inputs: Alerts (webhook), Changes (webhook), Topology (NthLayer tool call), Verdicts (nthlayer-measure quality verdicts as events)
   - Tier 2/3 deferred inputs: Metrics (Prometheus remote write), Logs (OTLP), Events via NATS/Kafka
   - Outputs: correlation verdicts + snapshot verdicts stored in SQLite FTS5 (Tier 1); snapshot verdicts link to child correlation verdicts via lineage
   - States: WATCHING → ALERT → INCIDENT → DEGRADED (self-aware: reduces confidence when own accuracy drops)
   - DEGRADED mode: when model unavailable, continues transport pipeline (ingest, group, deduplicate), emits template-based verdicts with `confidence: 0.0`, flagged for human review; fully testable without a model
-  - Self-measured via Arbiter: correlation accuracy and false positive rate as judgment SLOs
+  - Self-measured via nthlayer-measure: correlation accuracy and false positive rate as judgment SLOs
 
-- **Mayday Agents** (repo: `mayday/`): Multi-agent incident response — architecture phase
+- **nthlayer-respond Agents** (repo: `nthlayer-respond/`): Multi-agent incident response — Phase 3 design approved
   - Orchestrator: deterministic state machine (transport), not an agent framework — sequences agents as direct function calls. Pure ZFC.
-  - Alert flow: Alert Source → SitRep Snapshot → Mayday Orchestrator → Agent Pipeline → Notification Channels. PagerDuty is DOWNSTREAM of Mayday, not upstream.
-  - Triage Agent: severity, blast radius, team assignment. Authority: can set severity, page teams, assign ownership; cannot remediate or override existing classification without human approval. Judgment SLO: <10% severity reversal rate
-  - Investigation Agent: hypotheses from SitRep snapshots, root cause ranking by confidence. Authority: can declare root cause when confidence exceeds threshold; cannot execute remediation. Judgment SLO: 70% post-incident agreement
-  - Communication Agent: audience-appropriate messaging, channel + timing selection. Authority: can draft/send within pre-approved templates; cannot contradict investigation findings or communicate resolution before remediation confirmed. Judgment SLO: <15% human edit rate
-  - Remediation Agent: executes pre-approved safe actions (rollback, scale up, disable feature flag) without human approval; cannot execute novel remediation not pre-approved in manifest; cannot act outside blast radius. Judgment SLO: 80% fix success rate
-  - Incident context: shared YAML object accumulating findings (triage, investigation, communication, remediation sections); agents read/write within same process
-  - Post-incident learning: findings → manifest updates, NthLayer rule refinements, Arbiter threshold revisions, SitRep correlation improvements
+  - Alert flow: Alert Source → nthlayer-correlate Snapshot → nthlayer-respond Orchestrator → Agent Pipeline → Notification Channels. PagerDuty is DOWNSTREAM of nthlayer-respond, not upstream.
+  - Package: `src/nthlayer_respond/` — `types.py`, `config.py` (mayday.yaml), `coordinator.py`, `context_store.py` (ContextStore Protocol + SQLite), `agents/` (base.py + 4 agents), `safe_actions/` (registry + built-ins), `cli.py`
+  - CLI: `nthlayer-respond serve | status | replay | approve | reject | resume`
+  - `IncidentContext`: id (INC-YYYY-NNNN), state (IncidentState enum), trigger_source ("sitrep"/"pagerduty"/"manual"), trigger_verdict_ids, topology, per-agent result fields, verdict_chain, last_completed_step_index (0-3, not AgentRole — disambiguates parallel steps and two COMMUNICATION occurrences)
+  - `IncidentState` terminal states: RESOLVED, ESCALATED, FAILED
+  - ZFC boundary: `_call_model()` and `_emit_verdict()` are transport (AgentBase); `build_prompt()` and `parse_response()` are judgment (abstract on subclasses)
+  - Verdict lineage: every nthlayer-respond verdict links to nthlayer-correlate correlation verdicts via `lineage.context`; chains to previous nthlayer-respond verdict via `lineage.parent`
+  - Approval ratchet: model can escalate `requires_approval` but never downgrade — same principle as nthlayer-measure's autonomy ratchet
+  - Degraded mode: model failure → low-confidence verdict with `action="escalate"`, `tags=["degraded", "human-takeover-required"]`
+  - Crash recovery: `IncidentContext` persisted to SQLite after every pipeline step; coordinator resumes from `last_completed_step_index`
+  - nthlayer-correlate is NOT a package dependency — components communicate through the shared verdict store
+  - Dependencies: `pyyaml>=6.0.1`, `structlog>=24.1`, `anthropic>=0.39`, `verdict` (path-based)
+  - Scenarios: `scenarios/synthetic/` — cascading-failure, sitrep-unavailable, model-unavailable, human-override, low-confidence-escalation, remediation-approval, autonomy-reduction, crash-recovery
+  - Triage Agent: severity (0-4), blast radius, team assignment. Judgment SLO: <10% severity reversal rate
+  - Investigation Agent: hypotheses ranked by confidence, root cause declared when confidence exceeds threshold. Judgment SLO: 70% post-incident agreement
+  - Communication Agent: audience-appropriate messaging, both initial and resolution phases. Judgment SLO: <15% human edit rate
+  - Remediation Agent: executes pre-approved safe actions without human approval; cannot act outside blast radius. Judgment SLO: 80% fix success rate
+  - Post-incident learning: findings → manifest updates, NthLayer rule refinements, nthlayer-measure threshold revisions, nthlayer-correlate correlation improvements
 
-- **Arbiter** (repo: `arbiter/`): Quality measurement engine + governance — implemented
+- **nthlayer-measure** (repo: `nthlayer-measure/`): Quality measurement engine + governance — implemented
   - Phase 1 (verdict integration, complete): integration point is `PipelineRouter.run()` — verdict created after `save_score()` with `set_verdict_id()` back-link to evaluations table; `DEFAULT_APPROVE_THRESHOLD = 0.5`; `subject.type` always `"agent_output"`, `producer.system` always `"arbiter"`; override calls `verdict_store.resolve(verdict_id, "overridden")`; verdict config optional in `arbiter.yaml` (`verdict.store.path: verdicts.db`) — absent means no verdict ops, fully backwards-compat; `VerdictCalibration` class provides system-wide (not per-agent) accuracy alongside existing `JudgmentSLOChecker` as strangler fig; `--verdict` flag on `calibrate` CLI subcommand; async/sync boundary via `asyncio.to_thread()`; schema migration: `ALTER TABLE evaluations ADD COLUMN verdict_id TEXT`
   - Phase 2 (risk tiering): Minimal (auto-approve) | Standard (light eval) | Deep (full multi-dimension) | Critical (frontier model). 5% calibration sampling of auto-approved; 5% deep eval sampling of high-scoring, linked via lineage; verdicts auto-resolve from CI signals (test failure, deploy regression, revert)
   - Governance triggers: override rate > SLO → increase human review threshold; error budget exhausted → advisory-only mode; sustained good performance → propose autonomy increase (human approval required); calibration drift → flag for retraining; score-outcome divergence > 0.10 → gaming alert
   - Governance: one-way safety ratchet — can always reduce agent autonomy, can never increase without human approval
-  - Config: `arbiter.yaml` | CLI: `arbiter start --config arbiter.yaml`
-  - ZFC canonical document: `arbiter/ZFC.md` — applies to entire ecosystem
+  - Config: `arbiter.yaml` | CLI: `nthlayer-measure start --config arbiter.yaml`
+  - ZFC canonical document: `nthlayer-measure/ZFC.md` — applies to entire ecosystem
 
 ### Zero Framework Cognition (ZFC)
-Core architectural principle for all ecosystem components. Canonical doc: `arbiter/ZFC.md`.
+Core architectural principle for all ecosystem components. Canonical doc: `nthlayer-measure/ZFC.md`.
 - **Transport (code):** receiving inputs, routing, persisting results, exposing APIs, sending alerts, validating YAML, computing aggregations
 - **Judgment (model):** evaluating quality, scoring dimensions, deciding degradation vs variance, determining SLO targets, assessing incident severity
 - Key implication: fail open — if model unavailable, transport continues, judgment pauses ("no quality opinion" not "wrong opinion")
@@ -298,10 +309,10 @@ Core architectural principle for all ecosystem components. Canonical doc: `arbit
 
 ### Deployment Tiers
 - **Tier 1** (zero agents): OpenSRM manifests + NthLayer CLI. No infrastructure beyond existing Prometheus/Grafana. Gets: validated manifests, generated monitoring, dependency math, deployment gates.
-- **Tier 2** (+SitRep): Continuous pre-correlated snapshots. Answers "what changed?" before anyone asks.
-- **Tier 3+** (+Arbiter, +Mayday): Quality measurement, governance, and coordinated incident response.
+- **Tier 2** (+nthlayer-correlate/nthlayer-correlate): Continuous pre-correlated snapshots. Answers "what changed?" before anyone asks.
+- **Tier 3+** (+nthlayer-measure/nthlayer-measure, +nthlayer-respond/nthlayer-respond): Quality measurement, governance, and coordinated incident response.
 
-Status: Specification and GitHub Action are stable. NthLayer is Alpha (partially complete). SitRep, Mayday, and Arbiter are architecture-only. OTel conventions are drafted.
+Status: Specification and GitHub Action are stable. NthLayer is Alpha (partially complete). nthlayer-correlate (nthlayer-correlate) is architecture phase. nthlayer-respond (nthlayer-respond) is Phase 3 design approved (implementation next). nthlayer-measure (nthlayer-measure) is implemented (Phase 1 complete). OTel conventions are drafted.
 <!-- END AUTO-MANAGED -->
 
 ---
@@ -329,7 +340,7 @@ From specification section 1.1:
 
 ### Ecosystem Documentation
 - `README.md`: Unified project overview with ecosystem diagram, component status table, core features (contracts & SLOs, dependency-aware feasibility, ownership, observability, deployment gates, templates), quick start examples (as of df80f12)
-- `ARCHITECTURE.md`: Comprehensive ecosystem architecture with design principles, component taxonomy (data sources / data primitives / tools / agents with decision test), 4-layer system overview (Static → Verdict → Agent → OTel), component details (Verdict, NthLayer, Sitrep, Mayday, Arbiter), agent communication protocol (verdicts with lineage, shared incident context, OTel side-channel), agent observability (each agent has its own ai-gate manifest), 5 data flows (manifest → monitoring; events → verdicts; decision → verdict → measurement; agent tool invocation; incident lifecycle), integration points
+- `ARCHITECTURE.md`: Comprehensive ecosystem architecture with design principles, component taxonomy (data sources / data primitives / tools / agents with decision test), 4-layer system overview (Static → Verdict → Agent → OTel), component details (Verdict/nthlayer-learn, NthLayer, nthlayer-correlate/nthlayer-correlate, nthlayer-respond/nthlayer-respond, nthlayer-measure/nthlayer-measure), agent communication protocol (verdicts with lineage, shared incident context, OTel side-channel), agent observability (each agent has its own ai-gate manifest), 5 data flows (manifest → monitoring; events → verdicts; decision → verdict → measurement; agent tool invocation; incident lifecycle), integration points
 - `ECOSYSTEM.md`: How components compose — component taxonomy (data sources/tools/agents), integration diagram, data flows (forward/quality/change/learning paths), event volume problem, streaming layer (NATS vs Kafka), deployment tiers (Tier 1–3+), post-incident learning loop, change event ecosystem (traditional + AI-specific change types), security model (data classification, access control, agent authority boundaries — one-way safety ratchet)
 - `IMPLEMENTATIONS.md`: Tools implementing OpenSRM (GitHub Action, NthLayer, Shift-Left Reliability Skill), contribution guidelines for listing new tools
 - `STATUS.md`: Comprehensive component status table with legend (stable/partial/drafted/in-design/architecture), sections for specification, tooling, agent layer, and semantic conventions with progress tracking
@@ -341,27 +352,27 @@ From specification section 1.1:
 - `conventions/decision-telemetry/README.md`: AI/human decision event attributes (gen_ai.decision.*, gen_ai.reversal.*, gen_ai.outcome.*) for judgment SLO measurement
 
 ### Ecosystem Components (Architecture)
-- `components/README.md`: Component status table (NthLayer, Sitrep, Mayday) with component flow diagram
+- `components/README.md`: Component status table (NthLayer, nthlayer-correlate, nthlayer-respond) with component flow diagram
 - `components/sitrep/sitrep-technical-appendix.md`: Pre-correlation layer v2 spec with hybrid generation model (batch + incident-triggered + refresh), Change Event and Decision Telemetry integration, service identity via OpenSRM catalog
-- `components/mayday/README.md`: Multi-agent incident response system (triage, investigation, communication, remediation agents) - architecture only
+- `components/nthlayer-respond/README.md`: Multi-agent incident response system (triage, investigation, communication, remediation agents) - architecture only
 
 ### Standalone Component Repositories (Architecture Phase)
-- `arbiter/README.md`: Quality measurement engine full design — ZFC architecture, self-calibration metrics (false accept rate, precision, recall), governance one-way ratchet, cost tracking, adapter list, OpenSRM manifest integration
-- `arbiter/ZFC.md`: Canonical Zero Framework Cognition document — transport vs judgment distinction, practical implications (config as guidance, fail open, self-calibration, model-agnostic), what ZFC is not
-- `arbiter/CONTRIBUTING.md`: Contribution guide referencing ZFC.md — fork → feature branch from main → PR; issue templates for bug reports and feature requests
-- `sitrep/README.md`: SitRep full design — pre-correlation concept, snapshot schema, generation modes, agent states (WATCHING/ALERT/INCIDENT/DEGRADED), change attribution via OpenSRM change event schema, signal sources, self-measurement via Arbiter
-- `sitrep/CONTRIBUTING.md`: Contribution guide with ZFC transport/judgment split for SitRep (transport=ingest/group/window/count; judgment=interpret correlations/assess causality)
-- `mayday/README.md`: Mayday full design — alert flow (PagerDuty downstream), orchestration model (deterministic state machine), all four agent roles with judgment SLOs, incident context schema, human-in-the-loop design, post-incident learning loop, OpenSRM integration
-- `mayday/CONTRIBUTING.md`: Contribution guide with ZFC transport/judgment split for Mayday (transport=receive alerts/sequence agents/route messages/persist context; judgment=triage severity/form hypotheses/assess risk/draft comms)
+- `nthlayer-measure/README.md`: Quality measurement engine full design — ZFC architecture, self-calibration metrics (false accept rate, precision, recall), governance one-way ratchet, cost tracking, adapter list, OpenSRM manifest integration
+- `nthlayer-measure/ZFC.md`: Canonical Zero Framework Cognition document — transport vs judgment distinction, practical implications (config as guidance, fail open, self-calibration, model-agnostic), what ZFC is not
+- `nthlayer-measure/CONTRIBUTING.md`: Contribution guide referencing ZFC.md — fork → feature branch from main → PR; issue templates for bug reports and feature requests
+- `nthlayer-correlate/README.md`: nthlayer-correlate full design — pre-correlation concept, snapshot schema, generation modes, agent states (WATCHING/ALERT/INCIDENT/DEGRADED), change attribution via OpenSRM change event schema, signal sources, self-measurement via nthlayer-measure
+- `nthlayer-correlate/CONTRIBUTING.md`: Contribution guide with ZFC transport/judgment split for nthlayer-correlate (transport=ingest/group/window/count; judgment=interpret correlations/assess causality)
+- `nthlayer-respond/README.md`: nthlayer-respond full design — alert flow (PagerDuty downstream), orchestration model (deterministic state machine), all four agent roles with judgment SLOs, incident context schema, human-in-the-loop design, post-incident learning loop, OpenSRM integration
+- `nthlayer-respond/CONTRIBUTING.md`: Contribution guide with ZFC transport/judgment split for nthlayer-respond (transport=receive alerts/sequence agents/route messages/persist context; judgment=triage severity/form hypotheses/assess risk/draft comms)
 
 ### Visual Documentation
 Diagram source files (Excalidraw JSON format):
-- `diagrams/src/ecosystem-overview.excalidraw`: Complete ecosystem flow diagram showing Specification → NthLayer → Sitrep → Consumers → OTel Conventions (referenced in README.md and ARCHITECTURE.md)
+- `diagrams/src/ecosystem-overview.excalidraw`: Complete ecosystem flow diagram showing Specification → NthLayer → nthlayer-correlate → Consumers → OTel Conventions (referenced in README.md and ARCHITECTURE.md)
 - `diagrams/src/manifest-processing-flow.excalidraw`: Manifest validation and deployment flow from service.reliability.yaml through validation and enforcement (referenced in README.md)
 - `diagrams/src/manifest-to-monitoring-flow.excalidraw`: Developer to NthLayer to monitoring system integration sequence diagram (referenced in ARCHITECTURE.md)
 - `diagrams/src/component-flow.excalidraw`: Component integration flow between ecosystem components (referenced in components/README.md)
-- `diagrams/src/ai-reliability-stack.excalidraw`: The AI Reliability Loop showing complete feedback cycle: raw signals (metrics, alerts, changes via OTel, logs) → Sitrep correlation layer (context-rich snapshots) → AI agent/human operator (decision making) → Decision Telemetry OTel (records decisions, reversals, outcomes) → Judgment SLOs OpenSRM (reversal_rate, calibration, audit_accuracy) with feedback loop tuning correlation confidence
-- `diagrams/src/sitrep-architecture.excalidraw`: Sitrep pre-correlation layer architecture
+- `diagrams/src/ai-reliability-stack.excalidraw`: The AI Reliability Loop showing complete feedback cycle: raw signals (metrics, alerts, changes via OTel, logs) → nthlayer-correlate correlation layer (context-rich snapshots) → AI agent/human operator (decision making) → Decision Telemetry OTel (records decisions, reversals, outcomes) → Judgment SLOs OpenSRM (reversal_rate, calibration, audit_accuracy) with feedback loop tuning correlation confidence
+- `diagrams/src/sitrep-architecture.excalidraw`: nthlayer-correlate pre-correlation layer architecture
 - `diagrams/src/telemetry-to-decision-flow.excalidraw`: Telemetry flow for decision quality measurement (referenced in ARCHITECTURE.md)
 
 Exported diagrams and tooling:
@@ -380,10 +391,10 @@ Interactive web documentation:
   - `src/scenes/ecosystem.tsx`: Interactive ecosystem visualization (7-phase narrative sequence):
     - Phase 1: Problem framing — scattered alert signals, "Alerts fire. Metrics spike. A deploy just happened." → "What's connected?" → "OpenSRM: Define, enforce, and measure reliability as code"
     - Phase 2: Static layer setup — OpenSRM spec → NthLayer → Prometheus rules/Grafana dashboards/topology; topology line crosses to agent layer
-    - Phase 3: Live incident — 4 signals flow into Sitrep sequentially: Alerts (payment-service latency breach), Deploys (auth-service v2.4.1 deploy 4m ago), Logs (checkout-service connection timeouts), Metrics (p99 latency spiking across 3 services); Sitrep correlates into enriched snapshot
-    - Phase 4: Agent response — enriched pulse moves to Mayday; decision: "rollback auth-service — 87% confident the deploy is the cause"
+    - Phase 3: Live incident — 4 signals flow into nthlayer-correlate sequentially: Alerts (payment-service latency breach), Deploys (auth-service v2.4.1 deploy 4m ago), Logs (checkout-service connection timeouts), Metrics (p99 latency spiking across 3 services); nthlayer-correlate correlates into enriched snapshot
+    - Phase 4: Agent response — enriched pulse moves to nthlayer-respond; decision: "rollback auth-service — 87% confident the deploy is the cause"
     - Phase 5: Measurement — decision telemetry flows to OTel, then to Judgment SLOs; "96.8% of agent decisions stood — only 3.2% needed human correction"
-    - Phase 6: Governance — Arbiter monitors decision quality; feedback loop (dashed) back to Sitrep; autonomy policy to Mayday: "Arbiter can reduce agent authority and autonomy, but never expand it"
+    - Phase 6: Governance — nthlayer-measure monitors decision quality; feedback loop (dashed) back to nthlayer-correlate; autonomy policy to nthlayer-respond: "nthlayer-measure can reduce agent authority and autonomy, but never expand it"
     - Phase 7: Closed-loop summary — static layer restored; "Declare → Enforce → Correlate → Respond → Measure → Govern → repeat" → "Every decision feeds back to improve the next one"
     - Visual design: Nord theme (spec=frost4 #5e81ac, impl=green #a3be8c, sitrep=yellow #ebcb8b, mayday=orange #d08770, telemetry=purple #b48ead, arbiter=frost2 #88c0d0, alert=red #bf616a, change=frost2, logs=orange, metrics=frost3 #81a1c1, pulse=yellow, success=green, dark=#2e3440 for subtitle text on bright component boxes); dual-layer static/agent split with dashed divider at x=-270; JetBrains Mono font throughout; enriched pulse concept (yellow circle + ring) tracks decision through system
   - Rendering: GIF/MP4/PNG sequence via Motion Canvas editor UI
@@ -396,7 +407,7 @@ Interactive web documentation:
 - `examples/database-mysql.yaml`: Database service example
 
 ### Development Tools
-- `IMPLEMENTATION-PLAN.md`: Cohesive ecosystem implementation plan (v2) — phase ordering, demo milestones (Demo 1 Feedback Loop / Demo 2 SitRep pre-correlation / Demo 3 Full Chain), key architecture decisions (single shared verdicts.db WAL mode, path-based deps, OTel deferred to Phase 4), and per-phase accept criteria. Phase 0 complete (SQLite store + store.resolve() + CLI). Phase 1 complete (Arbiter verdict integration: every eval emits a verdict, overrides resolve verdicts, `arbiter calibrate --verdict` queries accuracy). Demo 1 "The Feedback Loop" is live. Phase 2 (SitRep) is next.
+- `IMPLEMENTATION-PLAN.md`: Cohesive ecosystem implementation plan (v2) — phase ordering, demo milestones (Demo 1 Feedback Loop / Demo 2 nthlayer-correlate pre-correlation / Demo 3 Full Chain), key architecture decisions (single shared verdicts.db WAL mode, path-based deps, OTel deferred to Phase 4), and per-phase accept criteria. Phase 0 complete (SQLite store + store.resolve() + CLI). Phase 1 complete (nthlayer-measure verdict integration: every eval emits a verdict, overrides resolve verdicts, `nthlayer-measure calibrate --verdict` queries accuracy). Demo 1 "The Feedback Loop" is live. Phase 2 (nthlayer-correlate) and Phase 3 (nthlayer-respond) design approved — implementation in progress.
 - `shift-left-reliability-skill.md`: Claude Code skill documentation
 - `skills/shift-left-reliability/`: Claude Code skill implementation with templates and examples
 - `action/`: GitHub Action for CI/CD validation (rsionnach/opensrm@v1)
@@ -406,9 +417,11 @@ Interactive web documentation:
 - `GOVERNANCE.md`: RFC process for spec changes
 
 ### Design Specs
-- `docs/superpowers/specs/2026-03-13-phase-0.2-store-resolve-subject-type-design.md`: Phase 0.2 verdict library design — `store.resolve()` concrete method on `VerdictStore` ABC (eliminates two-step resolve footgun with SQLiteVerdictStore) + adds `"communication"` to `VALID_SUBJECT_TYPES` (unblocks Mayday Communication agent). Files changed: `verdict/store.py`, `verdict/models.py`, `tests/test_store.py`.
+- `docs/superpowers/specs/2026-03-13-phase-0.2-store-resolve-subject-type-design.md`: Phase 0.2 verdict library design — `store.resolve()` concrete method on `VerdictStore` ABC (eliminates two-step resolve footgun with SQLiteVerdictStore) + adds `"communication"` to `VALID_SUBJECT_TYPES` (unblocks nthlayer-respond Communication agent). Files changed: `nthlayer_learn/store.py`, `nthlayer_learn/models.py`, `tests/test_store.py`.
 - `docs/superpowers/plans/2026-03-13-phase-0.2-store-resolve-subject-type.md`: Phase 0.2 implementation plan — step-by-step TDD checklist for adding `store.resolve()` to `VerdictStore` ABC and adding `"communication"` to `VALID_SUBJECT_TYPES`. Two tasks: (1) communication subject type (2 tests × 2 backends), (2) store-level `resolve()` (7 tests × 2 backends = 14 new tests); target: 122 total passing.
-- `docs/superpowers/specs/2026-03-13-phase-1-arbiter-verdict-integration-design.md`: Phase 1 Arbiter verdict integration design (approved) — `PipelineRouter.run()` as integration point; verdict created after `save_score()` + `set_verdict_id()` back-link; override→resolution in `save_override()` via `verdict_store.resolve(verdict_id, "overridden")`; `DEFAULT_APPROVE_THRESHOLD = 0.5`; `VerdictConfig` dataclass + optional `verdict` section in `arbiter.yaml`; `ALTER TABLE evaluations ADD COLUMN verdict_id TEXT` migration; `VerdictCalibration` strangler fig (system-wide, not per-agent); `--verdict` flag on `calibrate` CLI. Files changed: `config.py`, `router.py`, `sqlite.py`, `cli.py`; created: `verdict_calibration.py`, `tests/test_verdict_integration.py`. Accept criteria: Demo 1 "The Feedback Loop" — evaluate → verdict stored → override → `verdict accuracy --producer arbiter` reflects the change.
+- `docs/superpowers/specs/2026-03-13-phase-1-arbiter-verdict-integration-design.md`: Phase 1 nthlayer-measure verdict integration design (approved) — `PipelineRouter.run()` as integration point; verdict created after `save_score()` + `set_verdict_id()` back-link; override→resolution in `save_override()` via `verdict_store.resolve(verdict_id, "overridden")`; `DEFAULT_APPROVE_THRESHOLD = 0.5`; `VerdictConfig` dataclass + optional `verdict` section in `arbiter.yaml`; `ALTER TABLE evaluations ADD COLUMN verdict_id TEXT` migration; `VerdictCalibration` strangler fig (system-wide, not per-agent); `--verdict` flag on `calibrate` CLI. Files changed: `config.py`, `router.py`, `sqlite.py`, `cli.py`; created: `verdict_calibration.py`, `tests/test_verdict_integration.py`. Accept criteria: Demo 1 "The Feedback Loop" — evaluate → verdict stored → override → `nthlayer-learn accuracy --producer arbiter` reflects the change.
+- `docs/superpowers/specs/2026-03-19-phase-3-mayday-implementation-design.md`: Phase 3 nthlayer-respond implementation design (approved) — full package structure (`src/nthlayer_respond/`: types, config, coordinator, context_store, agents, safe_actions, cli); `IncidentContext` dataclass with `last_completed_step_index` (pipeline step 0-3, not AgentRole); ZFC boundary: `_call_model()`/`_emit_verdict()` transport on AgentBase, `build_prompt()`/`parse_response()` judgment abstract on subclasses; approval ratchet (model can escalate `requires_approval` never downgrade); degraded mode (`action="escalate"`, `tags=["degraded","human-takeover-required"]`); crash recovery via SQLite + resume from step index; nthlayer-correlate not a package dep (shared verdict store only); 8 synthetic scenarios. Accept criteria: `nthlayer-respond replay --scenario scenarios/synthetic/cascading-failure.yaml`.
+- `docs/superpowers/plans/2026-03-19-phase-3-mayday-implementation.md`: Phase 3 nthlayer-respond implementation plan — step-by-step TDD checklist for building the full nthlayer-respond package. Task 1 covers project scaffold and types: pyproject.toml (deps: pyyaml>=6.0.1, structlog>=24.1, anthropic>=0.39, verdict path-based), `__init__.py`, `__main__.py`, `types.py` (IncidentContext, IncidentState, AgentRole, TriageResult, Hypothesis, InvestigationResult, CommunicationUpdate, CommunicationResult, RemediationResult), conftest.py with shared fixtures. Run via `uv run pytest` from `/Users/robfox/Documents/GitHub/nthlayer-ecosystem/nthlayer-respond/`. Accept criteria: `nthlayer-respond replay --scenario scenarios/synthetic/cascading-failure.yaml`.
 
 Files removed as of df80f12:
 - `opensrm-v1-full-spec.md`: Consolidated into spec/v1/specification.md

@@ -69,7 +69,7 @@ OpenSRM is the foundation for a complete operational reliability stack:
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="diagrams/svg/ecosystem-overview-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="diagrams/svg/ecosystem-overview-light.svg">
-  <img alt="OpenSRM ecosystem overview: Specification, NthLayer, Sitrep, Consumers, and OTel Semantic Conventions" src="diagrams/svg/ecosystem-overview-light.svg">
+  <img alt="OpenSRM ecosystem overview: Specification, NthLayer, nthlayer-correlate, Consumers, and OTel Semantic Conventions" src="diagrams/svg/ecosystem-overview-light.svg">
 </picture>
 
 ## Components
@@ -80,13 +80,13 @@ OpenSRM is the foundation for a complete operational reliability stack:
 | [ai-gate Extension](spec/v1/specification.md#5-judgment-slos-ai-gates) | AI decision services | Stable |
 | [Judgment SLOs](spec/v1/judgment-slos.md) | Decision quality metrics | Documented |
 | [GitHub Action](action/) | CI/CD validation | Available |
-| [Verdict](https://github.com/rsionnach/verdicts) | Data primitive for AI judgments | Implemented |
+| [nthlayer-learn](https://github.com/rsionnach/nthlayer-learn) | Data primitive for AI judgments | Implemented |
 | [NthLayer](https://github.com/rsionnach/nthlayer) | Reliability-as-code CLI tool | Alpha |
-| [Arbiter](https://github.com/rsionnach/arbiter) | Quality measurement + governance | Implemented |
+| [nthlayer-measure](https://github.com/rsionnach/nthlayer-measure) | Quality measurement + governance | Implemented |
 | [Change Events](conventions/change-events/) | OTel semantic conventions | Drafted |
 | [Decision Telemetry](conventions/decision-telemetry/) | OTel semantic conventions | Drafted |
-| [SitRep](https://github.com/rsionnach/sitrep) | Pre-correlation agent | Architecture |
-| [Mayday](https://github.com/rsionnach/mayday) | Multi-agent incident response | Architecture |
+| [nthlayer-correlate](https://github.com/rsionnach/nthlayer-correlate) | Pre-correlation agent | Architecture |
+| [nthlayer-respond](https://github.com/rsionnach/nthlayer-respond) | Multi-agent incident response | Architecture |
 
 See [STATUS.md](STATUS.md) for detailed progress.
 
@@ -436,7 +436,7 @@ Tools that implement OpenSRM:
 
 1. **Schemas + enforcement** -- Every component is defined by a specification first. Implementation follows. Define contracts, then validate them.
 2. **Shift-left reliability** -- Reliability concerns move earlier in the lifecycle. Service manifests define SLOs before deployment. CI/CD gates enforce contracts.
-3. **Operator-agnostic** -- The stack supports both human and AI operators. SitRep snapshots work for dashboards (human) and LLMs (AI). Decision telemetry captures human and AI decisions equally.
+3. **Operator-agnostic** -- The stack supports both human and AI operators. nthlayer-correlate snapshots work for dashboards (human) and LLMs (AI). Decision telemetry captures human and AI decisions equally.
 4. **Open standards** -- Extend existing standards (OTel) rather than invent new ones. Works with Prometheus, Datadog, or any backend.
 5. **Reasoning boundary** -- Agent capabilities are reserved for components that require interpretation of ambiguous inputs. Deterministic operations (validation, generation, arithmetic) remain as tools. If a component doesn't need to reason, it isn't an agent.
 
