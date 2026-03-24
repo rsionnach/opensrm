@@ -1,6 +1,6 @@
 # Status
 
-Last updated: February 2026
+Last updated: March 2026
 
 ## Overview
 
@@ -10,18 +10,18 @@ Last updated: February 2026
 | **JSON Schema** | `spec/v1/schema.json` | ✅ Stable | Validation schema |
 | **Judgment SLOs** | `spec/v1/judgment-slos.md` | ✅ Documented | Detailed reference |
 | **GitHub Action** | `action/` | ✅ Available | CI/CD validation |
-| **NthLayer** | External repo | 🟡 Partial | Reference implementation |
+| **NthLayer** | External repo | 🟡 Alpha | Reliability-as-code CLI |
+| **nthlayer-learn (Verdict)** | External repo | ✅ Implemented | Data primitive library |
+| **nthlayer-measure** | External repo | ✅ Implemented | Quality measurement + governance |
+| **nthlayer-correlate** | External repo | ✅ Implemented | Pre-correlation agent |
+| **nthlayer-respond** | External repo | ✅ Implemented | Multi-agent incident response |
 | **Change Events** | `conventions/change-events/` | 📝 Drafted | OTel proposal |
 | **Decision Telemetry** | `conventions/decision-telemetry/` | 📝 Drafted | OTel proposal |
-| **nthlayer-correlate** | `components/sitrep/` | 📐 In design | Pre-correlation layer |
-| **nthlayer-respond** | `components/mayday/` | 💭 Architecture | Multi-agent system |
 
 **Legend:**
-- ✅ Stable / Complete
-- 🟡 Partial / In Progress  
+- ✅ Stable / Implemented
+- 🟡 Alpha / In Progress
 - 📝 Drafted / Needs Review
-- 📐 In Design
-- 💭 Concept Only
 
 ---
 
@@ -135,36 +135,49 @@ Reference implementation of OpenSRM. Generates monitoring artifacts from manifes
 - Add judgment SLO alert generation
 
 ### nthlayer-correlate
-**Status:** 📐 In design
+**Status:** ✅ Implemented (Phase 2 Tier 1)
 
-Pre-correlation layer for AI-native observability.
+Pre-correlation agent for AI-native observability.
 
 | Artifact | Status |
 |----------|--------|
 | Proposal | Complete |
 | Technical appendix | Complete |
 | Snapshot schema | Complete |
-| Correlation algorithms | Designed |
-| Implementation | Not started |
+| Correlation engine | Implemented |
+| Ingestion layer | Implemented |
+| State machine | Implemented |
+| SQLite event store | Implemented |
+| CLI (serve/status/replay) | Implemented |
+| Tests (14 files, ~111 tests) | Passing |
+| Synthetic scenarios (5) | Complete |
 
-**Location:** `components/sitrep/`
+**Location:** External repo ([github.com/rsionnach/nthlayer-correlate](https://github.com/rsionnach/nthlayer-correlate))
 
-**Depends on:** NthLayer topology export, Change events spec
+**Package:** `pip install nthlayer-correlate` (0.1.0a1)
 
 ### nthlayer-respond
-**Status:** 💭 Architecture only
+**Status:** ✅ Implemented (Phase 3 complete)
 
 Multi-agent incident response system.
 
 | Artifact | Status |
 |----------|--------|
 | Architecture | Complete |
-| Agent specs | Partial |
-| Implementation | Not started |
+| Coordinator (state machine) | Implemented |
+| Triage agent | Implemented |
+| Investigation agent | Implemented |
+| Communication agent | Implemented |
+| Remediation agent | Implemented |
+| Safe actions registry | Implemented |
+| Context store (SQLite) | Implemented |
+| CLI (serve/status/replay/approve/reject) | Implemented |
+| Tests (13 files, ~168 tests) | Passing |
+| Synthetic scenarios (8) | Complete |
 
-**Location:** `components/mayday/`
+**Location:** External repo ([github.com/rsionnach/nthlayer-respond](https://github.com/rsionnach/nthlayer-respond))
 
-**Depends on:** nthlayer-correlate
+**Package:** `pip install nthlayer-respond` (0.1.0a1)
 
 ---
 
@@ -187,17 +200,17 @@ Validates OpenSRM manifests in CI pipelines.
 
 ## Current Focus
 
-**This month (February 2026):**
-- [ ] Judgment SLOs article (publish)
-- [ ] Populate `conventions/` directory
+**Completed (Q1 2026):**
+- [x] nthlayer-learn (Verdict) — Python library + CLI
+- [x] nthlayer-measure — Phase 1 verdict integration, governance
+- [x] nthlayer-correlate — Phase 2 Tier 1 implementation
+- [x] nthlayer-respond — Phase 3 full implementation
+- [x] nthlayer.io website with live topology demo
 
-**Next month (March 2026):**
+**Next:**
 - [ ] OTel decision telemetry PR
-- [ ] NthLayer topology export
-
-**Q2 2026:**
-- [ ] nthlayer-correlate MVP
 - [ ] Change events OTel PR
+- [ ] Production deployment hardening
 
 ---
 
@@ -216,25 +229,26 @@ Validates OpenSRM manifests in CI pipelines.
 
 ## Roadmap
 
-### Phase 1: Specifications (Q1 2026)
+### Phase 1: Specifications (Q1 2026) — Complete
 - [x] Core OpenSRM spec
 - [x] ai-gate extension
 - [x] Judgment SLOs reference
-- [ ] Change events OTel proposal
-- [ ] Decision telemetry OTel proposal
-- [ ] Publish judgment SLOs article
+- [x] Change events OTel proposal (drafted)
+- [x] Decision telemetry OTel proposal (drafted)
 
-### Phase 2: Implementations (Q2 2026)
+### Phase 2: Core Implementations (Q1 2026) — Complete
+- [x] nthlayer-learn (Verdict) — Python library + CLI
+- [x] nthlayer-measure — evaluation pipeline + verdict integration + governance
+- [x] nthlayer-correlate — correlation engine, ingestion, snapshots, state machine
+- [x] nthlayer-respond — coordinator, 4 agents, safe actions, crash recovery
+
+### Phase 3: Integration & Hardening (Q2 2026)
+- [ ] OTel convention PRs (CI/CD SIG, GenAI SIG)
 - [ ] NthLayer judgment SLO support
-- [ ] NthLayer topology export
-- [ ] nthlayer-correlate MVP
+- [ ] End-to-end integration testing across components
+- [ ] Production deployment guides
 
-### Phase 3: Integrations (Q3 2026)
-- [ ] nthlayer-correlate + NthLayer integration
-- [ ] nthlayer-respond consumer
-- [ ] Keep extension (potential)
-
-### Phase 4: Adoption (Q4 2026)
+### Phase 4: Adoption (Q3-Q4 2026)
 - [ ] Production deployments
 - [ ] Community contributions
 - [ ] Conference talks
