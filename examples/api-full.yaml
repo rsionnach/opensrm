@@ -73,6 +73,19 @@ spec:
     runbook: https://wiki.example.com/payment-api-runbook
     documentation: https://docs.example.com/payment-api
 
+  notifications:
+    slack:
+      channel_id: C0123PAYMENTS
+      channel: "#payments-oncall"
+    events:
+      - type: breach
+        severity: [1, 2]
+      - type: correlation
+      - type: incident
+      - type: remediation
+      - type: verification
+      - type: resolution
+
   observability:
     metrics:
       required:
