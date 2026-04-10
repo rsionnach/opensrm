@@ -191,7 +191,7 @@ Add to `arbiter/pyproject.toml`:
 dependencies = [
     "pyyaml>=6.0",
     "anthropic>=0.39.0",
-    "verdict @ file:///../verdicts/lib/python",
+    "verdict @ file:///../nthlayer-learn/lib/python",
 ]
 ```
 

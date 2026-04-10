@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -30 720 746" width="720" height="746">
+  <rect x="-30" y="-30" width="720" height="746" fill="#1e1e1e"/>
+  <rect x="10" y="92" width="130" height="36" rx="8" ry="8" fill="#2d2d2d" stroke="#e0e0e0" stroke-width="1"/>
+  <rect x="10" y="134" width="130" height="36" rx="8" ry="8" fill="#2d2d2d" stroke="#e0e0e0" stroke-width="1"/>
+  <rect x="10" y="176" width="130" height="36" rx="8" ry="8" fill="#2d2d2d" stroke="#e0e0e0" stroke-width="1"/>
+  <rect x="10" y="218" width="130" height="36" rx="8" ry="8" fill="#2d2d2d" stroke="#e0e0e0" stroke-width="1"/>
+  <rect x="208" y="90" width="340" height="160" rx="8" ry="8" fill="#6b5b00" stroke="#e0e0e0" stroke-width="2"/>
+  <rect x="208" y="302" width="340" height="90" rx="8" ry="8" fill="#6b4000" stroke="#e0e0e0" stroke-width="2"/>
+  <rect x="208" y="444" width="340" height="90" rx="8" ry="8" fill="#3d2d6b" stroke="#e0e0e0" stroke-width="2"/>
+  <rect x="208" y="586" width="340" height="90" rx="8" ry="8" fill="#1a5276" stroke="#e0e0e0" stroke-width="2"/>
+  <path d="M140,170 L200,170" fill="none" stroke="#e0e0e0" stroke-width="2"/><polygon points="200,170 188.94726807196537,174.6730201077038 188.94726807196537,165.3269798922962" fill="#e0e0e0" stroke="none"/>
+  <path d="M378,250 L378,294" fill="none" stroke="#e0e0e0" stroke-width="2"/><polygon points="378,294 373.3269798922962,282.94726807196537 382.6730201077038,282.94726807196537" fill="#e0e0e0" stroke="none"/>
+  <path d="M378,392 L378,436" fill="none" stroke="#e0e0e0" stroke-width="2"/><polygon points="378,436 373.3269798922962,424.94726807196537 382.6730201077038,424.94726807196537" fill="#e0e0e0" stroke="none"/>
+  <path d="M378,534 L378,578" fill="none" stroke="#e0e0e0" stroke-width="2"/><polygon points="378,578 373.3269798922962,566.9472680719654 382.6730201077038,566.9472680719654" fill="#e0e0e0" stroke="none"/>
+  <path d="M208,631 L168,631 L168,170 L208,170" fill="none" stroke="#e0e0e0" stroke-width="2" stroke-dasharray="8 4"/><polygon points="208,170 196.94726807196537,174.6730201077038 196.94726807196537,165.3269798922962" fill="#e0e0e0" stroke="none"/>
+  <text x="400" y="32" font-family="monospace, 'Courier New'" font-size="22" fill="#e0e0e0" text-anchor="middle">THE AI RELIABILITY LOOP</text>
+  <text x="75" y="84" font-family="monospace, 'Courier New'" font-size="12" fill="#e0e0e0" text-anchor="middle" opacity="0.6">RAW SIGNALS</text>
+  <text x="75" y="110" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Metrics</text>
+  <text x="75" y="152" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Alerts</text>
+  <text x="75" y="194" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Changes (OTel)</text>
+  <text x="75" y="236" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Logs</text>
+  <text x="378" y="135" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">SITREP</text>
+<text x="378" y="152.5" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Correlation Layer</text>
+<text x="378" y="170" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central"></text>
+<text x="378" y="187.5" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Correlates raw signals into</text>
+<text x="378" y="205" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">context-rich snapshots</text>
+  <text x="394" y="270" font-family="monospace, 'Courier New'" font-size="12" fill="#e0e0e0" text-anchor="start" opacity="0.7">Snapshots (JSON)</text>
+  <text x="378" y="329.5" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">AI AGENT / HUMAN OPERATOR</text>
+<text x="378" y="347" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central"></text>
+<text x="378" y="364.5" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Consumes snapshots, makes decisions</text>
+  <text x="394" y="412" font-family="monospace, 'Courier New'" font-size="12" fill="#e0e0e0" text-anchor="start" opacity="0.7">Decisions + confidence</text>
+  <text x="378" y="471.5" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">DECISION TELEMETRY (OTel)</text>
+<text x="378" y="489" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central"></text>
+<text x="378" y="506.5" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Records decisions, reversals, outcomes</text>
+  <text x="394" y="554" font-family="monospace, 'Courier New'" font-size="12" fill="#e0e0e0" text-anchor="start" opacity="0.7">Quality metrics</text>
+  <text x="378" y="604.75" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">JUDGMENT SLOs (OpenSRM)</text>
+<text x="378" y="622.25" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central"></text>
+<text x="378" y="639.75" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">reversal_rate, calibration,</text>
+<text x="378" y="657.25" font-family="monospace, 'Courier New'" font-size="14" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">audit_accuracy</text>
+  <text x="154" y="411" font-family="monospace, 'Courier New'" font-size="11" fill="#e0e0e0" text-anchor="middle" opacity="0.7">Feedback tunes</text>
+<text x="154" y="424.75" font-family="monospace, 'Courier New'" font-size="11" fill="#e0e0e0" text-anchor="middle" opacity="0.7">correlation</text>
+<text x="154" y="438.5" font-family="monospace, 'Courier New'" font-size="11" fill="#e0e0e0" text-anchor="middle" opacity="0.7">confidence</text>
+</svg>

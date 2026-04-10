@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="10 -10 910 540" width="910" height="540">
+  <rect x="10" y="-10" width="910" height="540" fill="#ffffff"/>
+  <rect x="50" y="30" width="140" height="50" rx="8" ry="8" fill="#e9ecef" stroke="#1e1e1e" stroke-width="2"/>
+  <rect x="280" y="30" width="140" height="50" rx="8" ry="8" fill="#ffec99" stroke="#1e1e1e" stroke-width="2"/>
+  <rect x="510" y="30" width="140" height="50" rx="8" ry="8" fill="#ffd8a8" stroke="#1e1e1e" stroke-width="2"/>
+  <rect x="740" y="30" width="140" height="50" rx="8" ry="8" fill="#d0bfff" stroke="#1e1e1e" stroke-width="2"/>
+  <path d="M120,80 L120,490" fill="none" stroke="#1e1e1e" stroke-width="1" opacity="0.5"/>
+  <path d="M350,80 L350,490" fill="none" stroke="#1e1e1e" stroke-width="1" opacity="0.5"/>
+  <path d="M580,80 L580,490" fill="none" stroke="#1e1e1e" stroke-width="1" opacity="0.5"/>
+  <path d="M810,80 L810,490" fill="none" stroke="#1e1e1e" stroke-width="1" opacity="0.5"/>
+  <path d="M128,120 L342,120" fill="none" stroke="#1e1e1e" stroke-width="2"/><polygon points="342,120 330.94726807196537,124.6730201077038 330.94726807196537,115.3269798922962" fill="#1e1e1e" stroke="none"/>
+  <path d="M128,180 L342,180" fill="none" stroke="#1e1e1e" stroke-width="2"/><polygon points="342,180 330.94726807196537,184.6730201077038 330.94726807196537,175.3269798922962" fill="#1e1e1e" stroke="none"/>
+  <path d="M358,260 L572,260" fill="none" stroke="#1e1e1e" stroke-width="2"/><polygon points="572,260 560.9472680719654,264.6730201077038 560.9472680719654,255.3269798922962" fill="#1e1e1e" stroke="none"/>
+  <path d="M588,340 L802,340" fill="none" stroke="#1e1e1e" stroke-width="2"/><polygon points="802,340 790.9472680719654,344.6730201077038 790.9472680719654,335.3269798922962" fill="#1e1e1e" stroke="none"/>
+  <path d="M588,450 L802,450" fill="none" stroke="#1e1e1e" stroke-width="2"/><polygon points="802,450 790.9472680719654,454.6730201077038 790.9472680719654,445.3269798922962" fill="#1e1e1e" stroke="none"/>
+  <text x="120" y="55" font-family="monospace, 'Courier New'" font-size="20" fill="#1e1e1e" text-anchor="middle" dominant-baseline="central">Systems</text>
+  <text x="350" y="55" font-family="monospace, 'Courier New'" font-size="20" fill="#1e1e1e" text-anchor="middle" dominant-baseline="central">Sitrep</text>
+  <text x="580" y="55" font-family="monospace, 'Courier New'" font-size="20" fill="#1e1e1e" text-anchor="middle" dominant-baseline="central">Consumer</text>
+  <text x="810" y="55" font-family="monospace, 'Courier New'" font-size="20" fill="#1e1e1e" text-anchor="middle" dominant-baseline="central">Telemetry</text>
+  <text x="235" y="114" font-family="monospace, 'Courier New'" font-size="14" fill="#1e1e1e" text-anchor="middle">metrics, alerts</text>
+  <text x="235" y="174" font-family="monospace, 'Courier New'" font-size="14" fill="#1e1e1e" text-anchor="middle">change events</text>
+  <text x="470" y="254" font-family="monospace, 'Courier New'" font-size="14" fill="#1e1e1e" text-anchor="middle">snapshot (JSON)</text>
+  <text x="700" y="334" font-family="monospace, 'Courier New'" font-size="14" fill="#1e1e1e" text-anchor="middle">decision event</text>
+  <text x="690" y="403" font-family="monospace, 'Courier New'" font-size="13" fill="#1e1e1e" text-anchor="middle" opacity="0.6">[human reviews]</text>
+  <text x="700" y="444" font-family="monospace, 'Courier New'" font-size="14" fill="#1e1e1e" text-anchor="middle">reversal event</text>
+</svg>

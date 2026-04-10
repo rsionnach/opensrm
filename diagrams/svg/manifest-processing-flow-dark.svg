@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 60 1120 213" width="1120" height="213">
+  <rect x="-30" y="60" width="1120" height="213" fill="#1e1e1e"/>
+  <rect x="20" y="100" width="280" height="70" rx="8" ry="8" fill="#1a5276" stroke="#e0e0e0" stroke-width="2"/>
+  <rect x="370" y="100" width="160" height="70" rx="8" ry="8" fill="#1a5632" stroke="#e0e0e0" stroke-width="2"/>
+  <rect x="630" y="100" width="160" height="70" rx="8" ry="8" fill="#6b5b00" stroke="#e0e0e0" stroke-width="2"/>
+  <rect x="890" y="100" width="160" height="70" rx="8" ry="8" fill="#6b4000" stroke="#e0e0e0" stroke-width="2"/>
+  <path d="M308,135 L362,135" fill="none" stroke="#e0e0e0" stroke-width="2"/><polygon points="362,135 350.94726807196537,139.6730201077038 350.94726807196537,130.3269798922962" fill="#e0e0e0" stroke="none"/>
+  <path d="M538,135 L622,135" fill="none" stroke="#e0e0e0" stroke-width="2"/><polygon points="622,135 610.9472680719654,139.6730201077038 610.9472680719654,130.3269798922962" fill="#e0e0e0" stroke="none"/>
+  <path d="M798,135 L882,135" fill="none" stroke="#e0e0e0" stroke-width="2"/><polygon points="882,135 870.9472680719654,139.6730201077038 870.9472680719654,130.3269798922962" fill="#e0e0e0" stroke="none"/>
+  <text x="160" y="135" font-family="monospace, 'Courier New'" font-size="16" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">service.reliability.yaml</text>
+  <text x="160" y="198" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle">SLOs, dependencies,</text>
+<text x="160" y="214.25" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle">ownership, observability,</text>
+<text x="160" y="230.5" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle">deployment gates</text>
+  <text x="450" y="135" font-family="monospace, 'Courier New'" font-size="20" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Validate</text>
+  <text x="450" y="198" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle">Schema valid?</text>
+<text x="450" y="214.25" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle">Metrics exist?</text>
+<text x="450" y="230.5" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle">Dashboard ready?</text>
+  <text x="710" y="135" font-family="monospace, 'Courier New'" font-size="20" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Enforce</text>
+  <text x="710" y="198" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle">Error budget ok?</text>
+<text x="710" y="214.25" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle">SLO met?</text>
+  <text x="970" y="135" font-family="monospace, 'Courier New'" font-size="20" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Deploy</text>
+</svg>

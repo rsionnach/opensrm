@@ -81,7 +81,7 @@ opensrm/
 │   │   └── examples/
 │   │       ├── batch-snapshot.json
 │   │       └── incident-snapshot.json
-│   └── incidenttown/
+│   └── mayday/
 │       ├── README.md
 │       └── architecture.md
 │
@@ -141,8 +141,8 @@ opensrm/
 | `components/sitrep/schema.yaml` | High | Extract from appendix |
 | `components/sitrep/correlation.md` | Medium | Algorithm details |
 | `components/sitrep/api.md` | Medium | API specification |
-| `components/incidenttown/README.md` | Low | Overview |
-| `components/incidenttown/architecture.md` | Low | Move from outputs |
+| `components/mayday/README.md` | Low | Overview |
+| `components/mayday/architecture.md` | Low | Move from outputs |
 
 ### Phase 4: Articles (Ongoing)
 
@@ -342,7 +342,7 @@ that are currently underspecified or missing.
 |--------|-------------|
 | `sitrep-proposal-v2.docx` (convert to md) | `components/sitrep/proposal.md` |
 | `situations-technical-appendix-v2.md` | `components/sitrep/technical-appendix.md` |
-| `incidenttown-architecture.md` | `components/incidenttown/architecture.md` |
+| `mayday-architecture.md` | `components/mayday/architecture.md` |
 | `CHANGE_EVENT_SEMANTIC_CONVENTION.md` | `conventions/change-events/SPEC.md` |
 | `CHANGE_EVENTS_IMPLEMENTATION_PLAN.md` | `conventions/change-events/IMPLEMENTATION.md` |
 
