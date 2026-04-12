@@ -10,11 +10,6 @@ metadata:
 spec:
   type: ai-gate
 
-  ownership:
-    team: platform
-    slack: "#platform-oncall"
-    runbook: https://wiki.example.com/pr-review-agent
-
   contract:
     availability: 0.999
     latency:
@@ -86,5 +81,6 @@ spec:
 
   ownership:
     team: platform
+    slack: "#platform-oncall"
     escalation: platform-oncall
     runbook: https://wiki.example.com/pr-review-agent
