@@ -20,6 +20,7 @@ spec:
   ownership:
     team: my-team
     slack: "#my-team-alerts"
+    runbook: https://wiki.example.com/my-service
 
   observability:
     metrics:
