@@ -4,8 +4,12 @@
   "title": "OpenSRM",
   "description": "Open Service Reliability Manifest - Define service reliability requirements as code\nhttps://github.com/rsionnach/opensrm",
   "oneOf": [
-    { "$ref": "#/definitions/ServiceReliabilityManifest" },
-    { "$ref": "#/definitions/Template" }
+    {
+      "$ref": "#/definitions/ServiceReliabilityManifest"
+    },
+    {
+      "$ref": "#/definitions/Template"
+    }
   ],
   "definitions": {
     "Duration": {
@@ -21,18 +25,32 @@
     },
     "ServiceType": {
       "type": "string",
-      "enum": ["api", "worker", "stream", "ai-gate", "batch", "database"],
+      "enum": [
+        "api",
+        "worker",
+        "stream",
+        "ai-gate",
+        "batch",
+        "database"
+      ],
       "description": "Service operational pattern\nhttps://github.com/rsionnach/opensrm#service-types"
     },
     "Tier": {
       "type": "string",
-      "enum": ["critical", "high", "standard", "low"],
+      "enum": [
+        "critical",
+        "high",
+        "standard",
+        "low"
+      ],
       "description": "Service criticality tier"
     },
     "AvailabilitySLO": {
       "type": "object",
       "description": "Availability SLO - measures proportion of successful requests",
-      "required": ["target"],
+      "required": [
+        "target"
+      ],
       "additionalProperties": false,
       "properties": {
         "target": {
@@ -49,7 +67,9 @@
     "LatencySLO": {
       "type": "object",
       "description": "Latency SLO - measures response time at specified percentiles",
-      "required": ["target"],
+      "required": [
+        "target"
+      ],
       "additionalProperties": false,
       "properties": {
         "p50": {
@@ -83,17 +103,39 @@
         }
       },
       "anyOf": [
-        { "required": ["p50"] },
-        { "required": ["p90"] },
-        { "required": ["p95"] },
-        { "required": ["p99"] },
-        { "required": ["p999"] }
+        {
+          "required": [
+            "p50"
+          ]
+        },
+        {
+          "required": [
+            "p90"
+          ]
+        },
+        {
+          "required": [
+            "p95"
+          ]
+        },
+        {
+          "required": [
+            "p99"
+          ]
+        },
+        {
+          "required": [
+            "p999"
+          ]
+        }
       ]
     },
     "ErrorRateSLO": {
       "type": "object",
       "description": "Error rate SLO - measures proportion of failed requests",
-      "required": ["target"],
+      "required": [
+        "target"
+      ],
       "additionalProperties": false,
       "properties": {
         "target": {
@@ -110,7 +152,10 @@
     "ThroughputSLO": {
       "type": "object",
       "description": "Throughput SLO - measures request processing rate",
-      "required": ["target", "unit"],
+      "required": [
+        "target",
+        "unit"
+      ],
       "additionalProperties": false,
       "properties": {
         "target": {
@@ -120,7 +165,11 @@
         },
         "unit": {
           "type": "string",
-          "enum": ["rps", "rpm", "rph"],
+          "enum": [
+            "rps",
+            "rpm",
+            "rph"
+          ],
           "description": "Throughput unit"
         },
         "window": {
@@ -133,7 +182,9 @@
     "ProcessingTimeSLO": {
       "type": "object",
       "description": "Processing time SLO - job completion time for worker services",
-      "required": ["target"],
+      "required": [
+        "target"
+      ],
       "additionalProperties": false,
       "properties": {
         "p50": {
@@ -163,16 +214,35 @@
         }
       },
       "anyOf": [
-        { "required": ["p50"] },
-        { "required": ["p90"] },
-        { "required": ["p95"] },
-        { "required": ["p99"] }
+        {
+          "required": [
+            "p50"
+          ]
+        },
+        {
+          "required": [
+            "p90"
+          ]
+        },
+        {
+          "required": [
+            "p95"
+          ]
+        },
+        {
+          "required": [
+            "p99"
+          ]
+        }
       ]
     },
     "LagSLO": {
       "type": "object",
       "description": "Lag SLO - consumer lag for stream services",
-      "required": ["max_seconds", "target"],
+      "required": [
+        "max_seconds",
+        "target"
+      ],
       "additionalProperties": false,
       "properties": {
         "max_seconds": {
@@ -194,7 +264,9 @@
     "SuccessRateSLO": {
       "type": "object",
       "description": "Success rate SLO - measures proportion of successful operations",
-      "required": ["target"],
+      "required": [
+        "target"
+      ],
       "additionalProperties": false,
       "properties": {
         "target": {
@@ -211,7 +283,9 @@
     "DurationSLO": {
       "type": "object",
       "description": "Duration SLO - job execution time for batch services",
-      "required": ["target"],
+      "required": [
+        "target"
+      ],
       "additionalProperties": false,
       "properties": {
         "p50": {
@@ -241,16 +315,34 @@
         }
       },
       "anyOf": [
-        { "required": ["p50"] },
-        { "required": ["p90"] },
-        { "required": ["p95"] },
-        { "required": ["p99"] }
+        {
+          "required": [
+            "p50"
+          ]
+        },
+        {
+          "required": [
+            "p90"
+          ]
+        },
+        {
+          "required": [
+            "p95"
+          ]
+        },
+        {
+          "required": [
+            "p99"
+          ]
+        }
       ]
     },
     "ScheduleAdherenceSLO": {
       "type": "object",
       "description": "Schedule adherence SLO - measures timeliness of batch job starts",
-      "required": ["max_delay"],
+      "required": [
+        "max_delay"
+      ],
       "additionalProperties": false,
       "properties": {
         "max_delay": {
@@ -267,7 +359,9 @@
     "DataFreshnessSLO": {
       "type": "object",
       "description": "Data freshness SLO - measures staleness of batch output data",
-      "required": ["max_age"],
+      "required": [
+        "max_age"
+      ],
       "additionalProperties": false,
       "properties": {
         "max_age": {
@@ -284,7 +378,9 @@
     "QueryLatencySLO": {
       "type": "object",
       "description": "Query latency SLO - response time for database services",
-      "required": ["target"],
+      "required": [
+        "target"
+      ],
       "additionalProperties": false,
       "properties": {
         "p50": {
@@ -318,17 +414,39 @@
         }
       },
       "anyOf": [
-        { "required": ["p50"] },
-        { "required": ["p90"] },
-        { "required": ["p95"] },
-        { "required": ["p99"] },
-        { "required": ["p999"] }
+        {
+          "required": [
+            "p50"
+          ]
+        },
+        {
+          "required": [
+            "p90"
+          ]
+        },
+        {
+          "required": [
+            "p95"
+          ]
+        },
+        {
+          "required": [
+            "p99"
+          ]
+        },
+        {
+          "required": [
+            "p999"
+          ]
+        }
       ]
     },
     "ReplicationLagSLO": {
       "type": "object",
       "description": "Replication lag SLO for database services",
-      "required": ["max_lag"],
+      "required": [
+        "max_lag"
+      ],
       "additionalProperties": false,
       "properties": {
         "max_lag": {
@@ -346,7 +464,9 @@
     "ConnectionAvailabilitySLO": {
       "type": "object",
       "description": "Connection availability SLO for database services",
-      "required": ["target"],
+      "required": [
+        "target"
+      ],
       "additionalProperties": false,
       "properties": {
         "target": {
@@ -362,245 +482,51 @@
     },
     "ReversalRateSLO": {
       "type": "object",
-      "description": "Reversal rate SLO - measures how often humans override AI decisions",
-      "required": ["target", "window"],
+      "description": "Human override rate tracking",
       "additionalProperties": false,
       "properties": {
         "target": {
-          "$ref": "#/definitions/Ratio",
-          "description": "Maximum reversal ratio (e.g., 0.05 for 5%)"
+          "$ref": "#/definitions/Ratio"
         },
         "window": {
-          "$ref": "#/definitions/Duration",
-          "description": "SLO evaluation window"
+          "$ref": "#/definitions/Duration"
         },
         "observation_period": {
-          "$ref": "#/definitions/Duration",
-          "default": "24h",
-          "description": "Time to wait for reversals after a decision"
+          "$ref": "#/definitions/Duration"
         }
-      }
+      },
+      "required": [
+        "target",
+        "window"
+      ]
     },
     "HighConfidenceFailureSLO": {
       "type": "object",
-      "description": "High-confidence failure SLO - measures rate of confident but wrong decisions",
-      "required": ["target"],
+      "description": "High-confidence decision failure rate",
       "additionalProperties": false,
       "properties": {
         "target": {
-          "$ref": "#/definitions/Ratio",
-          "description": "Maximum HCF ratio (e.g., 0.02 for 2%)"
-        },
-        "confidence_threshold": {
-          "$ref": "#/definitions/Ratio",
-          "default": 0.8,
-          "description": "What counts as high confidence"
+          "$ref": "#/definitions/Ratio"
         },
         "window": {
-          "$ref": "#/definitions/Duration",
-          "description": "SLO evaluation window"
+          "$ref": "#/definitions/Duration"
+        },
+        "confidence_threshold": {
+          "$ref": "#/definitions/Ratio"
         }
-      }
-    },
-    "ReversalSLO": {
-      "type": "object",
-      "description": "Reversal SLO group - wraps rate and high-confidence failure metrics\nhttps://github.com/rsionnach/opensrm#judgment-slos",
-      "additionalProperties": false,
-      "properties": {
-        "rate": {
-          "$ref": "#/definitions/ReversalRateSLO"
-        },
-        "high_confidence_failure": {
-          "$ref": "#/definitions/HighConfidenceFailureSLO"
-        }
-      }
-    },
-    "AuditSLO": {
-      "type": "object",
-      "description": "Audit SLO - proactive human review of sampled AI decisions (Level 2)\nhttps://github.com/rsionnach/opensrm#judgment-slos",
-      "additionalProperties": false,
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether audit sampling is active"
-        },
-        "sample_rate": {
-          "$ref": "#/definitions/Ratio",
-          "description": "Proportion of decisions to sample for review"
-        },
-        "sample_method": {
-          "type": "string",
-          "enum": ["random", "stratified", "confidence_weighted"],
-          "default": "random",
-          "description": "Sampling strategy"
-        },
-        "accuracy": {
-          "type": "object",
-          "description": "Accuracy target for audited decisions",
-          "additionalProperties": false,
-          "properties": {
-            "target": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Minimum proportion of sampled decisions found correct"
-            },
-            "window": {
-              "$ref": "#/definitions/Duration",
-              "description": "Rolling window for accuracy measurement"
-            }
-          }
-        },
-        "coverage": {
-          "type": "object",
-          "description": "Coverage target for planned reviews",
-          "additionalProperties": false,
-          "properties": {
-            "target": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Minimum proportion of planned samples actually reviewed"
-            },
-            "window": {
-              "$ref": "#/definitions/Duration",
-              "description": "Rolling window for coverage measurement"
-            }
-          }
-        },
-        "latency": {
-          "type": "object",
-          "description": "Latency target for audit review completion",
-          "additionalProperties": false,
-          "properties": {
-            "p90": {
-              "$ref": "#/definitions/Duration",
-              "description": "90th percentile time to complete reviews"
-            }
-          }
-        }
-      }
-    },
-    "OutcomesSLO": {
-      "type": "object",
-      "description": "Outcomes SLO - ground truth measurement from downstream consequences (Level 3)\nhttps://github.com/rsionnach/opensrm#judgment-slos",
-      "additionalProperties": false,
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether outcome tracking is active"
-        },
-        "defect_signals": {
-          "type": "array",
-          "description": "Events that indicate a bad decision",
-          "items": {
-            "type": "object",
-            "required": ["event", "correlation_key"],
-            "additionalProperties": false,
-            "properties": {
-              "event": {
-                "type": "string",
-                "description": "Event name to correlate"
-              },
-              "correlation_key": {
-                "type": "string",
-                "description": "Field linking outcome to decision"
-              },
-              "decision_filter": {
-                "type": "string",
-                "description": "Which decisions this signal applies to"
-              }
-            }
-          }
-        },
-        "defect_rate": {
-          "type": "object",
-          "description": "Target for proportion of decisions leading to defects",
-          "additionalProperties": false,
-          "properties": {
-            "target": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Maximum ratio of decisions leading to defects"
-            },
-            "window": {
-              "$ref": "#/definitions/Duration",
-              "description": "Rolling window (longer for delayed outcomes)"
-            }
-          }
-        },
-        "outcome_latency": {
-          "type": "object",
-          "description": "Time until outcomes are observable",
-          "additionalProperties": false,
-          "properties": {
-            "p90": {
-              "$ref": "#/definitions/Duration",
-              "description": "90th percentile time until outcome is observable"
-            }
-          }
-        },
-        "false_positive_rate": {
-          "type": "object",
-          "description": "Target for proportion of incorrect rejections",
-          "additionalProperties": false,
-          "properties": {
-            "target": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Maximum ratio of incorrect rejections"
-            },
-            "window": {
-              "$ref": "#/definitions/Duration",
-              "description": "Rolling window for false positive measurement"
-            }
-          }
-        }
-      }
-    },
-    "EscalationSLO": {
-      "type": "object",
-      "description": "Escalation SLO - ensures AI appropriately handles uncertainty (Level 4)\nhttps://github.com/rsionnach/opensrm#judgment-slos",
-      "additionalProperties": false,
-      "properties": {
-        "rate": {
-          "type": "object",
-          "description": "Escalation rate bounds",
-          "additionalProperties": false,
-          "properties": {
-            "min": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Minimum escalation rate"
-            },
-            "max": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Maximum escalation rate"
-            },
-            "window": {
-              "$ref": "#/definitions/Duration",
-              "description": "Rolling window"
-            }
-          }
-        },
-        "autonomous_accuracy": {
-          "type": "object",
-          "description": "Accuracy target for non-escalated decisions",
-          "additionalProperties": false,
-          "properties": {
-            "target": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Accuracy target for decisions made without escalation"
-            },
-            "source": {
-              "type": "string",
-              "enum": ["audit", "outcome"],
-              "default": "audit",
-              "description": "How accuracy is measured"
-            }
-          }
-        }
-      }
+      },
+      "required": [
+        "target",
+        "window"
+      ]
     },
     "SegmentDefinition": {
       "type": "object",
       "description": "Definition of a decision segment for category-specific analysis",
-      "required": ["name", "filter"],
+      "required": [
+        "name",
+        "filter"
+      ],
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -616,7 +542,9 @@
     "SegmentTarget": {
       "type": "object",
       "description": "Per-segment SLO target overrides",
-      "required": ["segment"],
+      "required": [
+        "segment"
+      ],
       "additionalProperties": false,
       "properties": {
         "segment": {
@@ -633,81 +561,6 @@
         }
       }
     },
-    "SegmentsSLO": {
-      "type": "object",
-      "description": "Segments SLO - category-specific quality targets (Level 4)\nhttps://github.com/rsionnach/opensrm#judgment-slos",
-      "additionalProperties": false,
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether segment analysis is active"
-        },
-        "definitions": {
-          "type": "array",
-          "description": "Segment definitions",
-          "items": {
-            "$ref": "#/definitions/SegmentDefinition"
-          }
-        },
-        "targets": {
-          "type": "array",
-          "description": "Per-segment SLO overrides",
-          "items": {
-            "$ref": "#/definitions/SegmentTarget"
-          }
-        }
-      }
-    },
-    "StabilitySLO": {
-      "type": "object",
-      "description": "Stability SLO - detects quality degradation and volatility (Level 4)\nhttps://github.com/rsionnach/opensrm#judgment-slos",
-      "additionalProperties": false,
-      "properties": {
-        "trend": {
-          "type": "object",
-          "description": "Trend detection configuration",
-          "additionalProperties": false,
-          "properties": {
-            "metric": {
-              "type": "string",
-              "description": "Metric to monitor for trend changes"
-            },
-            "max_increase": {
-              "type": "number",
-              "description": "Maximum allowed increase between windows"
-            },
-            "lookback": {
-              "$ref": "#/definitions/Duration",
-              "description": "Recent measurement window"
-            },
-            "comparison": {
-              "$ref": "#/definitions/Duration",
-              "description": "Baseline comparison window"
-            }
-          }
-        },
-        "volatility": {
-          "type": "object",
-          "description": "Volatility detection configuration",
-          "additionalProperties": false,
-          "properties": {
-            "metric": {
-              "type": "string",
-              "description": "Metric to monitor for volatility"
-            },
-            "max_stddev": {
-              "type": "number",
-              "description": "Maximum allowed standard deviation"
-            },
-            "window": {
-              "$ref": "#/definitions/Duration",
-              "description": "Volatility measurement window"
-            }
-          }
-        }
-      }
-    },
     "CalibrationSLO": {
       "type": "object",
       "description": "Calibration SLO - measures if stated confidence matches actual accuracy (ECE)\nhttps://github.com/rsionnach/opensrm#judgment-slos",
@@ -720,7 +573,10 @@
         },
         "source": {
           "type": "string",
-          "enum": ["audit", "outcome"],
+          "enum": [
+            "audit",
+            "outcome"
+          ],
           "default": "audit",
           "description": "How correctness is determined"
         },
@@ -749,29 +605,20 @@
     },
     "JudgmentSLOs": {
       "type": "object",
-      "description": "Judgment SLOs for AI gate services - measure decision quality\nhttps://github.com/rsionnach/opensrm#judgment-slos",
+      "description": "Judgment SLOs for AI gate services - measure decision quality",
       "additionalProperties": false,
       "properties": {
-        "reversal": {
-          "$ref": "#/definitions/ReversalSLO"
+        "reversal_rate": {
+          "$ref": "#/definitions/ReversalRateSLO"
         },
-        "audit": {
-          "$ref": "#/definitions/AuditSLO"
-        },
-        "outcomes": {
-          "$ref": "#/definitions/OutcomesSLO"
-        },
-        "escalation": {
-          "$ref": "#/definitions/EscalationSLO"
-        },
-        "segments": {
-          "$ref": "#/definitions/SegmentsSLO"
-        },
-        "stability": {
-          "$ref": "#/definitions/StabilitySLO"
+        "high_confidence_failure": {
+          "$ref": "#/definitions/HighConfidenceFailureSLO"
         },
         "calibration": {
-          "$ref": "#/definitions/CalibrationSLO"
+          "$ref": "#/definitions/FlatCalibrationSLO"
+        },
+        "feedback_latency": {
+          "$ref": "#/definitions/FeedbackLatencySLO"
         }
       }
     },
@@ -823,7 +670,9 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["path"],
+            "required": [
+              "path"
+            ],
             "additionalProperties": false,
             "properties": {
               "path": {
@@ -838,7 +687,10 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["name", "target"],
+            "required": [
+              "name",
+              "target"
+            ],
             "additionalProperties": false,
             "properties": {
               "name": {
@@ -952,7 +804,9 @@
     "Dependency": {
       "type": "object",
       "description": "Upstream dependency and expected guarantees",
-      "required": ["service"],
+      "required": [
+        "service"
+      ],
       "additionalProperties": false,
       "properties": {
         "service": {
@@ -961,7 +815,13 @@
         },
         "type": {
           "type": "string",
-          "enum": ["service", "database", "cache", "queue", "external"],
+          "enum": [
+            "service",
+            "database",
+            "cache",
+            "queue",
+            "external"
+          ],
           "description": "Type of dependency"
         },
         "critical": {
@@ -1000,7 +860,9 @@
     "Ownership": {
       "type": "object",
       "description": "Service ownership information",
-      "required": ["team"],
+      "required": [
+        "team"
+      ],
       "additionalProperties": false,
       "properties": {
         "team": {
@@ -1054,13 +916,18 @@
     "Instrumentation": {
       "type": "object",
       "description": "Telemetry configuration for AI gate services",
-      "required": ["events"],
+      "required": [
+        "events"
+      ],
       "additionalProperties": false,
       "properties": {
         "events": {
           "type": "object",
           "description": "Event name mappings",
-          "required": ["decision", "reversal"],
+          "required": [
+            "decision",
+            "reversal"
+          ],
           "additionalProperties": false,
           "properties": {
             "decision": {
@@ -1117,7 +984,9 @@
           "properties": {
             "required": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "description": "Metric names that must exist"
             },
             "labels": {
@@ -1126,14 +995,19 @@
               "properties": {
                 "required": {
                   "type": "array",
-                  "items": { "type": "string" },
+                  "items": {
+                    "type": "string"
+                  },
                   "description": "Labels that must be present"
                 }
               }
             },
             "convention": {
               "type": "string",
-              "enum": ["opentelemetry", "prometheus"],
+              "enum": [
+                "opentelemetry",
+                "prometheus"
+              ],
               "default": "opentelemetry",
               "description": "Metric naming convention"
             }
@@ -1150,7 +1024,10 @@
             },
             "urls": {
               "type": "array",
-              "items": { "type": "string", "format": "uri" },
+              "items": {
+                "type": "string",
+                "format": "uri"
+              },
               "description": "URLs to service dashboards"
             }
           }
@@ -1168,7 +1045,10 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["name", "severity"],
+                "required": [
+                  "name",
+                  "severity"
+                ],
                 "additionalProperties": false,
                 "properties": {
                   "name": {
@@ -1177,7 +1057,11 @@
                   },
                   "severity": {
                     "type": "string",
-                    "enum": ["critical", "warning", "info"],
+                    "enum": [
+                      "critical",
+                      "warning",
+                      "info"
+                    ],
                     "description": "Alert severity"
                   },
                   "threshold": {
@@ -1215,7 +1099,9 @@
       "properties": {
         "environments": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Environments where service is deployed"
         },
         "gates": {
@@ -1227,15 +1113,21 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "enabled": { "type": "boolean" },
-                "threshold": { "type": "number" }
+                "enabled": {
+                  "type": "boolean"
+                },
+                "threshold": {
+                  "type": "number"
+                }
               }
             },
             "slo_compliance": {
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "enabled": { "type": "boolean" },
+                "enabled": {
+                  "type": "boolean"
+                },
                 "min_compliance": {
                   "type": "number",
                   "minimum": 0,
@@ -1247,10 +1139,20 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "enabled": { "type": "boolean" },
-                "lookback": { "$ref": "#/definitions/Duration" },
-                "max_p1": { "type": "integer", "minimum": 0 },
-                "max_p2": { "type": "integer", "minimum": 0 }
+                "enabled": {
+                  "type": "boolean"
+                },
+                "lookback": {
+                  "$ref": "#/definitions/Duration"
+                },
+                "max_p1": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "max_p2": {
+                  "type": "integer",
+                  "minimum": 0
+                }
               }
             }
           },
@@ -1291,7 +1193,11 @@
     "Metadata": {
       "type": "object",
       "description": "Service identity and classification",
-      "required": ["name", "team", "tier"],
+      "required": [
+        "name",
+        "team",
+        "tier"
+      ],
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -1317,12 +1223,16 @@
         },
         "labels": {
           "type": "object",
-          "additionalProperties": { "type": "string" },
+          "additionalProperties": {
+            "type": "string"
+          },
           "description": "Key-value pairs for filtering/grouping"
         },
         "annotations": {
           "type": "object",
-          "additionalProperties": { "type": "string" },
+          "additionalProperties": {
+            "type": "string"
+          },
           "description": "Arbitrary metadata (not used for selection)"
         }
       }
@@ -1330,7 +1240,9 @@
     "TemplateMetadata": {
       "type": "object",
       "description": "Template identity",
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "additionalProperties": false,
       "properties": {
         "name": {
@@ -1363,7 +1275,9 @@
         },
         "dependencies": {
           "type": "array",
-          "items": { "$ref": "#/definitions/Dependency" },
+          "items": {
+            "$ref": "#/definitions/Dependency"
+          },
           "description": "Upstream dependencies"
         },
         "ownership": {
@@ -1404,7 +1318,9 @@
           "description": "Event types to notify on (absent = all events)",
           "items": {
             "type": "object",
-            "required": ["type"],
+            "required": [
+              "type"
+            ],
             "properties": {
               "type": {
                 "type": "string",
@@ -1446,7 +1362,12 @@
     "ServiceReliabilityManifest": {
       "type": "object",
       "description": "Service Reliability Manifest - defines reliability requirements for a service",
-      "required": ["apiVersion", "kind", "metadata", "spec"],
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
       "additionalProperties": false,
       "properties": {
         "apiVersion": {
@@ -1470,7 +1391,12 @@
     "Template": {
       "type": "object",
       "description": "Reusable template for service reliability manifests",
-      "required": ["apiVersion", "kind", "metadata", "spec"],
+      "required": [
+        "apiVersion",
+        "kind",
+        "metadata",
+        "spec"
+      ],
       "additionalProperties": false,
       "properties": {
         "apiVersion": {
@@ -1488,6 +1414,36 @@
         },
         "spec": {
           "$ref": "#/definitions/TemplateSpec"
+        }
+      }
+    },
+    "FlatCalibrationSLO": {
+      "type": "object",
+      "description": "Calibration SLO - Expected Calibration Error target",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/Ratio"
+        },
+        "window": {
+          "$ref": "#/definitions/Duration"
+        }
+      },
+      "required": [
+        "target",
+        "window"
+      ]
+    },
+    "FeedbackLatencySLO": {
+      "type": "object",
+      "description": "Time to ground truth feedback",
+      "additionalProperties": false,
+      "properties": {
+        "p50": {
+          "$ref": "#/definitions/Duration"
+        },
+        "p90": {
+          "$ref": "#/definitions/Duration"
         }
       }
     }

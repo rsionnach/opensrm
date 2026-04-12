@@ -1705,255 +1705,43 @@
     },
     "ReversalRateSLO": {
       "type": "object",
-      "description": "Reversal rate SLO - measures how often humans override AI decisions",
+      "description": "Human override rate tracking",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/Ratio"
+        },
+        "window": {
+          "$ref": "#/definitions/Duration"
+        },
+        "observation_period": {
+          "$ref": "#/definitions/Duration"
+        }
+      },
       "required": [
         "target",
         "window"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "target": {
-          "$ref": "#/definitions/Ratio",
-          "description": "Maximum reversal ratio (e.g., 0.05 for 5%)"
-        },
-        "window": {
-          "$ref": "#/definitions/Duration",
-          "description": "SLO evaluation window"
-        },
-        "observation_period": {
-          "$ref": "#/definitions/Duration",
-          "default": "24h",
-          "description": "Time to wait for reversals after a decision"
-        }
-      }
+      ]
     },
     "HighConfidenceFailureSLO": {
       "type": "object",
-      "description": "High-confidence failure SLO - measures rate of confident but wrong decisions",
-      "required": [
-        "target"
-      ],
+      "description": "High-confidence decision failure rate",
       "additionalProperties": false,
       "properties": {
         "target": {
-          "$ref": "#/definitions/Ratio",
-          "description": "Maximum HCF ratio (e.g., 0.02 for 2%)"
-        },
-        "confidence_threshold": {
-          "$ref": "#/definitions/Ratio",
-          "default": 0.8,
-          "description": "What counts as high confidence"
+          "$ref": "#/definitions/Ratio"
         },
         "window": {
-          "$ref": "#/definitions/Duration",
-          "description": "SLO evaluation window"
+          "$ref": "#/definitions/Duration"
+        },
+        "confidence_threshold": {
+          "$ref": "#/definitions/Ratio"
         }
-      }
-    },
-    "ReversalSLO": {
-      "type": "object",
-      "description": "Reversal SLO group - wraps rate and high-confidence failure metrics\nhttps://github.com/rsionnach/opensrm#judgment-slos",
-      "additionalProperties": false,
-      "properties": {
-        "rate": {
-          "$ref": "#/definitions/ReversalRateSLO"
-        },
-        "high_confidence_failure": {
-          "$ref": "#/definitions/HighConfidenceFailureSLO"
-        }
-      }
-    },
-    "AuditSLO": {
-      "type": "object",
-      "description": "Audit SLO - proactive human review of sampled AI decisions (Level 2)\nhttps://github.com/rsionnach/opensrm#judgment-slos",
-      "additionalProperties": false,
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether audit sampling is active"
-        },
-        "sample_rate": {
-          "$ref": "#/definitions/Ratio",
-          "description": "Proportion of decisions to sample for review"
-        },
-        "sample_method": {
-          "type": "string",
-          "enum": [
-            "random",
-            "stratified",
-            "confidence_weighted"
-          ],
-          "default": "random",
-          "description": "Sampling strategy"
-        },
-        "accuracy": {
-          "type": "object",
-          "description": "Accuracy target for audited decisions",
-          "additionalProperties": false,
-          "properties": {
-            "target": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Minimum proportion of sampled decisions found correct"
-            },
-            "window": {
-              "$ref": "#/definitions/Duration",
-              "description": "Rolling window for accuracy measurement"
-            }
-          }
-        },
-        "coverage": {
-          "type": "object",
-          "description": "Coverage target for planned reviews",
-          "additionalProperties": false,
-          "properties": {
-            "target": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Minimum proportion of planned samples actually reviewed"
-            },
-            "window": {
-              "$ref": "#/definitions/Duration",
-              "description": "Rolling window for coverage measurement"
-            }
-          }
-        },
-        "latency": {
-          "type": "object",
-          "description": "Latency target for audit review completion",
-          "additionalProperties": false,
-          "properties": {
-            "p90": {
-              "$ref": "#/definitions/Duration",
-              "description": "90th percentile time to complete reviews"
-            }
-          }
-        }
-      }
-    },
-    "OutcomesSLO": {
-      "type": "object",
-      "description": "Outcomes SLO - ground truth measurement from downstream consequences (Level 3)\nhttps://github.com/rsionnach/opensrm#judgment-slos",
-      "additionalProperties": false,
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether outcome tracking is active"
-        },
-        "defect_signals": {
-          "type": "array",
-          "description": "Events that indicate a bad decision",
-          "items": {
-            "type": "object",
-            "required": [
-              "event",
-              "correlation_key"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "event": {
-                "type": "string",
-                "description": "Event name to correlate"
-              },
-              "correlation_key": {
-                "type": "string",
-                "description": "Field linking outcome to decision"
-              },
-              "decision_filter": {
-                "type": "string",
-                "description": "Which decisions this signal applies to"
-              }
-            }
-          }
-        },
-        "defect_rate": {
-          "type": "object",
-          "description": "Target for proportion of decisions leading to defects",
-          "additionalProperties": false,
-          "properties": {
-            "target": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Maximum ratio of decisions leading to defects"
-            },
-            "window": {
-              "$ref": "#/definitions/Duration",
-              "description": "Rolling window (longer for delayed outcomes)"
-            }
-          }
-        },
-        "outcome_latency": {
-          "type": "object",
-          "description": "Time until outcomes are observable",
-          "additionalProperties": false,
-          "properties": {
-            "p90": {
-              "$ref": "#/definitions/Duration",
-              "description": "90th percentile time until outcome is observable"
-            }
-          }
-        },
-        "false_positive_rate": {
-          "type": "object",
-          "description": "Target for proportion of incorrect rejections",
-          "additionalProperties": false,
-          "properties": {
-            "target": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Maximum ratio of incorrect rejections"
-            },
-            "window": {
-              "$ref": "#/definitions/Duration",
-              "description": "Rolling window for false positive measurement"
-            }
-          }
-        }
-      }
-    },
-    "EscalationSLO": {
-      "type": "object",
-      "description": "Escalation SLO - ensures AI appropriately handles uncertainty (Level 4)\nhttps://github.com/rsionnach/opensrm#judgment-slos",
-      "additionalProperties": false,
-      "properties": {
-        "rate": {
-          "type": "object",
-          "description": "Escalation rate bounds",
-          "additionalProperties": false,
-          "properties": {
-            "min": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Minimum escalation rate"
-            },
-            "max": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Maximum escalation rate"
-            },
-            "window": {
-              "$ref": "#/definitions/Duration",
-              "description": "Rolling window"
-            }
-          }
-        },
-        "autonomous_accuracy": {
-          "type": "object",
-          "description": "Accuracy target for non-escalated decisions",
-          "additionalProperties": false,
-          "properties": {
-            "target": {
-              "$ref": "#/definitions/Ratio",
-              "description": "Accuracy target for decisions made without escalation"
-            },
-            "source": {
-              "type": "string",
-              "enum": [
-                "audit",
-                "outcome"
-              ],
-              "default": "audit",
-              "description": "How accuracy is measured"
-            }
-          }
-        }
-      }
+      },
+      "required": [
+        "target",
+        "window"
+      ]
     },
     "SegmentDefinition": {
       "type": "object",
@@ -1993,81 +1781,6 @@
         "audit_accuracy": {
           "$ref": "#/definitions/Ratio",
           "description": "Audit accuracy target for this segment"
-        }
-      }
-    },
-    "SegmentsSLO": {
-      "type": "object",
-      "description": "Segments SLO - category-specific quality targets (Level 4)\nhttps://github.com/rsionnach/opensrm#judgment-slos",
-      "additionalProperties": false,
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether segment analysis is active"
-        },
-        "definitions": {
-          "type": "array",
-          "description": "Segment definitions",
-          "items": {
-            "$ref": "#/definitions/SegmentDefinition"
-          }
-        },
-        "targets": {
-          "type": "array",
-          "description": "Per-segment SLO overrides",
-          "items": {
-            "$ref": "#/definitions/SegmentTarget"
-          }
-        }
-      }
-    },
-    "StabilitySLO": {
-      "type": "object",
-      "description": "Stability SLO - detects quality degradation and volatility (Level 4)\nhttps://github.com/rsionnach/opensrm#judgment-slos",
-      "additionalProperties": false,
-      "properties": {
-        "trend": {
-          "type": "object",
-          "description": "Trend detection configuration",
-          "additionalProperties": false,
-          "properties": {
-            "metric": {
-              "type": "string",
-              "description": "Metric to monitor for trend changes"
-            },
-            "max_increase": {
-              "type": "number",
-              "description": "Maximum allowed increase between windows"
-            },
-            "lookback": {
-              "$ref": "#/definitions/Duration",
-              "description": "Recent measurement window"
-            },
-            "comparison": {
-              "$ref": "#/definitions/Duration",
-              "description": "Baseline comparison window"
-            }
-          }
-        },
-        "volatility": {
-          "type": "object",
-          "description": "Volatility detection configuration",
-          "additionalProperties": false,
-          "properties": {
-            "metric": {
-              "type": "string",
-              "description": "Metric to monitor for volatility"
-            },
-            "max_stddev": {
-              "type": "number",
-              "description": "Maximum allowed standard deviation"
-            },
-            "window": {
-              "$ref": "#/definitions/Duration",
-              "description": "Volatility measurement window"
-            }
-          }
         }
       }
     },
@@ -2115,29 +1828,20 @@
     },
     "JudgmentSLOs": {
       "type": "object",
-      "description": "Judgment SLOs for AI gate services - measure decision quality\nhttps://github.com/rsionnach/opensrm#judgment-slos",
+      "description": "Judgment SLOs for AI gate services - measure decision quality",
       "additionalProperties": false,
       "properties": {
-        "reversal": {
-          "$ref": "#/definitions/ReversalSLO"
+        "reversal_rate": {
+          "$ref": "#/definitions/ReversalRateSLO"
         },
-        "audit": {
-          "$ref": "#/definitions/AuditSLO"
-        },
-        "outcomes": {
-          "$ref": "#/definitions/OutcomesSLO"
-        },
-        "escalation": {
-          "$ref": "#/definitions/EscalationSLO"
-        },
-        "segments": {
-          "$ref": "#/definitions/SegmentsSLO"
-        },
-        "stability": {
-          "$ref": "#/definitions/StabilitySLO"
+        "high_confidence_failure": {
+          "$ref": "#/definitions/HighConfidenceFailureSLO"
         },
         "calibration": {
-          "$ref": "#/definitions/CalibrationSLO"
+          "$ref": "#/definitions/FlatCalibrationSLO"
+        },
+        "feedback_latency": {
+          "$ref": "#/definitions/FeedbackLatencySLO"
         }
       }
     },
@@ -2933,6 +2637,36 @@
         },
         "spec": {
           "$ref": "#/definitions/TemplateSpec"
+        }
+      }
+    },
+    "FlatCalibrationSLO": {
+      "type": "object",
+      "description": "Calibration SLO - Expected Calibration Error target",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "$ref": "#/definitions/Ratio"
+        },
+        "window": {
+          "$ref": "#/definitions/Duration"
+        }
+      },
+      "required": [
+        "target",
+        "window"
+      ]
+    },
+    "FeedbackLatencySLO": {
+      "type": "object",
+      "description": "Time to ground truth feedback",
+      "additionalProperties": false,
+      "properties": {
+        "p50": {
+          "$ref": "#/definitions/Duration"
+        },
+        "p90": {
+          "$ref": "#/definitions/Duration"
         }
       }
     }
