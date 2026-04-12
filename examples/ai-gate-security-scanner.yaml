@@ -5,9 +5,16 @@ metadata:
   name: security-scanner
   team: security
   tier: critical
+  description: AI-powered security vulnerability scanner
 
 spec:
   type: ai-gate
+
+  observability:
+    metrics:
+      required:
+        - security_scan_verdict_total
+        - security_scan_override_total
 
   slos:
     availability:
@@ -39,5 +46,6 @@ spec:
 
   ownership:
     team: security
+    slack: "#security-alerts"
     escalation: security-oncall
     runbook: https://wiki.example.com/security-scanner

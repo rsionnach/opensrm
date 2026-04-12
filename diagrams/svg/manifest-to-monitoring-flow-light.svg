@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 -10 840 450" width="840" height="450">
+  <rect x="40" y="-10" width="840" height="450" fill="#ffffff"/>
+  <rect x="80" y="30" width="160" height="50" rx="8" ry="8" fill="#e9ecef" stroke="#1e1e1e" stroke-width="2"/>
+  <rect x="380" y="30" width="160" height="50" rx="8" ry="8" fill="#b2f2bb" stroke="#1e1e1e" stroke-width="2"/>
+  <rect x="680" y="30" width="160" height="50" rx="8" ry="8" fill="#ffd8a8" stroke="#1e1e1e" stroke-width="2"/>
+  <rect x="628" y="320" width="120" height="40" rx="8" ry="8" fill="#ffec99" stroke="#1e1e1e" stroke-width="2"/>
+  <path d="M160,80 L160,400" fill="none" stroke="#1e1e1e" stroke-width="1" opacity="0.5"/>
+  <path d="M460,80 L460,400" fill="none" stroke="#1e1e1e" stroke-width="1" opacity="0.5"/>
+  <path d="M760,80 L760,400" fill="none" stroke="#1e1e1e" stroke-width="1" opacity="0.5"/>
+  <path d="M168,120 L452,120" fill="none" stroke="#1e1e1e" stroke-width="2"/><polygon points="452,120 440.94726807196537,124.6730201077038 440.94726807196537,115.3269798922962" fill="#1e1e1e" stroke="none"/>
+  <path d="M468,200 L752,200" fill="none" stroke="#1e1e1e" stroke-width="2"/><polygon points="752,200 740.9472680719654,204.6730201077038 740.9472680719654,195.3269798922962" fill="#1e1e1e" stroke="none"/>
+  <path d="M468,260 L752,260" fill="none" stroke="#1e1e1e" stroke-width="2"/><polygon points="752,260 740.9472680719654,264.6730201077038 740.9472680719654,255.3269798922962" fill="#1e1e1e" stroke="none"/>
+  <path d="M468,340 L620,340" fill="none" stroke="#1e1e1e" stroke-width="2"/><polygon points="620,340 608.9472680719654,344.6730201077038 608.9472680719654,335.3269798922962" fill="#1e1e1e" stroke="none"/>
+  <text x="160" y="55" font-family="monospace, 'Courier New'" font-size="20" fill="#1e1e1e" text-anchor="middle" dominant-baseline="central">Developer</text>
+  <text x="460" y="55" font-family="monospace, 'Courier New'" font-size="20" fill="#1e1e1e" text-anchor="middle" dominant-baseline="central">NthLayer</text>
+  <text x="760" y="55" font-family="monospace, 'Courier New'" font-size="20" fill="#1e1e1e" text-anchor="middle" dominant-baseline="central">Monitoring</text>
+  <text x="320" y="114" font-family="monospace, 'Courier New'" font-size="14" fill="#1e1e1e" text-anchor="middle">manifest.yaml</text>
+  <text x="615" y="194" font-family="monospace, 'Courier New'" font-size="14" fill="#1e1e1e" text-anchor="middle">prometheus/rules.yaml</text>
+  <text x="615" y="254" font-family="monospace, 'Courier New'" font-size="14" fill="#1e1e1e" text-anchor="middle">grafana/dashboard.json</text>
+  <text x="525" y="310" font-family="monospace, 'Courier New'" font-size="14" fill="#1e1e1e" text-anchor="middle">topology.json</text>
+  <text x="688" y="340" font-family="monospace, 'Courier New'" font-size="18" fill="#1e1e1e" text-anchor="middle" dominant-baseline="central">Sitrep</text>
+</svg>

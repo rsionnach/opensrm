@@ -5,9 +5,16 @@ metadata:
   name: code-reviewer
   team: platform
   tier: standard
+  description: Automated code review agent
 
 spec:
   type: ai-gate
+
+  observability:
+    metrics:
+      required:
+        - ai_gate_decisions_total
+        - ai_gate_reversals_total
 
   slos:
     availability:
@@ -26,3 +33,5 @@ spec:
 
   ownership:
     team: platform
+    slack: "#platform-alerts"
+    runbook: https://wiki.example.com/code-reviewer

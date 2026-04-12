@@ -7,9 +7,22 @@ metadata:
   name: my-service
   team: my-team
   tier: standard
+  description: Example minimal service manifest
 
 spec:
+  type: api
+
   slos:
     availability:
       target: 0.999
       window: 30d
+
+  ownership:
+    team: my-team
+    slack: "#my-team-alerts"
+    runbook: https://wiki.example.com/my-service
+
+  observability:
+    metrics:
+      required:
+        - http_server_requests_total

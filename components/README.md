@@ -8,19 +8,14 @@ Components that implement, extend, or consume the OpenSRM specification.
 |-----------|---------|--------|----------|
 | [NthLayer](https://github.com/rsionnach/nthlayer) | Reference implementation -- validation, Prometheus rules, Grafana dashboards | Partial | External repo |
 | [Sitrep](sitrep/) | Pre-correlation layer for AI-native observability | In design | `components/sitrep/` |
-| [IncidentTown](incidenttown/) | Multi-agent incident response system | Architecture | `components/incidenttown/` |
+| [Mayday](mayday/) | Multi-agent incident response system | Architecture | `components/mayday/` |
 
 ## How Components Fit Together
 
-```
-OpenSRM Manifests --> NthLayer --> Monitoring artifacts + Topology
-                                        |
-                                        v
-                   Telemetry -------> Sitrep -------> Snapshots
-                                                         |
-                                                         v
-                                                   IncidentTown
-                                                   (AI agents)
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../diagrams/svg/component-flow-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="../diagrams/svg/component-flow-light.svg">
+  <img alt="Component flow: OpenSRM Manifests to NthLayer to Sitrep to Mayday" src="../diagrams/svg/component-flow-light.svg">
+</picture>
 
 See [ARCHITECTURE.md](../ARCHITECTURE.md) for detailed data flows.

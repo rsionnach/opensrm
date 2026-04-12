@@ -83,7 +83,7 @@ dependencies = [
     "pyyaml>=6.0.1",
     "structlog>=24.1",
     "anthropic>=0.39",
-    "verdict @ file:///../verdicts/lib/python",
+    "verdict @ file:///../nthlayer-learn/lib/python",
 ]
 
 [project.optional-dependencies]
@@ -262,7 +262,7 @@ def test_incident_context_with_results():
 
 - [ ] **Step 4: Run tests to verify they fail**
 
-Run: `cd /Users/robfox/Documents/GitHub/opensrm-ecosystem/mayday && uv run pytest tests/test_types.py -v`
+Run: `cd /Users/robfox/Documents/GitHub/opensrm-ecosystem/nthlayer-respond && uv run pytest tests/test_types.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'mayday'`
 
 - [ ] **Step 5: Implement types.py**
@@ -425,7 +425,7 @@ def sample_context_pagerduty():
 
 - [ ] **Step 7: Run tests to verify they pass**
 
-Run: `cd /Users/robfox/Documents/GitHub/opensrm-ecosystem/mayday && pip install -e ../verdicts/lib/python && uv run pytest tests/test_types.py -v`
+Run: `cd /Users/robfox/Documents/GitHub/opensrm-ecosystem/nthlayer-respond && pip install -e ../nthlayer-learn/lib/python && uv run pytest tests/test_types.py -v`
 Expected: All 12 tests PASS
 
 - [ ] **Step 8: Commit**
@@ -1357,7 +1357,7 @@ scenario:
   description: "End-to-end: SitRep correlation → full Mayday pipeline → RESOLVED"
   trigger:
     source: sitrep
-    sitrep_scenario: "../../sitrep/scenarios/synthetic/cascading-failure.yaml"
+    sitrep_scenario: "../../nthlayer-correlate/scenarios/synthetic/cascading-failure.yaml"
   mock_responses:
     triage:
       severity: 1

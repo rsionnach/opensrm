@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 40 810 362" width="810" height="362">
+  <rect x="-10" y="40" width="810" height="362" fill="#1e1e1e"/>
+  <rect x="30" y="100" width="190" height="60" rx="8" ry="8" fill="#1a5276" stroke="#e0e0e0" stroke-width="2"/>
+  <rect x="310" y="80" width="160" height="60" rx="8" ry="8" fill="#1a5632" stroke="#e0e0e0" stroke-width="2"/>
+  <rect x="80" y="280" width="140" height="50" rx="8" ry="8" fill="#2d2d2d" stroke="#e0e0e0" stroke-width="2"/>
+  <rect x="330" y="270" width="160" height="60" rx="8" ry="8" fill="#6b5b00" stroke="#e0e0e0" stroke-width="2"/>
+  <rect x="590" y="270" width="170" height="60" rx="8" ry="8" fill="#6b4000" stroke="#e0e0e0" stroke-width="2"/>
+  <path d="M228,130 L302,130" fill="none" stroke="#e0e0e0" stroke-width="2"/><polygon points="302,130 290.94726807196537,134.6730201077038 290.94726807196537,125.3269798922962" fill="#e0e0e0" stroke="none"/>
+  <path d="M390,148 L390,262" fill="none" stroke="#e0e0e0" stroke-width="2"/><polygon points="390,262 385.3269798922962,250.94726807196537 394.6730201077038,250.94726807196537" fill="#e0e0e0" stroke="none"/>
+  <path d="M228,300 L322,300" fill="none" stroke="#e0e0e0" stroke-width="2"/><polygon points="322,300 310.94726807196537,304.6730201077038 310.94726807196537,295.3269798922962" fill="#e0e0e0" stroke="none"/>
+  <path d="M498,300 L582,300" fill="none" stroke="#e0e0e0" stroke-width="2"/><polygon points="582,300 570.9472680719654,304.6730201077038 570.9472680719654,295.3269798922962" fill="#e0e0e0" stroke="none"/>
+  <text x="125" y="118.75" font-family="monospace, 'Courier New'" font-size="18" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">OpenSRM</text>
+<text x="125" y="141.25" font-family="monospace, 'Courier New'" font-size="18" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Manifests</text>
+  <text x="390" y="110" font-family="monospace, 'Courier New'" font-size="20" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">NthLayer</text>
+  <text x="390" y="168" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle">Monitoring artifacts + Topology</text>
+  <text x="150" y="305" font-family="monospace, 'Courier New'" font-size="18" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Telemetry</text>
+  <text x="410" y="300" font-family="monospace, 'Courier New'" font-size="20" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">Sitrep</text>
+  <text x="415" y="358" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle">Snapshots</text>
+  <text x="675" y="300" font-family="monospace, 'Courier New'" font-size="20" fill="#e0e0e0" text-anchor="middle" dominant-baseline="central">IncidentTown</text>
+  <text x="680" y="358" font-family="monospace, 'Courier New'" font-size="13" fill="#e0e0e0" text-anchor="middle">(AI agents)</text>
+</svg>

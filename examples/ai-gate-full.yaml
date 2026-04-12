@@ -5,6 +5,7 @@ metadata:
   name: pr-review-agent
   team: platform
   tier: critical
+  description: AI-powered pull request review agent
 
 spec:
   type: ai-gate
@@ -80,5 +81,6 @@ spec:
 
   ownership:
     team: platform
+    slack: "#platform-oncall"
     escalation: platform-oncall
     runbook: https://wiki.example.com/pr-review-agent

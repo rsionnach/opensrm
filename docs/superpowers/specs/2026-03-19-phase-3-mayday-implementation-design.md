@@ -74,7 +74,7 @@ Dependencies (pyproject.toml):
 - `pyyaml>=6.0.1` — config and scenario parsing
 - `structlog>=24.1` — structured logging
 - `anthropic>=0.39` — LLM API client
-- `verdict` — path-based: `verdict @ file:///../verdicts/lib/python`
+- `verdict` — path-based: `verdict @ file:///../nthlayer-learn/lib/python`
 
 SitRep is NOT a package dependency. Mayday imports SitRep's replay logic optionally (`try/except ImportError`) for sitrep-triggered scenarios only. Components communicate through the shared verdict store, not package imports.
 
