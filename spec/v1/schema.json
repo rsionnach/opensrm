@@ -1374,6 +1374,53 @@
         },
         "deployment": {
           "$ref": "#/definitions/Deployment"
+        },
+        "notifications": {
+          "$ref": "#/definitions/Notifications"
+        }
+      }
+    },
+    "Notifications": {
+      "type": "object",
+      "description": "Notification routing configuration",
+      "additionalProperties": false,
+      "properties": {
+        "slack": {
+          "type": "object",
+          "description": "Slack notification configuration",
+          "properties": {
+            "channel_id": {
+              "type": "string",
+              "description": "Slack Web API channel ID for interactive messages"
+            },
+            "channel": {
+              "type": "string",
+              "description": "Slack channel display name (fallback)"
+            }
+          }
+        },
+        "events": {
+          "type": "array",
+          "description": "Event types to notify on (absent = all events)",
+          "items": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Event type: breach, correlation, incident, remediation, verification, resolution"
+              },
+              "severity": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4
+                },
+                "description": "Optional severity filter (0-4)"
+              }
+            }
+          }
         }
       }
     },
