@@ -1,0 +1,7 @@
+# INVALID: judgment_type 'vibes_check' not in the 8-type enum
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata: { name: x }
+spec:
+  service: x
+  judgment_type: vibes_check

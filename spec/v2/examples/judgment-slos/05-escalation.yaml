@@ -1,0 +1,12 @@
+# Judgment SLO: escalation — how often decisions escalate + human agreement.
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata:
+  name: triage-agent-escalation
+  namespace: default
+spec:
+  service: triage-agent
+  judgment_type: escalation
+  target:
+    maximum_escalation_rate: 0.15
+    escalation_human_agreement_rate: 0.8

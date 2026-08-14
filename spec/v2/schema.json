@@ -1,0 +1,568 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://opensrm.nthlayer.io/schema/v2.json",
+  "title": "OpenSRM v2 manifest",
+  "description": "JSON Schema for OpenSRM v2-draft documents (ServiceManifest, JudgmentSLO, ServiceManifestTemplate). Validates the manifest format defined in OPENSRM-CORE-v2.md. Classical SLOs embedded under `slo` are OpenSLO v1 documents and are validated against the OpenSLO schema separately (see spec §4.4), not here.",
+  "type": "object",
+  "required": ["apiVersion", "kind"],
+  "properties": {
+    "apiVersion": { "const": "opensrm.nthlayer.io/v2" },
+    "kind": {
+      "enum": ["ServiceManifest", "JudgmentSLO", "ServiceManifestTemplate"]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "ServiceManifest" } } },
+      "then": { "$ref": "#/definitions/ServiceManifest" }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "JudgmentSLO" } } },
+      "then": { "$ref": "#/definitions/JudgmentSLODocument" }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "ServiceManifestTemplate" } } },
+      "then": { "$ref": "#/definitions/ServiceManifestTemplate" }
+    }
+  ],
+  "definitions": {
+    "Ratio": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Ratio value (0.0 - 1.0), not a percentage"
+    },
+    "Duration": {
+      "type": "string",
+      "pattern": "^[0-9]+(ms|s|m|h|d|w)$",
+      "description": "Duration: an integer followed by ms, s, m, h, d, or w"
+    },
+    "Throughput": {
+      "type": "string",
+      "pattern": "^[0-9]+rps$",
+      "description": "Throughput: an integer followed by rps (requests per second)"
+    },
+    "EntityRef": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*:[a-z0-9][a-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "Backstage-style entity reference: <kind>:<namespace>/<name> (e.g. group:default/sre-payments)"
+    },
+    "StringMap": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "Metadata": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+          "description": "DNS-style identifier: lowercase alphanumerics and hyphens"
+        },
+        "namespace": { "type": "string" },
+        "annotations": { "$ref": "#/definitions/StringMap" },
+        "labels": { "$ref": "#/definitions/StringMap" }
+      }
+    },
+    "Ref": {
+      "type": "object",
+      "required": ["$ref"],
+      "properties": { "$ref": { "type": "string" } },
+      "description": "External reference to another document by path or URI"
+    },
+    "ServiceManifest": {
+      "type": "object",
+      "required": ["apiVersion", "kind", "metadata", "spec"],
+      "properties": {
+        "apiVersion": { "const": "opensrm.nthlayer.io/v2" },
+        "kind": { "const": "ServiceManifest" },
+        "metadata": { "$ref": "#/definitions/Metadata" },
+        "spec": {
+          "type": "object",
+          "required": ["owner", "service"],
+          "properties": {
+            "owner": { "$ref": "#/definitions/Owner" },
+            "service": { "$ref": "#/definitions/ServiceIdentity" },
+            "slo": {
+              "type": "array",
+              "description": "Classical SLOs as OpenSLO v1 documents (inline or $ref).",
+              "items": { "$ref": "#/definitions/SLOItem" }
+            },
+            "judgment_slo": {
+              "type": "array",
+              "description": "Native OpenSRM judgment SLOs (inline JudgmentSLO specs or $ref) — decision-quality targets, distinct from classical `slo`.",
+              "items": { "$ref": "#/definitions/JudgmentSLOItem" }
+            },
+            "contracts": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/Contract" }
+            },
+            "dependencies": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/Dependency" }
+            },
+            "instrumentation": { "$ref": "#/definitions/Instrumentation" },
+            "template": { "$ref": "#/definitions/TemplateExtension" }
+          }
+        }
+      }
+    },
+    "Owner": {
+      "type": "object",
+      "required": ["group"],
+      "properties": {
+        "group": { "$ref": "#/definitions/EntityRef" },
+        "escalation": { "$ref": "#/definitions/EntityRef" },
+        "technical_contact": { "$ref": "#/definitions/EntityRef" }
+      }
+    },
+    "ServiceIdentity": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "SLOItem": {
+      "description": "Either an external $ref to an OpenSLO document, or an inline OpenSLO v1 SLO document (validated against the OpenSLO schema separately, not here).",
+      "oneOf": [
+        { "$ref": "#/definitions/Ref" },
+        {
+          "type": "object",
+          "required": ["apiVersion", "kind"],
+          "properties": {
+            "apiVersion": { "type": "string" },
+            "kind": { "const": "SLO" }
+          }
+        }
+      ]
+    },
+    "JudgmentSLOItem": {
+      "description": "Either an external $ref or an inline judgment-SLO spec (the discriminated union of the eight standard types).",
+      "oneOf": [
+        { "$ref": "#/definitions/Ref" },
+        { "$ref": "#/definitions/JudgmentSLOSpec" }
+      ]
+    },
+    "JudgmentSLODocument": {
+      "type": "object",
+      "required": ["apiVersion", "kind", "metadata", "spec"],
+      "properties": {
+        "apiVersion": { "const": "opensrm.nthlayer.io/v2" },
+        "kind": { "const": "JudgmentSLO" },
+        "metadata": { "$ref": "#/definitions/Metadata" },
+        "spec": { "$ref": "#/definitions/JudgmentSLOSpec" }
+      }
+    },
+    "JudgmentSLOSpec": {
+      "type": "object",
+      "description": "A judgment SLO. The `judgment_type` value selects one of the eight standard shapes; the matching branch below adds the measurement/sampling/probe/outcome_signal and target fields that type requires.",
+      "required": ["service", "judgment_type"],
+      "properties": {
+        "service": { "type": "string" },
+        "judgment_type": {
+          "enum": [
+            "reversal_rate",
+            "high_confidence_failure",
+            "audit_sampling",
+            "outcomes",
+            "escalation",
+            "segments",
+            "stability",
+            "calibration"
+          ]
+        },
+        "breach_actions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/BreachAction" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "judgment_type": { "const": "reversal_rate" } }, "required": ["judgment_type"] },
+          "then": {
+            "required": ["measurement", "target"],
+            "properties": {
+              "measurement": {
+                "type": "object",
+                "required": ["window", "source"],
+                "properties": {
+                  "window": { "$ref": "#/definitions/Duration" },
+                  "source": {
+                    "enum": ["lineage", "calibration_sample", "downstream_signal"]
+                  }
+                }
+              },
+              "target": {
+                "type": "object",
+                "required": ["maximum_reversal_rate"],
+                "properties": {
+                  "maximum_reversal_rate": { "$ref": "#/definitions/Ratio" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "judgment_type": { "const": "high_confidence_failure" } }, "required": ["judgment_type"] },
+          "then": {
+            "required": ["measurement", "target"],
+            "properties": {
+              "measurement": {
+                "type": "object",
+                "required": ["confidence_threshold", "window"],
+                "properties": {
+                  "confidence_threshold": { "$ref": "#/definitions/Ratio" },
+                  "window": { "$ref": "#/definitions/Duration" }
+                }
+              },
+              "target": {
+                "type": "object",
+                "required": ["maximum_failure_rate"],
+                "properties": {
+                  "maximum_failure_rate": { "$ref": "#/definitions/Ratio" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "judgment_type": { "const": "audit_sampling" } }, "required": ["judgment_type"] },
+          "then": {
+            "required": ["sampling", "target"],
+            "properties": {
+              "sampling": {
+                "type": "object",
+                "required": ["overall_rate"],
+                "properties": {
+                  "overall_rate": { "$ref": "#/definitions/Ratio" },
+                  "stratified": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["segment", "rate"],
+                      "properties": {
+                        "segment": { "type": "string" },
+                        "rate": { "$ref": "#/definitions/Ratio" }
+                      }
+                    }
+                  }
+                }
+              },
+              "target": {
+                "type": "object",
+                "required": ["audit_completion_rate"],
+                "properties": {
+                  "audit_backlog_maximum_age": { "$ref": "#/definitions/Duration" },
+                  "audit_completion_rate": { "$ref": "#/definitions/Ratio" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "judgment_type": { "const": "outcomes" } }, "required": ["judgment_type"] },
+          "then": {
+            "required": ["outcome_signal", "target"],
+            "properties": {
+              "outcome_signal": {
+                "type": "object",
+                "required": ["source", "window"],
+                "properties": {
+                  "source": { "type": "string" },
+                  "window": { "$ref": "#/definitions/Duration" }
+                }
+              },
+              "target": {
+                "type": "object",
+                "required": ["desired_outcome_rate"],
+                "properties": {
+                  "desired_outcome_rate": { "$ref": "#/definitions/Ratio" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "judgment_type": { "const": "escalation" } }, "required": ["judgment_type"] },
+          "then": {
+            "required": ["target"],
+            "properties": {
+              "target": {
+                "type": "object",
+                "required": ["maximum_escalation_rate"],
+                "properties": {
+                  "maximum_escalation_rate": { "$ref": "#/definitions/Ratio" },
+                  "escalation_human_agreement_rate": { "$ref": "#/definitions/Ratio" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "judgment_type": { "const": "segments" } }, "required": ["judgment_type"] },
+          "then": {
+            "required": ["segment_dimension", "segment_values", "target"],
+            "properties": {
+              "segment_dimension": { "type": "string" },
+              "segment_values": {
+                "type": "array",
+                "items": { "type": "string" },
+                "minItems": 1
+              },
+              "target": {
+                "type": "object",
+                "required": ["maximum_variance_from_overall"],
+                "properties": {
+                  "maximum_variance_from_overall": { "$ref": "#/definitions/Ratio" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "judgment_type": { "const": "stability" } }, "required": ["judgment_type"] },
+          "then": {
+            "required": ["probe", "target"],
+            "properties": {
+              "probe": {
+                "type": "object",
+                "required": ["frozen_input_set", "frequency"],
+                "properties": {
+                  "frozen_input_set": { "type": "string" },
+                  "frequency": { "enum": ["hourly", "daily", "weekly"] }
+                }
+              },
+              "target": {
+                "type": "object",
+                "required": ["maximum_drift"],
+                "properties": {
+                  "maximum_drift": { "$ref": "#/definitions/Ratio" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "judgment_type": { "const": "calibration" } }, "required": ["judgment_type"] },
+          "then": {
+            "required": ["measurement", "target"],
+            "properties": {
+              "measurement": {
+                "type": "object",
+                "required": ["bins", "window", "method"],
+                "properties": {
+                  "bins": { "type": "integer", "minimum": 2 },
+                  "window": { "$ref": "#/definitions/Duration" },
+                  "method": { "enum": ["brier_score", "expected_calibration_error"] }
+                }
+              },
+              "target": {
+                "type": "object",
+                "anyOf": [
+                  { "required": ["maximum_brier_score"] },
+                  { "required": ["maximum_expected_calibration_error"] }
+                ],
+                "properties": {
+                  "maximum_brier_score": { "type": "number", "minimum": 0, "maximum": 1, "description": "Brier score (0-1); not a Ratio semantically, hence inline bounds" },
+                  "maximum_expected_calibration_error": { "$ref": "#/definitions/Ratio" }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "BreachAction": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": ["notify"],
+          "properties": { "notify": { "type": "string" } }
+        },
+        {
+          "required": ["create_case"],
+          "properties": {
+            "create_case": {
+              "type": "object",
+              "required": ["priority"],
+              "properties": {
+                "priority": { "enum": ["P0", "P1", "P2", "P3"] },
+                "template": { "type": "string" }
+              }
+            }
+          }
+        },
+        {
+          "required": ["reduce_autonomy"],
+          "properties": {
+            "reduce_autonomy": {
+              "type": "object",
+              "required": ["agent", "new_autonomy_level"],
+              "properties": {
+                "agent": { "type": "string" },
+                "new_autonomy_level": { "type": "string" }
+              }
+            }
+          }
+        },
+        {
+          "required": ["action_request"],
+          "properties": {
+            "action_request": {
+              "type": "object",
+              "required": ["action_id"],
+              "properties": {
+                "action_id": { "type": "string" },
+                "parameters": { "type": "object" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Contract": {
+      "type": "object",
+      "required": ["name", "promise"],
+      "properties": {
+        "name": { "type": "string" },
+        "api_ref": {
+          "type": "object",
+          "properties": {
+            "openapi": { "type": "string" },
+            "asyncapi": { "type": "string" },
+            "operation_id": { "type": "string" }
+          }
+        },
+        "promise": {
+          "type": "object",
+          "properties": {
+            "availability": { "$ref": "#/definitions/Ratio" },
+            "latency_p99": { "$ref": "#/definitions/Duration" },
+            "throughput": { "$ref": "#/definitions/Throughput" }
+          }
+        },
+        "conditions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "breach_semantics": {
+          "type": "object",
+          "properties": {
+            "consumer_notification": { "type": "string" },
+            "compensation": {
+              "type": "object",
+              "properties": { "description": { "type": "string" } }
+            },
+            "sla_credits": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "calculation_ref": { "type": "string" }
+              }
+            }
+          }
+        },
+        "contract_owner": { "$ref": "#/definitions/EntityRef" }
+      }
+    },
+    "Dependency": {
+      "type": "object",
+      "required": ["service"],
+      "properties": {
+        "service": { "$ref": "#/definitions/EntityRef" },
+        "contract_ref": { "type": "string" },
+        "expected_availability": { "$ref": "#/definitions/Ratio" },
+        "expected_latency_p99": { "$ref": "#/definitions/Duration" },
+        "fallback": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string" },
+            "description": { "type": "string" }
+          }
+        }
+      }
+    },
+    "Instrumentation": {
+      "type": "object",
+      "properties": {
+        "required_metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "enum": ["counter", "gauge", "histogram", "summary"] },
+              "labels": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "required_traces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["span_name"],
+            "properties": {
+              "span_name": { "type": "string" },
+              "required_attributes": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "required_logs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "format": { "type": "string" },
+              "required_fields": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "required_events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+              "type": { "type": "string" },
+              "schema_ref": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "TemplateExtension": {
+      "type": "object",
+      "required": ["extends"],
+      "properties": {
+        "extends": { "$ref": "#/definitions/EntityRef" },
+        "overrides": { "type": "object" }
+      }
+    },
+    "ServiceManifestTemplate": {
+      "type": "object",
+      "required": ["apiVersion", "kind", "metadata", "spec"],
+      "properties": {
+        "apiVersion": { "const": "opensrm.nthlayer.io/v2" },
+        "kind": { "const": "ServiceManifestTemplate" },
+        "metadata": { "$ref": "#/definitions/Metadata" },
+        "spec": {
+          "type": "object",
+          "description": "A template provides defaults for a ServiceManifest spec. All fields optional; owner/service are supplied by the extending manifest.",
+          "properties": {
+            "owner": { "$ref": "#/definitions/Owner" },
+            "service": { "$ref": "#/definitions/ServiceIdentity" },
+            "slo": { "type": "array", "items": { "$ref": "#/definitions/SLOItem" } },
+            "judgment_slo": { "type": "array", "items": { "$ref": "#/definitions/JudgmentSLOItem" } },
+            "contracts": { "type": "array", "items": { "$ref": "#/definitions/Contract" } },
+            "dependencies": { "type": "array", "items": { "$ref": "#/definitions/Dependency" } },
+            "instrumentation": { "$ref": "#/definitions/Instrumentation" }
+          }
+        }
+      }
+    }
+  }
+}

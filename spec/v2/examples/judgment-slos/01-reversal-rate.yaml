@@ -1,0 +1,18 @@
+# Judgment SLO: reversal_rate — how often a decision is reversed.
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata:
+  name: triage-agent-reversal-rate
+  namespace: default
+spec:
+  service: triage-agent
+  judgment_type: reversal_rate
+  measurement:
+    window: 7d
+    source: lineage
+  target:
+    maximum_reversal_rate: 0.05
+  breach_actions:
+    - notify: "group:default/sre-payments"
+    - create_case:
+        priority: P2

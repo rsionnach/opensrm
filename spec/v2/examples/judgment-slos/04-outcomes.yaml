@@ -1,0 +1,14 @@
+# Judgment SLO: outcomes — did decisions produce the intended outcome.
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata:
+  name: remediation-agent-outcomes
+  namespace: default
+spec:
+  service: remediation-agent
+  judgment_type: outcomes
+  outcome_signal:
+    source: retrospective-analysis
+    window: 1h
+  target:
+    desired_outcome_rate: 0.9

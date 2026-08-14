@@ -1,0 +1,14 @@
+# Judgment SLO: stability — consistent decisions on a frozen probe set.
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata:
+  name: content-classifier-stability
+  namespace: default
+spec:
+  service: content-classifier
+  judgment_type: stability
+  probe:
+    frozen_input_set: "s3://probes/content-classifier-2026q1.jsonl"
+    frequency: daily
+  target:
+    maximum_drift: 0.02

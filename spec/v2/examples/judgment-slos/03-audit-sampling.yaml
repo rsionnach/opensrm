@@ -1,0 +1,19 @@
+# Judgment SLO: audit_sampling — human audit sampling rates + backlog target.
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata:
+  name: moderation-agent-audit
+  namespace: default
+spec:
+  service: moderation-agent
+  judgment_type: audit_sampling
+  sampling:
+    overall_rate: 0.01
+    stratified:
+      - segment: high_stakes
+        rate: 0.1
+      - segment: low_confidence
+        rate: 0.25
+  target:
+    audit_backlog_maximum_age: 24h
+    audit_completion_rate: 0.95

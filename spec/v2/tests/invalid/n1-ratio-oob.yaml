@@ -1,0 +1,9 @@
+# INVALID: maximum_reversal_rate 1.5 exceeds Ratio max (1.0)
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata: { name: x }
+spec:
+  service: x
+  judgment_type: reversal_rate
+  measurement: { window: 7d, source: lineage }
+  target: { maximum_reversal_rate: 1.5 }

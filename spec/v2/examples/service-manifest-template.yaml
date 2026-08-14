@@ -1,0 +1,16 @@
+# OpenSRM v2 ServiceManifestTemplate — shared defaults for a family of services.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifestTemplate
+metadata:
+  name: payment-services-base
+  namespace: default
+spec:
+  slo:
+    - $ref: "./slos/baseline-availability.yaml"
+  judgment_slo: []
+  contracts: []
+  instrumentation:
+    required_metrics:
+      - name: http_requests_total
+        type: counter
+        labels: [method, path, status]

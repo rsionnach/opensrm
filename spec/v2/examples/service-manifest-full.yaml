@@ -1,0 +1,95 @@
+# Full OpenSRM v2 ServiceManifest exercising every spec block:
+# owner, service, classical SLOs (OpenSLO), inline judgment SLOs,
+# reliability contracts, dependencies, and instrumentation.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: payment-service
+  namespace: default
+  annotations:
+    backstage.io/component-ref: "component:default/payment-service"
+  labels:
+    domain: payments
+    tier: critical
+spec:
+  owner:
+    group: "group:default/sre-payments"
+    escalation: "group:default/sre-on-call"
+    technical_contact: "user:default/jane.doe"
+
+  service:
+    name: payment-service
+    description: "Processes payment authorisation and capture for consumer transactions"
+
+  # `slo` items may be an external $ref OR an inline OpenSLO document —
+  # both forms are shown here.
+  slo:
+    - $ref: "./slos/payment-availability.yaml"
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: payment-latency-p99
+      spec:
+        service: payment-service
+        objectives:
+          - displayName: "99% under 500ms"
+            target: 0.99
+
+  # `judgment_slo` items likewise: an inline judgment spec OR an external $ref.
+  judgment_slo:
+    - service: payment-service
+      judgment_type: reversal_rate
+      measurement:
+        window: 7d
+        source: lineage
+      target:
+        maximum_reversal_rate: 0.05
+    - $ref: "./judgment-slos/08-calibration.yaml"
+
+  contracts:
+    - name: payment-authorisation-api
+      api_ref:
+        openapi: "./api/payment-api.yaml"
+        operation_id: "authorise"
+      promise:
+        availability: 0.999
+        latency_p99: 500ms
+        throughput: 10000rps
+      conditions:
+        - "Callers authenticate with valid API key"
+        - "Request body conforms to OpenAPI schema"
+      breach_semantics:
+        consumer_notification: "webhook:https://payments.example.com/contract-breach"
+        compensation:
+          description: "Free retries for affected requests"
+        sla_credits:
+          enabled: true
+          calculation_ref: "./sla-credits.yaml"
+      contract_owner: "group:default/payments-platform"
+
+  dependencies:
+    - service: "component:default/fraud-detection"
+      contract_ref: "contract:fraud/fraud-check-api"
+      expected_availability: 0.995
+      expected_latency_p99: 100ms
+      fallback:
+        type: graceful_degradation
+        description: "Proceed with reduced fraud confidence if fraud-detection unavailable"
+
+  instrumentation:
+    required_metrics:
+      - name: http_requests_total
+        type: counter
+        labels: [method, path, status]
+      - name: http_request_duration_seconds
+        type: histogram
+        labels: [method, path]
+    required_traces:
+      - span_name: "payment.authorise"
+        required_attributes: [payment.amount, payment.currency, customer.id]
+    required_logs:
+      - format: structured
+        required_fields: [timestamp, level, service, trace_id]
+    required_events:
+      - type: "io.nthlayer.decision.v1"
+        schema_ref: "gen_ai.evaluation.result"

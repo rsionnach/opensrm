@@ -1,0 +1,9 @@
+# INVALID: window '7days' does not match Duration pattern (use 7d)
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata: { name: x }
+spec:
+  service: x
+  judgment_type: reversal_rate
+  measurement: { window: 7days, source: lineage }
+  target: { maximum_reversal_rate: 0.05 }

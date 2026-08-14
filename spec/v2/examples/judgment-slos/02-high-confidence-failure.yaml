@@ -1,0 +1,14 @@
+# Judgment SLO: high_confidence_failure — confident-but-wrong decisions.
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata:
+  name: investigation-agent-hcf
+  namespace: default
+spec:
+  service: investigation-agent
+  judgment_type: high_confidence_failure
+  measurement:
+    confidence_threshold: 0.9
+    window: 30d
+  target:
+    maximum_failure_rate: 0.02

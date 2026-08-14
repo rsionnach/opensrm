@@ -1,0 +1,13 @@
+# Judgment SLO: segments — consistency of quality across segments.
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata:
+  name: credit-decision-agent-segments
+  namespace: default
+spec:
+  service: credit-decision-agent
+  judgment_type: segments
+  segment_dimension: customer_tier
+  segment_values: [enterprise, smb, consumer]
+  target:
+    maximum_variance_from_overall: 0.05

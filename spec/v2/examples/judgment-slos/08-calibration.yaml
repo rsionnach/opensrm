@@ -1,0 +1,15 @@
+# Judgment SLO: calibration — expressed confidence matches actual accuracy.
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata:
+  name: investigation-agent-calibration
+  namespace: default
+spec:
+  service: investigation-agent
+  judgment_type: calibration
+  measurement:
+    bins: 10
+    window: 30d
+    method: brier_score
+  target:
+    maximum_brier_score: 0.05

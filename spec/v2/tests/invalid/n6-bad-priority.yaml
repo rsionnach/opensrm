@@ -1,0 +1,10 @@
+# INVALID: create_case.priority 'URGENT' not in enum P0|P1|P2|P3
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata: { name: x }
+spec:
+  service: x
+  judgment_type: escalation
+  target: { maximum_escalation_rate: 0.15 }
+  breach_actions:
+    - create_case: { priority: URGENT }

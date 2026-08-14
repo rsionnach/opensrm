@@ -1,0 +1,8 @@
+# INVALID: calibration requires spec.target (omitted here)
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata: { name: x }
+spec:
+  service: x
+  judgment_type: calibration
+  measurement: { bins: 10, window: 30d, method: brier_score }
