@@ -43,3 +43,6 @@ temp/
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Local backups created by the auto-memory retirement plan (2026-06-04)
+*.bak
