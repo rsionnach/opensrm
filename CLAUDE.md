@@ -102,7 +102,8 @@ shift-left contract.
 - OpenSRM v2 spec docs at repo root (moved from ecosystem root under
   opensrm-hty.6):
   - `OPENSRM-CORE-v2.md` — v2-draft core spec (supersedes v1, dated
-    2026-04-19).
+    2026-04-19). Machine-readable schema + worked examples:
+    `spec/v2/schema.json` (validated by `spec/v2/validate.sh`).
   - `OPENSRM-RBAC-EXTENSION-v2.md` — RBAC extension v1.1-draft
     (supersedes `OPENSRM-RBAC-EXTENSION.md` v1.0-draft).
   - `OPENSRM-RBAC-EXTENSION.md` — legacy v1.0-draft, retained for

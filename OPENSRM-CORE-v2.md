@@ -688,6 +688,12 @@ The submission narrative is "OpenSRM is the missing composition layer between ex
 
 ## 16. References
 
+**This specification's machine-readable schema.** The JSON Schema (draft-07)
+that validates OpenSRM v2 manifests — referenced by §4.4 and §13 — lives at
+[`spec/v2/schema.json`](spec/v2/schema.json). See
+[`spec/v2/README.md`](spec/v2/README.md) for what it validates, worked example
+manifests (one per judgment-SLO type), and how to run validation.
+
 ### 16.1 Normative
 
 Specifications this document composes with or depends on:
