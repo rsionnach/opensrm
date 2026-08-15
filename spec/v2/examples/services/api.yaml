@@ -1,0 +1,92 @@
+# Archetype: api — a synchronous request/response service.
+#
+# Characteristic shape: availability and latency SLOs, and a `contracts`
+# block, because something calls this service and needs a promise it can
+# design against. Contrast `worker.yaml`, which has no inbound contract.
+#
+# NOTE: v2 has no `spec.type` field. The archetype is visible in which
+# blocks are used, not in a discriminator. See AUTHORING.md §3.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: checkout-api
+  namespace: default
+  annotations:
+    backstage.io/component-ref: "component:default/checkout-api"
+  labels:
+    domain: commerce
+    tier: critical
+spec:
+  owner:
+    group: "group:default/sre-checkout"
+    escalation: "group:default/sre-on-call"
+    technical_contact: "user:default/priya.raman"
+
+  service:
+    name: checkout-api
+    description: "Creates and confirms customer checkout sessions"
+
+  # Classical SLOs are OpenSLO v1 documents. Keep them external once you
+  # have more than a couple — they are independently useful to tooling
+  # that knows OpenSLO but not OpenSRM.
+  slo:
+    - $ref: "./slos/checkout-availability.yaml"
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: checkout-latency-p99
+      spec:
+        service: checkout-api
+        objectives:
+          - displayName: "99% of sessions confirmed under 300ms"
+            target: 0.99
+
+  # The promise to callers. Deliberately looser than the internal SLO
+  # above (0.999 vs 0.9995): the gap is the operating margin.
+  contracts:
+    - name: checkout-session-api
+      api_ref:
+        openapi: "./api/checkout-api.yaml"
+        operation_id: "createSession"
+      promise:
+        availability: 0.999
+        latency_p99: 500ms
+        throughput: 5000rps
+      conditions:
+        - "Callers authenticate with a valid service token"
+        - "Idempotency-Key header present on all POST requests"
+      breach_semantics:
+        consumer_notification: "webhook:https://checkout.example.com/contract-breach"
+        sla_credits:
+          enabled: false
+      contract_owner: "group:default/checkout-platform"
+
+  dependencies:
+    - service: "component:default/payment-service"
+      contract_ref: "contract:payments/payment-authorisation-api"
+      expected_availability: 0.999
+      expected_latency_p99: 500ms
+      fallback:
+        type: fail_closed
+        description: "Reject the checkout rather than confirm an unpaid session"
+    - service: "component:default/inventory-service"
+      expected_availability: 0.995
+      expected_latency_p99: 100ms
+      fallback:
+        type: graceful_degradation
+        description: "Serve last-known stock counts; re-check at confirmation"
+
+  instrumentation:
+    required_metrics:
+      - name: http_requests_total
+        type: counter
+        labels: [method, path, status]
+      - name: http_request_duration_seconds
+        type: histogram
+        labels: [method, path]
+    required_traces:
+      - span_name: "checkout.create_session"
+        required_attributes: [checkout.session_id, customer.id]
+    required_logs:
+      - format: structured
+        required_fields: [timestamp, level, service, trace_id]

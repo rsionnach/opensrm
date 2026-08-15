@@ -1,0 +1,82 @@
+# Archetype: worker — an asynchronous job processor.
+#
+# Characteristic shape: SLOs about how long work takes and how much of it
+# succeeds, rather than request availability and latency. There is
+# deliberately NO `contracts` block: nothing calls this service
+# synchronously, so there is no caller to make a promise to. Its
+# obligations flow the other way, through `dependencies`.
+#
+# NOTE: v2 has no `spec.type` field. See AUTHORING.md §3.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: invoice-reconciler
+  namespace: default
+  annotations:
+    backstage.io/component-ref: "component:default/invoice-reconciler"
+  labels:
+    domain: finance
+    tier: important
+spec:
+  owner:
+    group: "group:default/finance-platform"
+    escalation: "group:default/finance-on-call"
+
+  service:
+    name: invoice-reconciler
+    description: "Reconciles settled payments against issued invoices, nightly and on demand"
+
+  # Availability is the wrong question for a worker — it is not serving
+  # requests. Ask instead: did the queued work complete, and in time?
+  slo:
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: reconciliation-success-rate
+      spec:
+        service: invoice-reconciler
+        objectives:
+          - displayName: "99.5% of reconciliation jobs complete without error"
+            target: 0.995
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: reconciliation-processing-time
+      spec:
+        service: invoice-reconciler
+        objectives:
+          - displayName: "95% of jobs finish within 15 minutes of enqueue"
+            target: 0.95
+
+  # No `contracts:` block — see the header comment.
+
+  dependencies:
+    - service: "component:default/payment-service"
+      expected_availability: 0.999
+      fallback:
+        type: retry_with_backoff
+        description: "Requeue the job; reconciliation is not time-critical within the day"
+    - service: "resource:default/invoices-postgres"
+      expected_availability: 0.9995
+      expected_latency_p99: 50ms
+      fallback:
+        type: fail_closed
+        description: "No reconciliation is possible without the invoice store; halt and alert"
+
+  instrumentation:
+    required_metrics:
+      - name: reconciliation_jobs_total
+        type: counter
+        labels: [outcome, trigger]
+      - name: reconciliation_job_duration_seconds
+        type: histogram
+        labels: [trigger]
+      - name: reconciliation_queue_depth
+        type: gauge
+        labels: [queue]
+    required_traces:
+      - span_name: "reconcile.batch"
+        required_attributes: [batch.id, batch.size]
+    required_logs:
+      - format: structured
+        required_fields: [timestamp, level, service, trace_id, batch_id]

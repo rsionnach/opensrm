@@ -1,0 +1,183 @@
+# MIGRATION EXAMPLE — the "after".
+#
+# This is `examples/api-full.yaml` at the repo root (an OpenSRM **v1**
+# manifest for payment-api) migrated to v2. The v1 "before" is quoted
+# side by side in AUTHORING.md §7; it is not stored here because it is a
+# v1 document and would be rejected by spec/v2/schema.json, which is
+# exactly what validate.sh asserts about everything under examples/.
+#
+# Every v1 block that has no v2 home is called out in a `# DROPPED`
+# comment rather than silently omitted. Read those before migrating: the
+# gaps are real, not oversights in this example.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: payment-api
+  namespace: default
+  # v1 put `team`, `tier` and `description` directly in metadata. In v2,
+  # metadata carries only the Backstage envelope fields; team moves to
+  # spec.owner, description to spec.service, tier to a label.
+  annotations:
+    backstage.io/component-ref: "component:default/payment-api"
+    backstage.io/techdocs-ref: "dir:."
+    # v1 spec.ownership carried contact and operational URLs that v2's
+    # Owner (group/escalation/technical_contact) has no field for.
+    # Annotations are the honest home for them.
+    opensrm.nthlayer.io/runbook: "https://wiki.example.com/payment-api-runbook"
+    opensrm.nthlayer.io/documentation: "https://docs.example.com/payment-api"
+    pagerduty.com/service-id: "PXXXXXX"
+    slack.com/channel: "#payments-team"
+  labels:
+    domain: commerce
+    cost-center: engineering
+    tier: critical
+spec:
+  # v1: spec.ownership {team, slack, email, escalation, pagerduty, ...}
+  # v2: Backstage entity references. Free-text team names become group
+  # refs; the rest moves to annotations above.
+  owner:
+    group: "group:default/payments"
+    escalation: "group:default/payments-oncall"
+    technical_contact: "user:default/payments-lead"
+
+  service:
+    name: payment-api
+    description: "Handles payment processing for checkout"
+
+  # v1: spec.slos, a bespoke block keyed by SLO kind.
+  # v2: OpenSLO v1 documents. This is the largest mechanical change in
+  # the migration and the one a tool can do for you — v1 SLO syntax maps
+  # 1:1 (OPENSRM-CORE-v2.md §12 step 1).
+  slo:
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: payment-api-availability
+      spec:
+        service: payment-api
+        objectives:
+          - displayName: "99.95% availability over 30 days"
+            target: 0.9995
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: payment-api-latency
+      spec:
+        service: payment-api
+        objectives:
+          - displayName: "99% of requests under 200ms p99 over 30 days"
+            target: 0.99
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: payment-api-error-rate
+      spec:
+        service: payment-api
+        objectives:
+          - displayName: "Error rate under 0.1% over 7 days"
+            target: 0.999
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: payment-api-throughput
+      spec:
+        service: payment-api
+        objectives:
+          - displayName: "Sustains 1000 rps over a 1 hour window"
+            target: 0.99
+
+  # v1: spec.contract (singular, one implicit contract per service).
+  # v2: spec.contracts (a list) — a service may promise different things
+  # on different APIs. Note the unit change: v1 throughput.max_rps was a
+  # bare integer, v2 Throughput is the string "<integer>rps".
+  contracts:
+    - name: payment-api
+      api_ref:
+        openapi: "./api/payment-api.yaml"
+      promise:
+        availability: 0.9995
+        latency_p99: 300ms
+        throughput: 5000rps
+      contract_owner: "group:default/payments"
+
+  # v1: dependencies with `type` (database/cache/service/external) and
+  # `critical: true|false`.
+  # v2: neither field exists. The dependency kind is carried by the
+  # Backstage ref (`resource:` vs `component:`), and criticality is
+  # expressed as a `fallback` — which is more useful, because it says
+  # what actually happens rather than just how much it matters.
+  dependencies:
+    - service: "resource:default/postgresql"
+      expected_availability: 0.9995
+      fallback:
+        type: fail_closed
+        description: "v1 critical: true — no payment can be recorded without the store"
+    - service: "resource:default/redis"
+      fallback:
+        type: graceful_degradation
+        description: "v1 critical: false — fall through to the store on cache miss"
+    - service: "component:default/user-service"
+      # v1 `manifest:` URL pointing at the dependency's own manifest has
+      # no v2 equivalent; v2 resolves the entity ref through the
+      # catalogue instead.
+      expected_availability: 0.999
+      expected_latency_p99: 100ms
+      fallback:
+        type: fail_closed
+        description: "v1 critical: true — cannot authorise without the payer identity"
+    - service: "component:external/stripe-api"
+      expected_availability: 0.9999
+      fallback:
+        type: fail_closed
+        description: "v1 critical: true, type: external — no upstream processor, no payment"
+
+  # v1: spec.observability.metrics.
+  # v2: spec.instrumentation, which is stricter — each metric declares
+  # its instrument type, so the declaration is checkable against what the
+  # service actually emits.
+  instrumentation:
+    required_metrics:
+      - name: http_server_request_duration_seconds
+        type: histogram
+        labels: [service, method, status_code]
+      - name: http_server_requests_total
+        type: counter
+        labels: [service, method, status_code]
+      - name: http_server_active_requests
+        type: gauge
+        labels: [service]
+      - name: payment_transactions_total
+        type: counter
+        labels: [service, status_code]
+      - name: payment_transaction_amount_sum
+        type: counter
+        labels: [service]
+    required_logs:
+      - format: structured
+        required_fields: [timestamp, level, service, trace_id]
+
+  # DROPPED — v1 blocks with no v2 equivalent. Do not delete these from
+  # your v1 manifest until you have somewhere for them to go:
+  #
+  #   spec.notifications          — v2 has no service-level notification
+  #                                 block. Breach notification is
+  #                                 per-contract
+  #                                 (contracts[].breach_semantics
+  #                                 .consumer_notification) or per
+  #                                 judgment SLO (breach_actions[].notify).
+  #                                 Routing to a Slack channel for every
+  #                                 event type is a deployment concern in
+  #                                 v2, not a manifest one.
+  #   spec.observability.dashboards
+  #   spec.observability.alerts   — v2 instrumentation declares what the
+  #                                 service must EMIT, not what should be
+  #                                 built on top of it.
+  #   spec.observability.tracing.sampling_rate
+  #                               — collector configuration, not a
+  #                                 manifest field. v2 declares required
+  #                                 spans, not sampling.
+  #   spec.deployment.gates
+  #   spec.deployment.rollback    — v2 has no deployment block at all.
+  #                                 These move to your CD pipeline, which
+  #                                 can read the SLOs above to make the
+  #                                 same decisions.

@@ -1,0 +1,137 @@
+# Archetype: ai-gate — a service whose output is a judgment, not just a
+# response.
+#
+# Characteristic shape: everything the `api` archetype has, PLUS a
+# `judgment_slo` block. That block is the point. Classical SLOs tell you
+# the gate answered quickly and without erroring; they cannot tell you it
+# answered *well*. Judgment SLOs measure decision quality — see
+# AUTHORING.md §5 for all eight types.
+#
+# NOTE: v2 has no `spec.type` field, so nothing in the schema restricts
+# judgment SLOs to this archetype the way v1's `type: ai-gate` did. See
+# AUTHORING.md §3 and opensrm-6w9d.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+  namespace: default
+  annotations:
+    backstage.io/component-ref: "component:default/refund-approver"
+  labels:
+    domain: commerce
+    tier: critical
+spec:
+  owner:
+    group: "group:default/trust-and-safety"
+    escalation: "group:default/sre-on-call"
+    technical_contact: "user:default/sam.okoro"
+
+  service:
+    name: refund-approver
+    description: "Decides whether a customer refund request is auto-approved, declined, or routed to a human reviewer"
+
+  # Operational health: is the gate up and fast?
+  slo:
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: refund-approver-availability
+      spec:
+        service: refund-approver
+        objectives:
+          - displayName: "99.9% of decision requests answered"
+            target: 0.999
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: refund-approver-latency-p99
+      spec:
+        service: refund-approver
+        objectives:
+          - displayName: "99% of decisions returned under 2 seconds"
+            target: 0.99
+
+  # Decision quality: is the gate RIGHT? Inline specs and external $refs
+  # may be mixed freely.
+  judgment_slo:
+    # How often a human overturns an auto-approval.
+    - service: refund-approver
+      judgment_type: reversal_rate
+      measurement:
+        window: 7d
+        source: lineage
+      target:
+        maximum_reversal_rate: 0.05
+      breach_actions:
+        - notify: "group:default/trust-and-safety"
+        - create_case:
+            priority: P2
+
+    # Confident and wrong is worse than uncertain and wrong: a confident
+    # decision skips the human review that would have caught it.
+    - service: refund-approver
+      judgment_type: high_confidence_failure
+      measurement:
+        confidence_threshold: 0.9
+        window: 30d
+      target:
+        maximum_failure_rate: 0.02
+      breach_actions:
+        - create_case:
+            priority: P1
+        - reduce_autonomy:
+            agent: refund-approver
+            new_autonomy_level: recommend_only
+
+    # Quality must not vary by customer segment.
+    - service: refund-approver
+      judgment_type: segments
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      target:
+        maximum_variance_from_overall: 0.05
+
+    # External reference — same effect, kept in its own document.
+    - $ref: "../judgment-slos/03-audit-sampling.yaml"
+
+  contracts:
+    - name: refund-decision-api
+      api_ref:
+        openapi: "./api/refund-approver.yaml"
+        operation_id: "decideRefund"
+      promise:
+        availability: 0.999
+        latency_p99: 3s
+      conditions:
+        - "Callers submit the full refund context; partial context is declined, not guessed"
+      breach_semantics:
+        consumer_notification: "webhook:https://trust.example.com/contract-breach"
+      contract_owner: "group:default/trust-and-safety"
+
+  dependencies:
+    - service: "component:default/customer-history"
+      expected_availability: 0.995
+      expected_latency_p99: 200ms
+      fallback:
+        type: fail_open_to_human
+        description: "Route to human review rather than decide without history"
+
+  instrumentation:
+    required_metrics:
+      - name: refund_decisions_total
+        type: counter
+        labels: [outcome, autonomy_level]
+      - name: refund_decision_confidence
+        type: histogram
+        labels: [outcome]
+    required_traces:
+      - span_name: "refund.decide"
+        required_attributes: [refund.amount, refund.reason, decision.confidence]
+    required_logs:
+      - format: structured
+        required_fields: [timestamp, level, service, trace_id, decision_id]
+    # Without a decision event carrying the outcome and its later
+    # reversal, none of the judgment SLOs above are computable.
+    required_events:
+      - type: "io.nthlayer.decision.v1"
+        schema_ref: "gen_ai.evaluation.result"

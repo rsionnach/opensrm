@@ -1,0 +1,96 @@
+# Archetype: stream — an event-streaming service.
+#
+# Characteristic shape: SLOs about lag and throughput, and a contract
+# whose `api_ref` points at an AsyncAPI document rather than an OpenAPI
+# one. Consumers of a stream do have a promise to design against — it is
+# just about freshness and volume rather than request latency.
+#
+# NOTE: v2 has no `spec.type` field. See AUTHORING.md §3.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: order-events-enricher
+  namespace: default
+  annotations:
+    backstage.io/component-ref: "component:default/order-events-enricher"
+  labels:
+    domain: commerce
+    tier: important
+spec:
+  owner:
+    group: "group:default/streaming-platform"
+    escalation: "group:default/sre-on-call"
+
+  service:
+    name: order-events-enricher
+    description: "Enriches the raw order event stream with customer and catalogue attributes"
+
+  slo:
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: enrichment-consumer-lag
+      spec:
+        service: order-events-enricher
+        objectives:
+          - displayName: "99% of the time, consumer lag stays under 30 seconds"
+            target: 0.99
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: enrichment-throughput
+      spec:
+        service: order-events-enricher
+        objectives:
+          - displayName: "Sustains 20k events/sec without lag growth 99% of the time"
+            target: 0.99
+
+  # `throughput` in a promise is expressed in rps — the schema's
+  # Throughput type is `<integer>rps`. For a stream, read it as events
+  # per second.
+  contracts:
+    - name: enriched-order-events
+      api_ref:
+        asyncapi: "./api/order-events.asyncapi.yaml"
+      promise:
+        availability: 0.999
+        throughput: 20000rps
+      conditions:
+        - "Consumers commit offsets at least once per minute"
+        - "Consumers tolerate at-least-once delivery and duplicate events"
+      breach_semantics:
+        consumer_notification: "webhook:https://streaming.example.com/contract-breach"
+        compensation:
+          description: "Backfill from the raw topic on request; retention is 7 days"
+      contract_owner: "group:default/streaming-platform"
+
+  dependencies:
+    - service: "resource:default/orders-kafka"
+      expected_availability: 0.9995
+      fallback:
+        type: fail_closed
+        description: "No source topic means nothing to enrich; halt and alert rather than emit gaps"
+    - service: "component:default/customer-service"
+      expected_availability: 0.995
+      expected_latency_p99: 50ms
+      fallback:
+        type: graceful_degradation
+        description: "Emit the event with enrichment fields absent, flagged partial: true"
+
+  instrumentation:
+    required_metrics:
+      - name: stream_consumer_lag_seconds
+        type: gauge
+        labels: [topic, partition, consumer_group]
+      - name: stream_events_processed_total
+        type: counter
+        labels: [topic, outcome]
+      - name: stream_enrichment_duration_seconds
+        type: histogram
+        labels: [topic]
+    required_traces:
+      - span_name: "stream.enrich"
+        required_attributes: [messaging.system, messaging.destination.name, order.id]
+    required_logs:
+      - format: structured
+        required_fields: [timestamp, level, service, trace_id, partition, offset]
