@@ -395,3 +395,436 @@ Resolution happens at load time and produces a fully expanded manifest.
 **Inheritance is one level only** — a template may not extend another
 template — which is a deliberate bound on resolution complexity, not an
 oversight.
+
+## 5. The eight judgment SLO types
+
+Judgment SLOs are OpenSRM's original contribution — the part no other
+standard specifies. They measure whether a service's decisions are
+*sound*, which classical SLOs cannot express: a service can be fully
+available, answer in 50ms, return HTTP 200 every time, and be wrong.
+
+They apply to anything making consequential decisions, not just AI: ML
+classifiers, rule engines, and human-in-the-loop approval queues all
+qualify. If the service's output is a judgement someone could disagree
+with, these apply.
+
+Eight types are the standard vocabulary. Implementations MUST support
+all eight; organisations MAY define more under their own `apiVersion`.
+Each type below gives what it measures, when to reach for it, how to set
+the target, what a breach means, and the mistake people make.
+
+**Setting targets, generally.** Do not open with an aspiration.
+Instrument first, measure your actual distribution over at least one
+full measurement window, and set the initial target at or just inside
+observed behaviour. A target you already miss on day one produces alert
+fatigue and gets muted, which is worse than having no target. Tighten
+once it holds.
+
+### 5.1 `reversal_rate`
+
+```yaml
+spec:
+  service: triage-agent
+  judgment_type: reversal_rate
+  measurement:
+    window: 7d
+    source: lineage
+  target:
+    maximum_reversal_rate: 0.05
+  breach_actions:
+    - notify: "group:default/sre-payments"
+    - create_case:
+        priority: P2
+```
+
+→ [`examples/judgment-slos/01-reversal-rate.yaml`](examples/judgment-slos/01-reversal-rate.yaml)
+
+**Measures** how often a decision is later overturned — by a human, by
+the service reconsidering, or by a downstream signal.
+
+**Reach for it when** decisions are reviewable after the fact and you
+can attribute the reversal back to the original decision. This is the
+default first judgment SLO for most services: it is the easiest to
+source and the easiest to explain to people outside the team.
+
+**Setting the target** starts from your observed reversal rate.
+`source` matters as much as the number: `lineage` means you trace the
+reversal to the decision record, `downstream_signal` infers it from a
+later event, `calibration_sample` measures it on a deliberately sampled
+subset. They do not produce comparable rates, so do not copy a target
+from a service using a different source.
+
+**A breach means** the service is producing decisions that someone keeps
+undoing — the decision quality has drifted, or the world changed and the
+service did not.
+
+**Common mistake:** counting *every* correction as a reversal, including
+routine additional information arriving later. If the reversal was not
+caused by the decision being wrong, it is noise in this metric.
+
+### 5.2 `high_confidence_failure`
+
+```yaml
+spec:
+  service: investigation-agent
+  judgment_type: high_confidence_failure
+  measurement:
+    confidence_threshold: 0.9
+    window: 30d
+  target:
+    maximum_failure_rate: 0.02
+```
+
+→ [`examples/judgment-slos/02-high-confidence-failure.yaml`](examples/judgment-slos/02-high-confidence-failure.yaml)
+
+**Measures** how often decisions the service was *confident* about turn
+out wrong.
+
+**Reach for it whenever confidence gates behaviour** — where a
+high-confidence decision skips human review, auto-applies, or short-cuts
+a slower path. That is precisely where being wrong costs most, and it is
+invisible in an overall accuracy number.
+
+**Setting the target** requires picking `confidence_threshold` to match
+wherever your system actually changes behaviour. If you auto-approve
+above 0.85, measure at 0.85 — measuring at 0.9 leaves the riskiest band
+unmonitored. The target rate should be materially tighter than your
+overall error rate; if it is not, confidence is not carrying information.
+
+**A breach means** the service is confidently wrong, which is a
+calibration failure. Reducing autonomy is a proportionate response —
+hence `reduce_autonomy` in the breach actions of
+[`examples/services/ai-gate.yaml`](examples/services/ai-gate.yaml).
+
+**Common mistake:** setting the threshold where it produces a
+comfortable number rather than where the system's behaviour changes.
+
+### 5.3 `audit_sampling`
+
+```yaml
+spec:
+  service: moderation-agent
+  judgment_type: audit_sampling
+  sampling:
+    overall_rate: 0.01
+    stratified:
+      - segment: high_stakes
+        rate: 0.1
+      - segment: low_confidence
+        rate: 0.25
+  target:
+    audit_backlog_maximum_age: 24h
+    audit_completion_rate: 0.95
+```
+
+→ [`examples/judgment-slos/03-audit-sampling.yaml`](examples/judgment-slos/03-audit-sampling.yaml)
+
+**Measures** something different from the others: not decision quality
+directly, but whether the *human audit process* that establishes ground
+truth is actually running. It is the SLO on your measurement apparatus.
+
+**Reach for it when** you have no automatic ground truth. Most reversal
+and outcome signals ultimately rest on sampled human review; this
+declares the sampling rate and holds the audit queue accountable.
+
+**Setting the target** means stratifying. A flat `overall_rate` spends
+your reviewers' scarce attention uniformly across decisions that do not
+deserve it uniformly — sample high-stakes and low-confidence decisions
+harder, as above. Then set `audit_completion_rate` and
+`audit_backlog_maximum_age` to what your reviewer capacity can actually
+sustain.
+
+**A breach means** you have stopped auditing at the declared rate, so
+every other judgment SLO fed by audit data is now running on stale or
+thin evidence. Treat it as an integrity failure of the whole judgment
+SLO set, not a minor process miss.
+
+**Common mistake:** declaring a sampling rate the team has no capacity
+to review, then quietly falling behind. The backlog target exists to
+make that visible.
+
+### 5.4 `outcomes`
+
+```yaml
+spec:
+  service: remediation-agent
+  judgment_type: outcomes
+  outcome_signal:
+    source: retrospective-analysis
+    window: 1h
+  target:
+    desired_outcome_rate: 0.9
+```
+
+→ [`examples/judgment-slos/04-outcomes.yaml`](examples/judgment-slos/04-outcomes.yaml)
+
+**Measures** whether decisions produced the result they were supposed
+to. The strongest judgment signal available, because it skips the
+question of whether the decision looked right and asks whether it
+*worked*.
+
+**Reach for it when** a downstream signal resolves the outcome —
+remediation actually fixed the alert, the approved transaction did not
+charge back, the routed ticket did not bounce.
+
+**Setting the target** hinges on `window`: how long after the decision
+you wait before judging it. Too short and you score decisions before
+their effects land; too long and the signal arrives too late to act on.
+Set it from how long the outcome genuinely takes to materialise, not
+from how quickly you want the number.
+
+**A breach means** the service's decisions are not achieving their
+purpose, regardless of how defensible each one looked in isolation.
+
+**Common mistake:** an outcome signal contaminated by the decision
+itself. If a remediation is marked successful because the agent said so,
+you are measuring the agent's self-report, not the outcome.
+
+### 5.5 `escalation`
+
+```yaml
+spec:
+  service: triage-agent
+  judgment_type: escalation
+  target:
+    maximum_escalation_rate: 0.15
+    escalation_human_agreement_rate: 0.8
+```
+
+→ [`examples/judgment-slos/05-escalation.yaml`](examples/judgment-slos/05-escalation.yaml)
+
+**Measures** how often the service hands a decision to a human, and
+whether those handoffs were justified. Note this type needs no
+`measurement` block — only `target`.
+
+**Reach for it when** the service can defer. Escalation is the safety
+valve, and an unmonitored safety valve fails in both directions.
+
+**Setting the target** means setting *both* numbers, which is the whole
+point of the type. `maximum_escalation_rate` alone drives escalation
+down, which a service can satisfy by confidently deciding things it
+should have deferred. `escalation_human_agreement_rate` is the
+counterweight: when the service escalates, the human should usually
+agree that it needed a human. Constrain the pair or you have optimised
+one into the other's failure.
+
+**A breach means** either the service is dumping work on people (rate
+too high) or escalating the wrong things (agreement too low). Which
+number moved tells you which.
+
+**Common mistake:** treating a low escalation rate as unambiguously
+good. It is only good if agreement stays high.
+
+### 5.6 `segments`
+
+```yaml
+spec:
+  service: credit-decision-agent
+  judgment_type: segments
+  segment_dimension: customer_tier
+  segment_values: [enterprise, smb, consumer]
+  target:
+    maximum_variance_from_overall: 0.05
+```
+
+→ [`examples/judgment-slos/06-segments.yaml`](examples/judgment-slos/06-segments.yaml)
+
+**Measures** whether quality holds *evenly*. A service at 95% overall
+that runs at 60% for one segment has a serious problem that the
+aggregate hides.
+
+**Reach for it whenever decisions affect identifiable groups** —
+customer tiers, geographies, languages, request types. On decisions
+affecting people, this is often the judgment SLO that matters most, and
+aggregate metrics are structurally incapable of surfacing it.
+
+**Setting the target** means choosing `segment_dimension` where you
+suspect performance actually varies, not where the data is easiest to
+join. Enumerate `segment_values` explicitly — a segment absent from the
+list is not monitored.
+
+**A breach means** at least one segment is being served materially worse
+than the whole. Check which before assuming the model is at fault: thin
+training data, a broken upstream join, or an unrepresentative audit
+sample all produce this.
+
+**Common mistake:** picking one dimension and calling the question
+answered. Segment problems hide along the dimension you did not declare;
+several `segments` SLOs on different dimensions is a reasonable manifest.
+
+### 5.7 `stability`
+
+```yaml
+spec:
+  service: content-classifier
+  judgment_type: stability
+  probe:
+    frozen_input_set: "s3://probes/content-classifier-2026q1.jsonl"
+    frequency: daily
+  target:
+    maximum_drift: 0.02
+```
+
+→ [`examples/judgment-slos/07-stability.yaml`](examples/judgment-slos/07-stability.yaml)
+
+**Measures** whether the same inputs still get the same decisions. A
+frozen probe set is replayed on a schedule and the answers compared
+against the previous run.
+
+**Reach for it when** the service's behaviour can change without its
+code changing — model updates, prompt edits, retrieval-corpus drift,
+upstream feature changes. This is the only type that catches silent
+behavioural change, because it is the only one holding the input
+constant.
+
+**Setting the target** starts with the probe set, which is the real
+work. It must be *frozen* and representative; a probe set of easy cases
+will report stability you do not have. Version it — the path in the
+example carries `2026q1` for that reason — and re-cut it deliberately,
+never quietly.
+
+**A breach means** decisions moved without anyone deciding they should.
+That is not automatically bad (a model upgrade *should* change answers)
+but it must be attributable to a change someone made.
+
+**Common mistake:** refreshing the probe set to make drift go away. That
+converts your one silent-change detector into a rubber stamp.
+
+### 5.8 `calibration`
+
+```yaml
+spec:
+  service: investigation-agent
+  judgment_type: calibration
+  measurement:
+    bins: 10
+    window: 30d
+    method: brier_score
+  target:
+    maximum_brier_score: 0.05
+```
+
+→ [`examples/judgment-slos/08-calibration.yaml`](examples/judgment-slos/08-calibration.yaml)
+
+**Measures** whether expressed confidence means anything: of the
+decisions the service called 80% likely, are about 80% correct?
+
+**Reach for it when** confidence values are consumed by anything —
+routing, thresholds, autonomy levels. If confidence drives behaviour, it
+needs its own SLO. Note the relationship to §5.2: `high_confidence_failure`
+watches one end of the confidence range, `calibration` assesses the whole
+curve.
+
+**Setting the target** requires matching `method` to the target key.
+`brier_score` pairs with `maximum_brier_score`;
+`expected_calibration_error` pairs with
+`maximum_expected_calibration_error`. `bins` controls the resolution of
+the reliability curve — more bins need more data per bin to stay
+meaningful.
+
+**A breach means** the confidence signal is not trustworthy, so
+everything downstream that gates on it is running on a number that does
+not mean what it says.
+
+**Common mistake:** the schema does **not** currently enforce that
+`method` and the target key agree — you can declare `brier_score` and
+set `maximum_expected_calibration_error`, and validation passes. Check
+this pairing by eye. Binding the two is tracked in `opensrm-vquh`.
+
+### 5.9 `breach_actions`
+
+Any judgment SLO may declare what happens when it breaks. Four action
+forms are available: `notify`, `create_case` (with a `P0`–`P3`
+priority), `reduce_autonomy`, and `action_request`.
+
+```yaml
+      breach_actions:
+        - create_case:
+            priority: P1
+        - reduce_autonomy:
+            agent: refund-approver
+            new_autonomy_level: recommend_only
+```
+
+→ [`examples/services/ai-gate.yaml`](examples/services/ai-gate.yaml)
+
+`reduce_autonomy` is the one worth dwelling on: it lets a service
+declare, in advance and in version control, how much authority it should
+lose when its own quality degrades. Deciding that while things are calm
+is much easier than deciding it mid-incident.
+
+The manifest only *declares* these. Which consumer dispatches them, and
+how, is deliberately out of scope.
+
+## 6. Conventions and gotchas
+
+### 6.1 `contracts` and `slo` are different things
+
+This is the distinction most worth getting right, and the one people
+most often collapse.
+
+- **`slo`** is your *internal* target. What you hold yourselves to.
+- **`contracts`** is your *external* promise. What callers may design
+  against.
+
+They should not be the same number. The contract is deliberately looser;
+the gap between them is your operating margin — room to degrade, page
+someone, and recover without breaking a promise to anyone else. In
+[`examples/services/api.yaml`](examples/services/api.yaml) the internal
+availability SLO is 0.9995 while the contract promises 0.999.
+
+Collapsing them means every internal blip is simultaneously an external
+breach, and you lose the ability to have a bad afternoon quietly. It
+also weakens the dependency graph: your callers' `expected_availability`
+should track your promise, not your private target.
+
+### 6.2 Ratios are 0.0–1.0, never percentages
+
+`0.999`, not `99.9`. This is the wire format, enforced by the `Ratio`
+type (`minimum: 0`, `maximum: 1`).
+
+The forgiving failure is writing `99.9` where `0.999` was meant: it is
+rejected, loudly. The dangerous one is writing `0.99` for `99.9%` —
+in range, silently valid, and an order of magnitude more error budget
+than you intended. Nothing will catch that but review.
+
+### 6.3 Durations are integer + unit
+
+`100ms`, `7d`, `24h`. Units are `ms`, `s`, `m`, `h`, `d`, `w`. Not ISO
+8601 (`PT1H`), not bare seconds (`3600`), not decimals (`1.5h` — use
+`90m`).
+
+### 6.4 Throughput is a string ending `rps`
+
+`5000rps`, not `5000`. Applies to stream services too, where it reads as
+events per second.
+
+### 6.5 References are Backstage entity refs
+
+`<kind>:<namespace>/<name>` — `group:default/sre-payments`,
+`component:default/payment-service`. A bare `payments` or `sre-team` is
+rejected. `metadata.name` is separately constrained to DNS style:
+lowercase alphanumerics and hyphens.
+
+### 6.6 What the schema does not check
+
+Worth knowing precisely, because a green `validate.sh` is easy to
+over-read:
+
+- **Unknown keys are not rejected.** The schema does not set
+  `additionalProperties: false` on `spec`, so a typo like `judgement_slo`
+  or `contract` (singular, v1 habit) is silently ignored rather than
+  flagged. Your block simply does nothing. This looseness is tracked in
+  `opensrm-vquh`.
+- **Classical SLO bodies are not validated** — only that each item is a
+  `$ref` or carries `kind: SLO` ([§4.3](#43-slo--classical-slos)).
+  Validate them against the OpenSLO schema separately.
+- **`$ref` targets are not resolved.** A reference to a file that does
+  not exist validates happily.
+- **`method` and target keys are not bound** for `calibration`
+  ([§5.8](#58-calibration)).
+- **Nothing restricts judgment SLOs to decision-making services**, since
+  v2 has no `spec.type` ([§3](#3-choosing-a-starting-point)).
+
+In short: the schema checks shape, not sense. It will not tell you your
+SLO is wrong, only that it is well-formed.
