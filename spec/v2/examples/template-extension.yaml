@@ -1,0 +1,30 @@
+# A ServiceManifest that extends a ServiceManifestTemplate.
+#
+# Pairs with service-manifest-template.yaml, which defines the
+# `payment-services-base` template this manifest inherits from.
+# Template resolution happens at load time and produces a fully expanded
+# manifest; inheritance is one level only — a template may not extend
+# another template.
+#
+# This is the only fixture exercising the `template` block, so it is what
+# keeps AUTHORING.md §4.8 verified.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: payment-service
+  namespace: default
+  labels:
+    domain: payments
+spec:
+  owner:
+    group: "group:default/sre-payments"
+
+  service:
+    name: payment-service
+    description: "Processes payment authorisation and capture for consumer transactions"
+
+  template:
+    extends: "template:default/payment-services-base"
+    overrides:
+      slo:
+        - append: ["./slos/payment-latency-p99.yaml"]

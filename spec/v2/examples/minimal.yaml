@@ -1,0 +1,16 @@
+# The smallest manifest spec/v2/schema.json accepts: the envelope, an
+# owner, and a service identity. Everything else is optional to the
+# validator.
+#
+# This fixture exists to keep AUTHORING.md §2 honest — it asserts this
+# document validates, so the guide's claim about the floor is tested
+# rather than asserted.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: checkout-api
+spec:
+  owner:
+    group: "group:default/sre-checkout"
+  service:
+    name: checkout-api
