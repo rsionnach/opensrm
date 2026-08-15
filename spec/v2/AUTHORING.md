@@ -10,10 +10,26 @@ eight judgment SLO types, and how to migrate from v1.
 > you want the eight-type judgment SLO framework or the OpenSLO/Backstage
 > composition; expect the draft to move before it stabilises.
 
-Every YAML block in this guide is an excerpt from a real file under
-[`examples/`](examples/) that [`validate.sh`](validate.sh) checks on
-every run. Excerpts are trimmed for the point being made — follow the
-link under each one for the complete manifest.
+Every YAML block in this guide is an excerpt from a real file that
+[`validate.sh`](validate.sh) checks on every run. Excerpts are trimmed
+for the point being made — follow the link under each one for the
+complete manifest.
+
+## Contents
+
+1. [What a manifest is for](#1-what-a-manifest-is-for)
+2. [The envelope](#2-the-envelope)
+3. [Choosing a starting point](#3-choosing-a-starting-point)
+4. [Block by block](#4-block-by-block)
+5. [The eight judgment SLO types](#5-the-eight-judgment-slo-types)
+6. [Conventions and gotchas](#6-conventions-and-gotchas)
+7. [Migrating from v1](#7-migrating-from-v1)
+8. [Validating your manifest](#8-validating-your-manifest)
+
+New to OpenSRM? Read in order. Migrating an existing v1 manifest? Start
+at [§7](#7-migrating-from-v1), which points back into the detail.
+Writing your first judgment SLO? [§5](#5-the-eight-judgment-slo-types)
+stands alone.
 
 ## 1. What a manifest is for
 
@@ -52,7 +68,7 @@ There are three document kinds:
 |---|---|
 | `ServiceManifest` | One service's reliability declaration. The main event. |
 | `JudgmentSLO` | A standalone judgment SLO, referenced from a manifest. |
-| `ServiceManifestTemplate` | Shared defaults a manifest extends ([§4.8](#48-template)). |
+| `ServiceManifestTemplate` | Shared defaults a manifest extends ([§4.8](#48-template--shared-defaults)). |
 
 The smallest manifest the schema accepts needs only an owner and a
 service identity:
@@ -828,3 +844,282 @@ over-read:
 
 In short: the schema checks shape, not sense. It will not tell you your
 SLO is wrong, only that it is well-formed.
+
+## 7. Migrating from v1
+
+The conceptual model barely changes. The syntax changes a great deal,
+because v2 replaced most of v1's bespoke blocks with references to
+established standards.
+
+This section works through a real migration:
+[`examples/api-full.yaml`](../../examples/api-full.yaml) at the repo
+root — an actual v1 manifest for `payment-api` — becoming
+[`examples/migration/api-full-v2.yaml`](examples/migration/api-full-v2.yaml).
+Both files are real, and the v2 result is in the validated fixture set.
+
+### 7.1 The map
+
+| v1 | v2 | Kind of change |
+|---|---|---|
+| `apiVersion: opensrm/v1`, `kind: ServiceReliabilityManifest` | `apiVersion: opensrm.nthlayer.io/v2`, `kind: ServiceManifest` | Rename |
+| `metadata.team` / `.tier` / `.description` | `spec.owner`, a label, `spec.service.description` | Moved |
+| `spec.slos` (bespoke) | `spec.slo` — OpenSLO v1 documents | **Rewrite** |
+| `spec.contract` (singular) | `spec.contracts` (list) | Renamed + pluralised |
+| `spec.dependencies[].type` | Carried by the Backstage ref kind | Reshaped |
+| `spec.dependencies[].critical` | `fallback` | **No equivalent** |
+| `spec.dependencies[].manifest` (URL) | Catalogue lookup by entity ref | **No equivalent** |
+| `spec.ownership` | `spec.owner` + `metadata.annotations` | Partly lossy |
+| `spec.observability.metrics` | `spec.instrumentation` | Reshaped, stricter |
+| `spec.notifications` | Per-contract / per-judgment-SLO | **No equivalent** |
+| `spec.observability.dashboards` / `.alerts` | — | **No equivalent** |
+| `spec.observability.tracing.sampling_rate` | — | **No equivalent** |
+| `spec.deployment` (gates, rollback) | — | **No equivalent** |
+| — | `spec.judgment_slo` | New in v2 |
+
+Steps 1–5 of `OPENSRM-CORE-v2.md` §12 give the official sequence. The
+rest of this section is what that sequence looks like in practice.
+
+### 7.2 Ownership becomes entity references
+
+v1:
+
+```yaml
+  ownership:
+    team: payments
+    slack: "#payments-team"
+    email: payments@example.com
+    escalation: payments-oncall
+```
+
+→ [`examples/api-full.yaml`](../../examples/api-full.yaml)
+
+v2 keeps the accountability fields and moves the contact channels to
+annotations, because `Owner` has nowhere to put them:
+
+```yaml
+  owner:
+    group: "group:default/payments"
+    escalation: "group:default/payments-oncall"
+    technical_contact: "user:default/payments-lead"
+```
+
+→ [`examples/migration/api-full-v2.yaml`](examples/migration/api-full-v2.yaml)
+
+and the contact channels move to annotations:
+
+```yaml
+  annotations:
+    backstage.io/component-ref: "component:default/payment-api"
+    backstage.io/techdocs-ref: "dir:."
+    opensrm.nthlayer.io/runbook: "https://wiki.example.com/payment-api-runbook"
+    opensrm.nthlayer.io/documentation: "https://docs.example.com/payment-api"
+    pagerduty.com/service-id: "PXXXXXX"
+    slack.com/channel: "#payments-team"
+```
+
+→ [`examples/migration/api-full-v2.yaml`](examples/migration/api-full-v2.yaml)
+
+Bare names become entity refs: `payments` → `group:default/payments`.
+The annotation keys above are a convention, not a schema requirement —
+`annotations` is an unconstrained string map, so agree on keys across
+your organisation or they will be useless to tooling.
+
+### 7.3 SLOs become OpenSLO documents
+
+The largest mechanical change, and the one most amenable to tooling —
+v1 SLO syntax maps 1:1.
+
+v1:
+
+```yaml
+  slos:
+    availability:
+      target: 0.9995
+      window: 30d
+```
+
+→ [`examples/api-full.yaml`](../../examples/api-full.yaml)
+
+v2:
+
+```yaml
+  slo:
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: payment-api-availability
+      spec:
+        service: payment-api
+        objectives:
+          - displayName: "99.95% availability over 30 days"
+            target: 0.9995
+```
+
+→ [`examples/migration/api-full-v2.yaml`](examples/migration/api-full-v2.yaml)
+
+Note what the validator will and will not do for you here: it checks the
+item carries `kind: SLO` and nothing more
+([§4.3](#43-slo--classical-slos)). A malformed objective passes
+`validate.sh` and fails only against the OpenSLO schema. Run both.
+
+### 7.4 `contract` becomes `contracts`
+
+v1:
+
+```yaml
+  contract:
+    availability: 0.9995
+    latency:
+      p99: 300ms
+    throughput:
+      max_rps: 5000
+```
+
+→ [`examples/api-full.yaml`](../../examples/api-full.yaml)
+
+v2:
+
+```yaml
+  contracts:
+    - name: payment-api
+      api_ref:
+        openapi: "./api/payment-api.yaml"
+      promise:
+        availability: 0.9995
+        latency_p99: 300ms
+        throughput: 5000rps
+      contract_owner: "group:default/payments"
+```
+
+→ [`examples/migration/api-full-v2.yaml`](examples/migration/api-full-v2.yaml)
+
+Three changes in one block: the key is now plural and takes a list;
+nested `latency.p99` flattens to `latency_p99`; and `throughput.max_rps:
+5000` (a bare integer) becomes `throughput: 5000rps` (a string).
+
+> **The trap.** Leaving the key as singular `contract:` **validates**.
+> The schema does not reject unknown keys
+> ([§6.6](#66-what-the-schema-does-not-check)), so a v1 manifest whose
+> contract block was never renamed passes cleanly and declares no
+> contract at all. Nothing warns you. After migrating, grep for the v1
+> key names before trusting a green run.
+
+Note also that this migration inherits v1's habit of promising exactly
+the internal SLO number (0.9995 in both). That was defensible in v1,
+where the two were one field. In v2 they are separate on purpose — see
+[§6.1](#61-contracts-and-slo-are-different-things) and consider loosening
+the promise to give yourself margin.
+
+### 7.5 Dependencies lose `critical` and `type`
+
+v1:
+
+```yaml
+  dependencies:
+    - service: postgresql
+      type: database
+      critical: true
+      expects:
+        availability: 0.9995
+```
+
+→ [`examples/api-full.yaml`](../../examples/api-full.yaml)
+
+v2:
+
+```yaml
+    - service: "resource:default/postgresql"
+      expected_availability: 0.9995
+      fallback:
+        type: fail_closed
+        description: "v1 critical: true — no payment can be recorded without the store"
+```
+
+→ [`examples/migration/api-full-v2.yaml`](examples/migration/api-full-v2.yaml)
+
+`type: database` is carried by the entity ref kind (`resource:` rather
+than `component:`). `critical: true` has no v2 field at all — express it
+as a `fallback`, which is an improvement in disguise: `critical: true`
+records how much you care, while `fail_closed` records what actually
+happens. The latter is what a blast-radius calculation needs.
+
+This does mean the migration is **lossy in one direction**: a tool
+converting v1→v2 cannot derive the fallback behaviour automatically. It
+has to ask. Budget for that; it is the one part of the migration that is
+not mechanical.
+
+Also gone: `manifest:`, the URL pointing at the dependency's own
+manifest. v2 resolves the entity ref through the catalogue instead.
+
+### 7.6 What has nowhere to go
+
+Four v1 blocks have no v2 equivalent. Do not delete them from your v1
+manifest until they have a home:
+
+- **`spec.notifications`** — v2 has no service-level notification block.
+  Breach notification is per-contract
+  (`contracts[].breach_semantics.consumer_notification`) or per judgment
+  SLO (`breach_actions[].notify`). Routing every event type to a Slack
+  channel is a deployment concern in v2, not a manifest one.
+- **`spec.observability.dashboards` / `.alerts`** — `instrumentation`
+  declares what the service must *emit*, not what is built on top.
+- **`spec.observability.tracing.sampling_rate`** — collector
+  configuration. v2 declares required spans, not sampling.
+- **`spec.deployment`** — gates and rollback criteria. This is the
+  significant one: v1 let you gate a deploy on error budget from the
+  manifest itself. v2 has no deployment block, so that logic moves to
+  your CD pipeline — which can still read the SLOs above to make the
+  same decisions, but must now be told to.
+
+### 7.7 Suggested order
+
+1. Rename the envelope and confirm it validates. Everything else fails
+   loudly until this is right.
+2. Convert `slos` → `slo` as OpenSLO documents. Largest change,
+   automatable, and independently testable.
+3. Rename `contract` → `contracts`, then **grep for the old key** to
+   confirm nothing was left behind ([§7.4](#74-contract-becomes-contracts)).
+4. Rewrite `dependencies` — the manual step, since fallbacks need a
+   decision per dependency.
+5. Move `ownership` to `owner` plus annotations.
+6. Reshape `observability.metrics` into `instrumentation`, adding the
+   `type` each metric now needs.
+7. Park the four homeless blocks somewhere before deleting them.
+8. Only now consider adding `judgment_slo`
+   ([§5](#5-the-eight-judgment-slo-types)) — new capability, not
+   migration. Do it as its own change.
+
+## 8. Validating your manifest
+
+Validate a single file:
+
+```bash
+uvx check-jsonschema --schemafile spec/v2/schema.json path/to/manifest.yaml
+```
+
+Run the whole fixture suite — every file under `examples/` must
+validate, and every file under `tests/invalid/` must be rejected:
+
+```bash
+bash spec/v2/validate.sh
+```
+
+The negative half matters as much as the positive half. It is what
+stops the schema from degrading into one that rubber-stamps anything.
+If you add a constraint, add a fixture under `tests/invalid/` that
+proves the constraint bites.
+
+**What green means.** Your manifest is well-formed: the envelope is
+right, required fields are present, ratios are in range, durations and
+throughputs are correctly shaped, entity refs parse, and any judgment
+SLO matches its type's required shape.
+
+**What green does not mean.** Read
+[§6.6](#66-what-the-schema-does-not-check) before treating a pass as
+approval. In particular a green run does not tell you that a key is
+spelled right, that your OpenSLO bodies are valid, that a `$ref`
+resolves, or that any target is a sensible number.
+
+`validate.sh` is not yet wired into CI — tracked in `opensrm-vquh`
+along with the other schema hardening. Until it is, run it before
+committing a manifest change.
