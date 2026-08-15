@@ -37,8 +37,10 @@ uses, not by a discriminator field:
 | `stream` | lag and throughput SLOs |
 | `ai-gate` | the above plus `judgment_slo` |
 
-A follow-up bead records the open question of whether v2 should reintroduce a
-type discriminator. That is a spec change, out of scope here.
+**opensrm-6w9d** (P3) records the open question of whether v2 should
+reintroduce a type discriminator — including that v2 loses v1's
+type-conditional validation, so nothing currently stops a `worker` from
+declaring judgment SLOs. That is a spec change, out of scope here.
 
 ## Deliverables
 
@@ -108,6 +110,6 @@ Per the epic-checkpoint rule, work stops and asks at each boundary.
 
 ## Out of scope
 
-- Reintroducing `service.type` to the v2 spec or schema (follow-up bead).
+- Reintroducing `service.type` to the v2 spec or schema (opensrm-6w9d).
 - Hardening the v2 schema — tracked separately as opensrm-vquh.
 - Any change to v1.
