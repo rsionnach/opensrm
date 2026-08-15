@@ -26,20 +26,23 @@ spec:
     name: checkout-api
     description: "Creates and confirms customer checkout sessions"
 
-  # Classical SLOs are OpenSLO v1 documents. Keep them external once you
-  # have more than a couple — they are independently useful to tooling
-  # that knows OpenSLO but not OpenSRM.
+  # Classical SLOs are OpenSLO v1 documents, inline or referenced — both
+  # forms are shown. Keep them external once you have more than a couple;
+  # they are independently useful to tooling that knows OpenSLO but not
+  # OpenSRM.
+  # Availability is inline so the internal target is visible here: it is
+  # what the contract below is deliberately looser than.
   slo:
-    - $ref: "./slos/checkout-availability.yaml"
     - apiVersion: openslo/v1
       kind: SLO
       metadata:
-        name: checkout-latency-p99
+        name: checkout-availability
       spec:
         service: checkout-api
         objectives:
-          - displayName: "99% of sessions confirmed under 300ms"
-            target: 0.99
+          - displayName: "99.95% of checkout sessions served successfully"
+            target: 0.9995
+    - $ref: "./slos/checkout-latency-p99.yaml"
 
   # The promise to callers. Deliberately looser than the internal SLO
   # above (0.999 vs 0.9995): the gap is the operating margin.

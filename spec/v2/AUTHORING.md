@@ -10,10 +10,14 @@ eight judgment SLO types, and how to migrate from v1.
 > you want the eight-type judgment SLO framework or the OpenSLO/Backstage
 > composition; expect the draft to move before it stabilises.
 
-Every YAML block in this guide is an excerpt from a real file that
-[`validate.sh`](validate.sh) checks on every run. Excerpts are trimmed
-for the point being made — follow the link under each one for the
-complete manifest.
+Every YAML block in this guide is an excerpt from a real file, linked
+beneath it. Excerpts are trimmed for the point being made — follow the
+link for the complete manifest. Everything under
+[`examples/`](examples/) is checked by [`validate.sh`](validate.sh) on
+every run; the one exception is the **v1** "before" blocks in
+[§7](#7-migrating-from-v1), which are excerpted from the real v1
+manifest at [`examples/api-full.yaml`](../../examples/api-full.yaml) in
+the repo root and are, correctly, not valid under the v2 schema.
 
 ## Contents
 
@@ -215,16 +219,16 @@ Both forms may be mixed in the same list:
 
 ```yaml
   slo:
-    - $ref: "./slos/checkout-availability.yaml"
     - apiVersion: openslo/v1
       kind: SLO
       metadata:
-        name: checkout-latency-p99
+        name: checkout-availability
       spec:
         service: checkout-api
         objectives:
-          - displayName: "99% of sessions confirmed under 300ms"
-            target: 0.99
+          - displayName: "99.95% of checkout sessions served successfully"
+            target: 0.9995
+    - $ref: "./slos/checkout-latency-p99.yaml"
 ```
 
 → [`examples/services/api.yaml`](examples/services/api.yaml)
@@ -863,10 +867,11 @@ Both files are real, and the v2 result is in the validated fixture set.
 |---|---|---|
 | `apiVersion: opensrm/v1`, `kind: ServiceReliabilityManifest` | `apiVersion: opensrm.nthlayer.io/v2`, `kind: ServiceManifest` | Rename |
 | `metadata.team` / `.tier` / `.description` | `spec.owner`, a label, `spec.service.description` | Moved |
+| `spec.type` (`api`/`worker`/`stream`/`ai-gate`) | — | **Removed** ([§3](#3-choosing-a-starting-point)) |
 | `spec.slos` (bespoke) | `spec.slo` — OpenSLO v1 documents | **Rewrite** |
 | `spec.contract` (singular) | `spec.contracts` (list) | Renamed + pluralised |
 | `spec.dependencies[].type` | Carried by the Backstage ref kind | Reshaped |
-| `spec.dependencies[].critical` | `fallback` | **No equivalent** |
+| `spec.dependencies[].critical` | `fallback` | Reshaped (lossy — needs a decision) |
 | `spec.dependencies[].manifest` (URL) | Catalogue lookup by entity ref | **No equivalent** |
 | `spec.ownership` | `spec.owner` + `metadata.annotations` | Partly lossy |
 | `spec.observability.metrics` | `spec.instrumentation` | Reshaped, stricter |
