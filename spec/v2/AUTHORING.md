@@ -696,8 +696,10 @@ sample all produce this.
 answered. Segment problems hide along the dimension you did not declare;
 several `segments` SLOs on different dimensions is a reasonable manifest.
 Watch the degenerate case too: a single entry in `segment_values`
-validates and compares a segment against an overall figure it entirely
-constitutes, which can never vary.
+validates, and compares that one segment against the overall figure. If
+it is the dimension's only value, the variance is identically zero and
+the SLO can never fire; if it is not, everything you left off the list
+goes unmonitored.
 
 ### 5.7 `stability`
 
