@@ -115,6 +115,9 @@ What distinguishes the archetypes is which blocks they use:
 | **stream** | consumer lag, throughput | Yes — via AsyncAPI | No | [`examples/services/stream.yaml`](examples/services/stream.yaml) |
 | **ai-gate** | availability, latency | Yes | **Yes** — the point of the archetype | [`examples/services/ai-gate.yaml`](examples/services/ai-gate.yaml) |
 
+Nothing in the manifest records which one you picked — the archetypes
+organise this guide only ([§3.1](#31-why-there-is-no-type-field)).
+
 Three things are worth drawing out, because they are the mistakes people
 make when they start from the wrong archetype:
 
@@ -161,7 +164,7 @@ gate answered quickly and without erroring. They cannot tell you it
 answered *well*. That gap is what [§5](#5-the-eight-judgment-slo-types)
 is about.
 
-### Why there is no `type` field
+### 3.1 Why there is no `type` field
 
 v1 had one, and made it normative: `spec/v1/specification.md` §11 lists
 type-specific validation as a **MUST** ("judgment SLOs only valid for
@@ -755,9 +758,6 @@ different `bins` or a different `method` and treating the difference as
 a change in quality. Neither metric is comparable across configurations
 — if you re-tune `bins`, your history restarts.
 
-(The schema will not catch a `method` that disagrees with your target
-key; see [§6.6](#66-what-the-schema-does-not-check).)
-
 ### 5.9 `breach_actions` — applies to all eight
 
 Any judgment SLO may declare what happens when it breaks. Four action
@@ -796,10 +796,17 @@ most often collapse.
 
 They should not be the same number. The contract is deliberately looser;
 the gap between them is your operating margin — room to degrade, page
-someone, and recover without breaking a promise to anyone else. The
-`api` archetype holds itself to this internally:
+someone, and recover without breaking a promise to anyone else.
+
+The `api` archetype shows the pattern. Its `slo` block is the internal
+target:
 
 ```yaml
+  slo:
+    - apiVersion: openslo/v1
+      kind: SLO
+      metadata:
+        name: checkout-availability
       spec:
         service: checkout-api
         objectives:
@@ -809,18 +816,19 @@ someone, and recover without breaking a promise to anyone else. The
 
 → [`examples/services/api.yaml`](examples/services/api.yaml)
 
-while promising callers this:
+Its `contracts` block promises callers less:
 
 ```yaml
+  contracts:
+    - name: checkout-session-api
+      api_ref:
+        openapi: "./api/checkout-api.yaml"
+        operation_id: "createSession"
       promise:
         availability: 0.999
-        latency_p99: 500ms
-        throughput: 5000rps
 ```
 
 → [`examples/services/api.yaml`](examples/services/api.yaml)
-
-Those two numbers differ on purpose.
 
 Collapsing them means every internal blip is simultaneously an external
 breach, and you lose the ability to have a bad afternoon quietly. It
@@ -873,7 +881,7 @@ over-read:
 - **`method` and target keys are not bound** for `calibration`
   ([§5.8](#58-calibration)).
 - **Nothing restricts judgment SLOs to decision-making services**, since
-  v2 has no `spec.type` ([§3](#3-choosing-a-starting-point)).
+  v2 has no `spec.type` ([§3.1](#31-why-there-is-no-type-field)).
 
 In short: the schema checks shape, not sense. It will not tell you your
 SLO is wrong, only that it is well-formed.
@@ -896,7 +904,7 @@ Both files are real, and the v2 result is in the validated fixture set.
 |---|---|---|
 | `apiVersion: opensrm/v1`, `kind: ServiceReliabilityManifest` | `apiVersion: opensrm.nthlayer.io/v2`, `kind: ServiceManifest` | Rename |
 | `metadata.team` / `.tier` / `.description` | `spec.owner`, a label, `spec.service.description` | Moved |
-| `spec.type` (`api`/`worker`/`stream`/`ai-gate`) | — | **Removed** ([§3](#3-choosing-a-starting-point)) |
+| `spec.type` (`api`/`worker`/`stream`/`ai-gate`) | — | **Removed** ([§3.1](#31-why-there-is-no-type-field)) |
 | `spec.slos` (bespoke) | `spec.slo` — OpenSLO v1 documents | **Rewrite** |
 | `spec.contract` (singular) | `spec.contracts` (list) | Renamed + pluralised |
 | `spec.dependencies[].type` | Carried by the Backstage ref kind | Reshaped |
@@ -1038,9 +1046,9 @@ nested `latency.p99` flattens to `latency_p99`; and `throughput.max_rps:
 > contract at all. Nothing warns you. After migrating, grep for the v1
 > key names before trusting a green run.
 
-Note also what the two blocks above have in common: the promise repeats
-the internal SLO target exactly. That was defensible in v1, where the
-two were one field. In v2 they are separate on purpose — see
+Note also that the migrated promise (`availability: 0.9995`) repeats the
+internal availability target from [§7.3](#73-slos-become-openslo-documents)
+exactly. That was defensible in v1, where the two were one field. In v2 they are separate on purpose — see
 [§6.1](#61-contracts-and-slo-are-different-things) and consider loosening
 the promise to give yourself margin.
 
