@@ -903,7 +903,7 @@ Both files are real, and the v2 result is in the validated fixture set.
 | v1 | v2 | Kind of change |
 |---|---|---|
 | `apiVersion: opensrm/v1`, `kind: ServiceReliabilityManifest` | `apiVersion: opensrm.nthlayer.io/v2`, `kind: ServiceManifest` | Rename |
-| `metadata.team` / `.tier` / `.description` | `spec.owner`, a label, `spec.service.description` | Moved |
+| `metadata.team` / `.tier` / `.description` | `spec.owner`, `metadata.labels.tier`, `spec.service.description` | Moved |
 | `spec.type` (`api`/`worker`/`stream`/`ai-gate`) | — | **Removed** ([§3.1](#31-why-there-is-no-type-field)) |
 | `spec.slos` (bespoke) | `spec.slo` — OpenSLO v1 documents | **Rewrite** |
 | `spec.contract` (singular) | `spec.contracts` (list) | Renamed + pluralised |
@@ -935,8 +935,7 @@ v1:
 
 → [`examples/api-full.yaml`](../../examples/api-full.yaml)
 
-v2 keeps the accountability fields and moves the contact channels to
-annotations, because `Owner` has nowhere to put them:
+v2 keeps the accountability fields as entity references:
 
 ```yaml
   owner:
@@ -947,7 +946,8 @@ annotations, because `Owner` has nowhere to put them:
 
 → [`examples/migration/api-full-v2.yaml`](examples/migration/api-full-v2.yaml)
 
-and the contact channels move to annotations:
+and the contact channels move to annotations, because `spec.owner` has
+nowhere to put them:
 
 ```yaml
   annotations:
@@ -1070,6 +1070,7 @@ v1:
 v2:
 
 ```yaml
+  dependencies:
     - service: "resource:default/postgresql"
       expected_availability: 0.9995
       fallback:
