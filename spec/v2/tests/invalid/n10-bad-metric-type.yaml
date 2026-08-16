@@ -1,0 +1,15 @@
+# MUST be rejected: instrumentation metric declares an instrument type
+# outside the counter/gauge/histogram/summary enum.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: bad-metric-type
+spec:
+  owner:
+    group: "group:default/sre-checkout"
+  service:
+    name: checkout-api
+  instrumentation:
+    required_metrics:
+      - name: http_requests_total
+        type: countr

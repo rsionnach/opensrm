@@ -423,6 +423,20 @@ Resolution happens at load time and produces a fully expanded manifest.
 template — which is a deliberate bound on resolution complexity, not an
 oversight.
 
+Two warnings, because both of these fail late rather than at validation:
+
+- **The one-level rule is not enforced by the schema.** A
+  `ServiceManifestTemplate` that itself carries `template.extends`
+  validates cleanly. You will not find out you built a two-level chain
+  until a loader rejects it.
+- **`overrides` has no defined grammar.** The schema types it as a bare
+  object, so anything at all validates —
+  `overrides: {slooo: [{wibble: 1}]}` passes. `append` above is the verb
+  shown in `OPENSRM-CORE-v2.md` §9, but it is illustrated rather than
+  specified, and a misspelled key silently does nothing. Until it is
+  specified, treat `overrides` as the least safe block in the format and
+  check any expansion by hand.
+
 ## 5. The eight judgment SLO types
 
 Judgment SLOs are OpenSRM's original contribution — the part no other
@@ -568,7 +582,10 @@ SLO set, not a minor process miss.
 
 **Common mistake:** declaring a sampling rate the team has no capacity
 to review, then quietly falling behind. The backlog target exists to
-make that visible.
+make that visible. The opposite error is quieter and worse: an
+`overall_rate` of `0` validates, and starves every judgment SLO that
+depends on audit-derived ground truth without any of them reporting a
+breach.
 
 ### 5.4 `outcomes`
 
@@ -678,6 +695,9 @@ sample all produce this.
 **Common mistake:** picking one dimension and calling the question
 answered. Segment problems hide along the dimension you did not declare;
 several `segments` SLOs on different dimensions is a reasonable manifest.
+Watch the degenerate case too: a single entry in `segment_values`
+validates and compares a segment against an overall figure it entirely
+constitutes, which can never vary.
 
 ### 5.7 `stability`
 
@@ -747,7 +767,7 @@ curve.
 `expected_calibration_error` pairs with
 `maximum_expected_calibration_error`. `bins` controls the resolution of
 the reliability curve — more bins need more data per bin to stay
-meaningful.
+meaningful, and the schema floors it at 2, since one bin is not a curve.
 
 **A breach means** the confidence signal is not trustworthy, so
 everything downstream that gates on it is running on a number that does
@@ -845,6 +865,15 @@ rejected, loudly. The dangerous one is writing `0.99` for `99.9%` —
 in range, silently valid, and an order of magnitude more error budget
 than you intended. Nothing will catch that but review.
 
+**The endpoints are legal and almost always wrong.** `0` and `1` are
+both in range, so a `maximum_reversal_rate: 1` (nothing can ever breach
+it), an `expected_availability: 1` (a dependency that never fails), or
+an `audit_sampling` `overall_rate: 0` (sample nothing) all validate. A
+target at an endpoint is usually a placeholder somebody forgot to
+replace. The same goes for `0s` durations and `0rps` throughputs, and
+for a contract whose `promise: {}` is empty — it promises nothing at all
+while looking like a contract.
+
 ### 6.3 Durations are integer + unit
 
 `100ms`, `7d`, `24h`. Units are `ms`, `s`, `m`, `h`, `d`, `w`. Not ISO
@@ -877,7 +906,14 @@ over-read:
   `$ref` or carries `kind: SLO` ([§4.3](#43-slo--classical-slos)).
   Validate them against the OpenSLO schema separately.
 - **`$ref` targets are not resolved.** A reference to a file that does
-  not exist validates happily.
+  not exist validates happily, and fails when a loader tries to expand
+  it. Validation-time green, load-time red.
+- **Template nesting is not caught.** A `ServiceManifestTemplate` whose
+  own `spec` carries `template.extends` validates, despite one-level
+  inheritance being the rule ([§4.8](#48-template--shared-defaults)).
+  So does an `extends` naming a template that does not exist.
+- **Nothing inside `overrides` is checked** — it is typed as a bare
+  object, so a misspelled merge key validates and silently no-ops.
 - **`method` and target keys are not bound** for `calibration`
   ([§5.8](#58-calibration)).
 - **Nothing restricts judgment SLOs to decision-making services**, since

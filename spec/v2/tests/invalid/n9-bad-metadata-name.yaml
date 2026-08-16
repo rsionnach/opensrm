@@ -1,0 +1,11 @@
+# MUST be rejected: metadata.name is not DNS-style (uppercase and an
+# underscore). Proves the Metadata.name pattern bites.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: Checkout_API
+spec:
+  owner:
+    group: "group:default/sre-checkout"
+  service:
+    name: checkout-api

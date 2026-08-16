@@ -1,0 +1,11 @@
+# MUST be rejected: owner.group is a bare team name, not a Backstage
+# entity reference. Proves the EntityRef pattern bites on ServiceManifest.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: bare-entity-ref
+spec:
+  owner:
+    group: "payments"
+  service:
+    name: payment-api

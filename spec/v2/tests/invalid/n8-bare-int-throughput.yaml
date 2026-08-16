@@ -1,0 +1,15 @@
+# MUST be rejected: throughput is a bare integer (the v1 habit) rather
+# than the "<integer>rps" string v2 requires.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: bare-int-throughput
+spec:
+  owner:
+    group: "group:default/payments"
+  service:
+    name: payment-api
+  contracts:
+    - name: payment-api
+      promise:
+        throughput: 5000
