@@ -8,7 +8,7 @@
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest
 metadata:
-  name: checkout-api
+  name: checkout-api          # DNS-style: lowercase alphanumerics and hyphens
 spec:
   owner:
     group: "group:default/sre-checkout"

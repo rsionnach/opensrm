@@ -107,8 +107,12 @@ Rather than start from the empty manifest, start from the archetype that
 matches your service and delete what does not apply.
 
 **v2 has no `spec.type` field.** v1 had one — `api`, `worker`, `stream`,
-or `ai-gate` — and used it to drive conditional validation (in v1,
-judgment SLOs were only valid on an `ai-gate`). v2 dropped it, so the
+or `ai-gate` — and made it normative: `spec/v1/specification.md` §11
+lists type-specific validation as a **MUST** ("judgment SLOs only valid
+for `ai-gate` type"), and the schema listing in that document implements
+it as an `if`/`then`. Worth knowing that the *shipped* `spec/v1/schema.json`
+never actually implemented that conditional, so the rule was normative
+but unenforced in v1 too. v2 dropped the field outright, so the
 archetypes below are a way of organising *this guide* and nothing more.
 No field records which one you picked, and the schema will not stop a
 worker from declaring judgment SLOs. Whether that omission was

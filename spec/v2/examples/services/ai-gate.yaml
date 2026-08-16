@@ -7,9 +7,10 @@
 # answered *well*. Judgment SLOs measure decision quality — see
 # AUTHORING.md §5 for all eight types.
 #
-# NOTE: v2 has no `spec.type` field, so nothing in the schema restricts
-# judgment SLOs to this archetype the way v1's `type: ai-gate` did. See
-# AUTHORING.md §3 and opensrm-6w9d.
+# NOTE: v2 has no `spec.type` field, so nothing restricts judgment SLOs
+# to this archetype. v1 at least declared the rule normatively
+# (`type: ai-gate`), even though its shipped schema did not enforce it.
+# See AUTHORING.md §3 and opensrm-6w9d.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest
 metadata:
