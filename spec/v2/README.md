@@ -4,8 +4,12 @@ JSON Schema (draft-07) for OpenSRM **v2-draft** documents. It validates the
 manifest format defined in [`../../OPENSRM-CORE-v2.md`](../../OPENSRM-CORE-v2.md).
 
 > **Status: draft.** v2 is not yet stabilized. v1 remains canonical
-> (`../v1/`). This schema exists so v2 manifests and the forthcoming v2
-> manifest-authoring guide (opensrm-tu04.3) can be validated.
+> (`../v1/`). This schema exists so v2 manifests can be validated.
+
+**Writing a manifest? Start with [`AUTHORING.md`](AUTHORING.md)** — the
+practical guide to the format: block-by-block walkthrough, all eight
+judgment SLO types worked, and v1→v2 migration. This README covers the
+validator; that covers the format.
 
 ## What it validates
 
@@ -33,12 +37,17 @@ object.
 
 ```
 spec/v2/
+├── AUTHORING.md                # how to WRITE a manifest (start here)
 ├── schema.json                 # the validator
 ├── validate.sh                 # asserts examples validate + invalid fixtures fail
-├── examples/                   # valid fixtures (one JudgmentSLO per type + a full manifest + a template)
-│   ├── judgment-slos/01..08-*.yaml
+├── examples/                   # valid fixtures — every file here must validate
+│   ├── judgment-slos/01..08-*.yaml   # one JudgmentSLO per standard type
+│   ├── services/{api,worker,stream,ai-gate}.yaml  # one per service archetype
+│   ├── migration/api-full-v2.yaml    # the repo-root v1 manifest, migrated
+│   ├── minimal.yaml            # smallest manifest the schema accepts
 │   ├── service-manifest-full.yaml
-│   └── service-manifest-template.yaml
+│   ├── service-manifest-template.yaml
+│   └── template-extension.yaml # a manifest extending that template
 └── tests/invalid/              # negative fixtures that MUST be rejected
 ```
 

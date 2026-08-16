@@ -106,18 +106,6 @@ opensrm/v1` document is rejected outright.
 Rather than start from the empty manifest, start from the archetype that
 matches your service and delete what does not apply.
 
-**v2 has no `spec.type` field.** v1 had one — `api`, `worker`, `stream`,
-or `ai-gate` — and made it normative: `spec/v1/specification.md` §11
-lists type-specific validation as a **MUST** ("judgment SLOs only valid
-for `ai-gate` type"), and the schema listing in that document implements
-it as an `if`/`then`. Worth knowing that the *shipped* `spec/v1/schema.json`
-never actually implemented that conditional, so the rule was normative
-but unenforced in v1 too. v2 dropped the field outright, so the
-archetypes below are a way of organising *this guide* and nothing more.
-No field records which one you picked, and the schema will not stop a
-worker from declaring judgment SLOs. Whether that omission was
-deliberate is an open question tracked in `opensrm-6w9d`.
-
 What distinguishes the archetypes is which blocks they use:
 
 | Archetype | Characteristic SLOs | `contracts`? | `judgment_slo`? | Example |
@@ -172,6 +160,18 @@ conditions are about consumption discipline rather than authentication:
 gate answered quickly and without erroring. They cannot tell you it
 answered *well*. That gap is what [§5](#5-the-eight-judgment-slo-types)
 is about.
+
+### Why there is no `type` field
+
+v1 had one, and made it normative: `spec/v1/specification.md` §11 lists
+type-specific validation as a **MUST** ("judgment SLOs only valid for
+`ai-gate` type"), and the schema listing in that document implements it
+as an `if`/`then`. The *shipped* `spec/v1/schema.json` never implemented
+that conditional, so the rule was normative but unenforced in v1 too.
+
+v2 dropped the field outright. Nothing records which archetype you
+picked, and nothing stops a worker from declaring judgment SLOs. Whether
+that omission was deliberate is tracked in `opensrm-6w9d`.
 
 ## 4. Block by block
 
@@ -275,8 +275,8 @@ catches it. [§5](#5-the-eight-judgment-slo-types) covers all eight.
 
 A contract is a promise to the services that call you. It is the block
 that makes cross-service reasoning possible, and it is **not** the same
-thing as your SLOs — see [§6](#6-conventions-and-gotchas), which is the
-distinction most worth getting right in this whole guide.
+thing as your SLOs — see
+[§6.1](#61-contracts-and-slo-are-different-things).
 
 ```yaml
   contracts:
@@ -750,12 +750,15 @@ meaningful.
 everything downstream that gates on it is running on a number that does
 not mean what it says.
 
-**Common mistake:** the schema does **not** currently enforce that
-`method` and the target key agree — you can declare `brier_score` and
-set `maximum_expected_calibration_error`, and validation passes. Check
-this pairing by eye. Binding the two is tracked in `opensrm-vquh`.
+**Common mistake:** comparing calibration numbers computed with
+different `bins` or a different `method` and treating the difference as
+a change in quality. Neither metric is comparable across configurations
+— if you re-tune `bins`, your history restarts.
 
-### 5.9 `breach_actions`
+(The schema will not catch a `method` that disagrees with your target
+key; see [§6.6](#66-what-the-schema-does-not-check).)
+
+### 5.9 `breach_actions` — applies to all eight
 
 Any judgment SLO may declare what happens when it breaks. Four action
 forms are available: `notify`, `create_case` (with a `P0`–`P3`
@@ -793,9 +796,31 @@ most often collapse.
 
 They should not be the same number. The contract is deliberately looser;
 the gap between them is your operating margin — room to degrade, page
-someone, and recover without breaking a promise to anyone else. In
-[`examples/services/api.yaml`](examples/services/api.yaml) the internal
-availability SLO is 0.9995 while the contract promises 0.999.
+someone, and recover without breaking a promise to anyone else. The
+`api` archetype holds itself to this internally:
+
+```yaml
+      spec:
+        service: checkout-api
+        objectives:
+          - displayName: "99.95% of checkout sessions served successfully"
+            target: 0.9995
+```
+
+→ [`examples/services/api.yaml`](examples/services/api.yaml)
+
+while promising callers this:
+
+```yaml
+      promise:
+        availability: 0.999
+        latency_p99: 500ms
+        throughput: 5000rps
+```
+
+→ [`examples/services/api.yaml`](examples/services/api.yaml)
+
+Those two numbers differ on purpose.
 
 Collapsing them means every internal blip is simultaneously an external
 breach, and you lose the ability to have a bad afternoon quietly. It
@@ -1013,9 +1038,9 @@ nested `latency.p99` flattens to `latency_p99`; and `throughput.max_rps:
 > contract at all. Nothing warns you. After migrating, grep for the v1
 > key names before trusting a green run.
 
-Note also that this migration inherits v1's habit of promising exactly
-the internal SLO number (0.9995 in both). That was defensible in v1,
-where the two were one field. In v2 they are separate on purpose — see
+Note also what the two blocks above have in common: the promise repeats
+the internal SLO target exactly. That was defensible in v1, where the
+two were one field. In v2 they are separate on purpose — see
 [§6.1](#61-contracts-and-slo-are-different-things) and consider loosening
 the promise to give yourself margin.
 
