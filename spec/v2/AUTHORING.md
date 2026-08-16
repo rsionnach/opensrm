@@ -174,7 +174,8 @@ that conditional, so the rule was normative but unenforced in v1 too.
 
 v2 dropped the field outright. Nothing records which archetype you
 picked, and nothing stops a worker from declaring judgment SLOs. Whether
-that omission was deliberate is tracked in `opensrm-6w9d`.
+that omission was deliberate is an open question against the v2
+draft (tracked internally as `opensrm-6w9d`).
 
 ## 4. Block by block
 
@@ -446,7 +447,7 @@ available, answer in 50ms, return HTTP 200 every time, and be wrong.
 
 They apply to anything making consequential decisions, not just AI: ML
 classifiers, rule engines, and human-in-the-loop approval queues all
-qualify. If the service's output is a judgement someone could disagree
+qualify. If the service's output is a call someone could disagree
 with, these apply.
 
 Eight types are the standard vocabulary. Implementations MUST support
@@ -902,8 +903,8 @@ over-read:
 - **Unknown keys are not rejected.** The schema does not set
   `additionalProperties: false` on `spec`, so a typo like `judgement_slo`
   or `contract` (singular, v1 habit) is silently ignored rather than
-  flagged. Your block simply does nothing. This looseness is tracked in
-  `opensrm-vquh`.
+  flagged. Your block simply does nothing. This looseness is a known gap
+  in the draft schema, tracked internally as `opensrm-vquh`.
 - **Classical SLO bodies are not validated** — only that each item is a
   `$ref` or carries `kind: SLO` ([§4.3](#43-slo--classical-slos)).
   Validate them against the OpenSLO schema separately.
@@ -1201,6 +1202,7 @@ approval. In particular a green run does not tell you that a key is
 spelled right, that your OpenSLO bodies are valid, that a `$ref`
 resolves, or that any target is a sensible number.
 
-`validate.sh` is not yet wired into CI — tracked in `opensrm-vquh`
-along with the other schema hardening. Until it is, run it before
-committing a manifest change.
+`validate.sh` is not yet wired into CI. Until it is, run it yourself
+before committing a manifest change. That wiring, and the schema
+hardening noted in [§6.6](#66-what-the-schema-does-not-check), are
+tracked internally as `opensrm-vquh`.

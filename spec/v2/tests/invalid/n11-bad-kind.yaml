@@ -1,0 +1,11 @@
+# MUST be rejected: `kind` is not one of the three document kinds.
+# Proves the kind const bites (AUTHORING.md §2).
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceReliabilityManifest
+metadata:
+  name: wrong-kind
+spec:
+  owner:
+    group: "group:default/sre-checkout"
+  service:
+    name: checkout-api

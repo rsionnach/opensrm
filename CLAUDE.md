@@ -104,6 +104,11 @@ shift-left contract.
   - `OPENSRM-CORE-v2.md` — v2-draft core spec (supersedes v1, dated
     2026-04-19). Machine-readable schema + worked examples:
     `spec/v2/schema.json` (validated by `spec/v2/validate.sh`).
+  - `spec/v2/AUTHORING.md` — how to WRITE a v2 manifest: block-by-block
+    walkthrough, all eight judgment SLO types worked, conventions, and
+    v1→v2 migration. The entry point for manifest authors;
+    `OPENSRM-CORE-v2.md` stays the normative spec and `spec/v2/README.md`
+    covers the validator.
   - `OPENSRM-RBAC-EXTENSION-v2.md` — RBAC extension v1.1-draft
     (supersedes `OPENSRM-RBAC-EXTENSION.md` v1.0-draft).
   - `OPENSRM-RBAC-EXTENSION.md` — legacy v1.0-draft, retained for

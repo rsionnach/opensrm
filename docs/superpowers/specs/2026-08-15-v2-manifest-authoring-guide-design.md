@@ -48,11 +48,23 @@ declaring judgment SLOs. That is a spec change, out of scope here.
 schema, fixtures and validator it references, and so the existing forward
 reference in `spec/v2/README.md` resolves locally.
 
-Five new fixtures, picked up automatically by `validate.sh` (it globs
-`examples/**/*.yaml` recursively — no wiring needed):
+New fixtures, picked up automatically by `validate.sh` (it globs
+`examples/**/*.yaml` and `tests/invalid/*.yaml` recursively — no wiring
+needed):
 
 - `spec/v2/examples/services/{api,worker,stream,ai-gate}.yaml`
 - `spec/v2/examples/migration/api-full-v2.yaml`
+
+**As shipped, this grew.** Two further positives were added when writing
+the guide exposed claims nothing tested — `examples/minimal.yaml` (§2's
+"smallest manifest the schema accepts") and
+`examples/template-extension.yaml` (nothing previously exercised
+`TemplateExtension` at all). Six negatives were added during R5: the
+suite had zero `ServiceManifest` coverage, so `n7`–`n10` cover entity
+refs, bare-integer throughput, the DNS-style `metadata.name` and the
+metric instrument enum, and `n11`–`n12` cover the `kind` const and the
+calibration `bins` floor. Final state: **17 positive + 12 negative**,
+not the 15 + 6 targeted below.
 
 ## Guide structure
 

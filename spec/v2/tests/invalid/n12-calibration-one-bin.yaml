@@ -1,0 +1,15 @@
+# MUST be rejected: calibration bins below the schema floor of 2.
+# One bin is not a reliability curve (AUTHORING.md §5.8).
+apiVersion: opensrm.nthlayer.io/v2
+kind: JudgmentSLO
+metadata:
+  name: one-bin-calibration
+spec:
+  service: investigation-agent
+  judgment_type: calibration
+  measurement:
+    bins: 1
+    window: 30d
+    method: brier_score
+  target:
+    maximum_brier_score: 0.05
