@@ -312,12 +312,18 @@ The normative gap: this document is currently silent on service types.
 2. `:118-119` — *"Nothing in the manifest records which one you picked"*
    is now false. Remove.
 3. §3.1 (`:167-178`) — flips from *"Why there is no `type` field"* to the
-   decision, keeping the v1 history that motivated it. Retitle; the
-   in-document anchor `#31-why-there-is-no-type-field` is referenced from
-   `:119` and `:923`, so both call sites update with it.
+   decision, keeping the v1 history that motivated it. Retitling changes
+   the in-document anchor `#31-why-there-is-no-type-field`, which has
+   **four** call sites — `:119`, `:923`, `:946`, and §4.2 once it gains a
+   forward reference. All must move together or the guide gains dead links.
 4. §4.2 (`:207-222`) — stop claiming `name` is the only required field.
 5. §6.6 (`:922-923`) — drop the "nothing restricts judgment SLOs" gap;
    replace with the template-extension limit above.
+6. §7.1 migration table (`:946`) — the row
+   `` `spec.type` … | — | **Removed** `` becomes `spec.service.type`,
+   *Moved*. Found while gathering line numbers for the plan; the field is
+   not removed, so leaving this row would contradict `OPENSRM-CORE-v2.md`
+   §12's new migration entry.
 
 ### Fixtures
 
