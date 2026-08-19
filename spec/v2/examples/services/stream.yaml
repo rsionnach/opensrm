@@ -5,7 +5,9 @@
 # one. Consumers of a stream do have a promise to design against — it is
 # just about freshness and volume rather than request latency.
 #
-# NOTE: v2 has no `spec.type` field. See AUTHORING.md §3.
+# The `spec.service.type` field records the archetype (opensrm-6w9d).
+# It is required, and the schema uses it to forbid judgment SLOs on
+# services that do not make decisions. See AUTHORING.md §3.1.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest
 metadata:
@@ -23,6 +25,7 @@ spec:
 
   service:
     name: order-events-enricher
+    type: stream
     description: "Enriches the raw order event stream with customer and catalogue attributes"
 
   slo:

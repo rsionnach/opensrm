@@ -4,8 +4,9 @@
 # block, because something calls this service and needs a promise it can
 # design against. Contrast `worker.yaml`, which has no inbound contract.
 #
-# NOTE: v2 has no `spec.type` field. The archetype is visible in which
-# blocks are used, not in a discriminator. See AUTHORING.md §3.
+# The `spec.service.type` field records the archetype (opensrm-6w9d).
+# It is required, and the schema uses it to forbid judgment SLOs on
+# services that do not make decisions. See AUTHORING.md §3.1.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest
 metadata:
@@ -24,6 +25,7 @@ spec:
 
   service:
     name: checkout-api
+    type: api
     description: "Creates and confirms customer checkout sessions"
 
   # Classical SLOs are OpenSLO v1 documents, inline or referenced — both

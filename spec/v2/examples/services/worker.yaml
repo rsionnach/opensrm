@@ -6,7 +6,9 @@
 # synchronously, so there is no caller to make a promise to. Its
 # obligations flow the other way, through `dependencies`.
 #
-# NOTE: v2 has no `spec.type` field. See AUTHORING.md §3.
+# The `spec.service.type` field records the archetype (opensrm-6w9d).
+# It is required, and the schema uses it to forbid judgment SLOs on
+# services that do not make decisions. See AUTHORING.md §3.1.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest
 metadata:
@@ -24,6 +26,7 @@ spec:
 
   service:
     name: invoice-reconciler
+    type: worker
     description: "Reconciles settled payments against issued invoices, nightly and on demand"
 
   # Availability is the wrong question for a worker — it is not serving

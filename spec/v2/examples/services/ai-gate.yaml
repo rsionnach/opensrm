@@ -7,10 +7,10 @@
 # answered *well*. Judgment SLOs measure decision quality — see
 # AUTHORING.md §5 for all eight types.
 #
-# NOTE: v2 has no `spec.type` field, so nothing restricts judgment SLOs
-# to this archetype. v1 at least declared the rule normatively
-# (`type: ai-gate`), even though its shipped schema did not enforce it.
-# See AUTHORING.md §3 and opensrm-6w9d.
+# `type: ai-gate` is what permits the judgment_slo block below. The schema
+# rejects judgment SLOs on any other type (opensrm-6w9d) -- v1 declared
+# that rule normatively but never enforced it in its shipped schema.
+# An ai-gate is NOT required to declare judgment SLOs, only permitted to.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest
 metadata:
@@ -29,6 +29,7 @@ spec:
 
   service:
     name: refund-approver
+    type: ai-gate
     description: "Decides whether a customer refund request is auto-approved, declined, or routed to a human reviewer"
 
   # Operational health: is the gate up and fast?

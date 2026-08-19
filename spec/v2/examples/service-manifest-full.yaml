@@ -19,6 +19,7 @@ spec:
 
   service:
     name: payment-service
+    type: ai-gate
     description: "Processes payment authorisation and capture for consumer transactions"
 
   # `slo` items may be an external $ref OR an inline OpenSLO document —

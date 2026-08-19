@@ -21,6 +21,7 @@ spec:
 
   service:
     name: payment-service
+    type: api
     description: "Processes payment authorisation and capture for consumer transactions"
 
   template:
