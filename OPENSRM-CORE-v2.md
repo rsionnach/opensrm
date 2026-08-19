@@ -107,6 +107,7 @@ spec:
   # Service identity
   service:
     name: payment-service
+    type: api                                      # See §3.1
     description: "Processes payment authorisation and capture for consumer transactions"
 
   # Classical SLOs — OpenSLO v1 documents
@@ -136,6 +137,30 @@ spec:
 ```
 
 The manifest uses Backstage's `apiVersion/kind/metadata/spec` envelope shape. This is deliberate: any Backstage catalogue can treat OpenSRM manifests as additional entity kinds with no parsing infrastructure changes.
+
+### 3.1 Service types
+
+`spec.service.type` records the service's operational pattern. It is **required**.
+
+An implementation MUST accept these six values:
+
+| Type | Pattern |
+|---|---|
+| `api` | Synchronously called; callers depend on a latency and availability promise |
+| `worker` | Processes queued work; nothing calls it synchronously |
+| `stream` | Consumes an event stream; measured on lag and throughput |
+| `ai-gate` | Makes decisions whose quality is measurable — the judgment SLO archetype |
+| `batch` | Runs on a schedule; measured on completion and freshness |
+| `database` | Stateful store; measured on query latency and replication |
+
+An implementation MAY define additional types under the reserved `x-` prefix, matching `^x-[a-z][a-z0-9-]*$`. Implementations MUST NOT define additional bare types — a type that is neither one of the six nor `x-` prefixed MUST be rejected. This keeps an implementation-specific type valid under OpenSRM without OpenSRM adopting it.
+
+Type-conditional validation, restoring the v1 rule:
+
+- A manifest whose `spec.service.type` is not `ai-gate` MUST NOT declare `spec.judgment_slo`. Judgment SLOs measure decision quality and are only meaningful for a service that makes decisions.
+- An `ai-gate` service MAY declare judgment SLOs but is not required to. A service may adopt the type before its judgment SLOs are authored.
+
+Because template resolution happens at load time rather than during schema validation, a template carrying `judgment_slo` could otherwise supply them to a manifest of any type. An implementation MUST therefore revalidate the fully resolved manifest, after template expansion, against the same rules (§9, §13).
 
 ## 4. Classical SLOs (via OpenSLO)
 
@@ -639,6 +664,7 @@ Organisations running OpenSRM v1:
 3. **Move API contract references to OpenAPI/AsyncAPI documents.** v1 bespoke contract references need to be rewritten.
 4. **Retain judgment SLOs unchanged.** The judgment SLO framework is OpenSRM's original contribution; v2 formalises what v1 described informally.
 5. **Adopt CloudEvents envelopes for change events.** If v1 emitted custom change events, they move under the CloudEvents envelope.
+6. **Move `spec.type` to `spec.service.type`.** v1's service type moves onto the identity block and stays required, with the same values plus `batch` and `database` (§3.1). The field did not disappear in v2 — it moved. Any v1 manifest already declares it; migration is a relocation, not new authoring.
 
 ## 13. Conformance
 
@@ -650,6 +676,7 @@ An OpenSRM v2 implementation MUST:
 - Resolve cross-references (dependencies, contracts, templates, owners) and fail load on unresolvable references
 - Generate change events as CloudEvents v1.0 envelopes when manifests change
 - Support template resolution (§9)
+- Revalidate the fully resolved manifest after template expansion, so type-conditional rules (§3.1) cannot be bypassed by a template
 
 An implementation SHOULD:
 
