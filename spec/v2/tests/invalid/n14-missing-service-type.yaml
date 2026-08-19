@@ -1,0 +1,14 @@
+# NEGATIVE FIXTURE — must be REJECTED by spec/v2/schema.json.
+#
+# A service identity with no `type`. v2 makes the discriminator required
+# (opensrm-6w9d) precisely because v1's optional one could never be
+# enforced — two shipped v1 examples omit it entirely.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: checkout-api
+spec:
+  owner:
+    group: "group:default/sre-checkout"
+  service:
+    name: checkout-api

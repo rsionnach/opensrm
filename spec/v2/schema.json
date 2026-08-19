@@ -51,6 +51,13 @@
       "type": "object",
       "additionalProperties": { "type": "string" }
     },
+    "ServiceType": {
+      "description": "Service operational pattern. The six standard values, or an implementation-specific type under the reserved `x-` prefix.",
+      "oneOf": [
+        { "enum": ["api", "worker", "stream", "ai-gate", "batch", "database"] },
+        { "type": "string", "pattern": "^x-[a-z][a-z0-9-]*$" }
+      ]
+    },
     "Metadata": {
       "type": "object",
       "required": ["name"],
@@ -74,6 +81,30 @@
     "ServiceManifest": {
       "type": "object",
       "required": ["apiVersion", "kind", "metadata", "spec"],
+      "allOf": [
+        {
+          "description": "Judgment SLOs measure decision quality and are only meaningful on a decision-making service. Restores v1 §11's type-specific validation MUST, which v1's shipped schema never enforced.",
+          "if": {
+            "properties": {
+              "spec": {
+                "properties": {
+                  "service": {
+                    "properties": { "type": { "not": { "const": "ai-gate" } } },
+                    "required": ["type"]
+                  }
+                },
+                "required": ["service"]
+              }
+            },
+            "required": ["spec"]
+          },
+          "then": {
+            "properties": {
+              "spec": { "not": { "required": ["judgment_slo"] } }
+            }
+          }
+        }
+      ],
       "properties": {
         "apiVersion": { "const": "opensrm.nthlayer.io/v2" },
         "kind": { "const": "ServiceManifest" },
@@ -119,9 +150,19 @@
     },
     "ServiceIdentity": {
       "type": "object",
-      "required": ["name"],
+      "required": ["name", "type"],
       "properties": {
         "name": { "type": "string" },
+        "type": { "$ref": "#/definitions/ServiceType" },
+        "description": { "type": "string" }
+      }
+    },
+    "TemplateServiceIdentity": {
+      "type": "object",
+      "description": "Service identity within a ServiceManifestTemplate. Nothing is required — a template supplies defaults, and the extending manifest supplies the identity. Manifests use ServiceIdentity, which requires `name` and `type`.",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "$ref": "#/definitions/ServiceType" },
         "description": { "type": "string" }
       }
     },
@@ -554,7 +595,7 @@
           "description": "A template provides defaults for a ServiceManifest spec. All fields optional; owner/service are supplied by the extending manifest.",
           "properties": {
             "owner": { "$ref": "#/definitions/Owner" },
-            "service": { "$ref": "#/definitions/ServiceIdentity" },
+            "service": { "$ref": "#/definitions/TemplateServiceIdentity" },
             "slo": { "type": "array", "items": { "$ref": "#/definitions/SLOItem" } },
             "judgment_slo": { "type": "array", "items": { "$ref": "#/definitions/JudgmentSLOItem" } },
             "contracts": { "type": "array", "items": { "$ref": "#/definitions/Contract" } },
