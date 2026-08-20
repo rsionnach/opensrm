@@ -7,7 +7,6 @@ metadata:
 spec:
   slo:
     - $ref: "./slos/baseline-availability.yaml"
-  judgment_slo: []
   contracts: []
   instrumentation:
     required_metrics:

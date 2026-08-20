@@ -9,3 +9,4 @@ spec:
     group: "group:default/sre-checkout"
   service:
     name: checkout-api
+    type: api

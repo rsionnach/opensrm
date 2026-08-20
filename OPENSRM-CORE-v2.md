@@ -107,7 +107,8 @@ spec:
   # Service identity
   service:
     name: payment-service
-    type: api                                      # See §3.1
+    type: ai-gate                                  # See §3.1 — required; only
+                                                   # ai-gate may carry judgment_slo
     description: "Processes payment authorisation and capture for consumer transactions"
 
   # Classical SLOs — OpenSLO v1 documents
@@ -144,7 +145,7 @@ The manifest uses Backstage's `apiVersion/kind/metadata/spec` envelope shape. Th
 
 An implementation MUST accept these six values:
 
-| Type | Pattern |
+| Type | Meaning |
 |---|---|
 | `api` | Synchronously called; callers depend on a latency and availability promise |
 | `worker` | Processes queued work; nothing calls it synchronously |
@@ -152,6 +153,8 @@ An implementation MUST accept these six values:
 | `ai-gate` | Makes decisions whose quality is measurable — the judgment SLO archetype |
 | `batch` | Runs on a schedule; measured on completion and freshness |
 | `database` | Stateful store; measured on query latency and replication |
+
+`ai-gate` denotes decision-making, not AI implementation. A service qualifies because its output is a consequential classification, decision, or action whose quality can be measured — whether that output comes from a model, a rule engine, or a human approver (§5). A purely rule-based or human-in-the-loop approval service that wants judgment SLOs declares `type: ai-gate`.
 
 An implementation MAY define additional types under the reserved `x-` prefix, matching `^x-[a-z][a-z0-9-]*$`. Implementations MUST NOT define additional bare types — a type that is neither one of the six nor `x-` prefixed MUST be rejected. This keeps an implementation-specific type valid under OpenSRM without OpenSRM adopting it.
 
@@ -554,7 +557,6 @@ metadata:
 spec:
   slo:
     - $ref: "./slos/baseline-availability.yaml"
-  judgment_slo: []
   contracts: []
   instrumentation:
     required_metrics: [...]
@@ -664,7 +666,7 @@ Organisations running OpenSRM v1:
 3. **Move API contract references to OpenAPI/AsyncAPI documents.** v1 bespoke contract references need to be rewritten.
 4. **Retain judgment SLOs unchanged.** The judgment SLO framework is OpenSRM's original contribution; v2 formalises what v1 described informally.
 5. **Adopt CloudEvents envelopes for change events.** If v1 emitted custom change events, they move under the CloudEvents envelope.
-6. **Move `spec.type` to `spec.service.type`.** v1's service type moves onto the identity block and stays required, with the same values plus `batch` and `database` (§3.1). The field did not disappear in v2 — it moved. Any v1 manifest already declares it; migration is a relocation, not new authoring.
+6. **Move `spec.type` to `spec.service.type`.** v1's service type moves onto the identity block and stays required, with the same six values `spec/v1/schema.json` already enumerates — v1's prose tabulated only four of them (§3.1). The field did not disappear in v2 — it moved. It is not, however, a pure relocation: v1's prose marked `spec.type` a MUST, but the shipped `spec/v1/schema.json` left it optional and v1 manifests exist that omit it. A migration tool must therefore prompt for the type, or apply a documented default, whenever the source manifest has none — the v2 field is required and has no fallback.
 
 ## 13. Conformance
 

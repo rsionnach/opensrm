@@ -9,6 +9,7 @@ spec:
     group: "group:default/payments"
   service:
     name: payment-api
+    type: api
   contracts:
     - name: payment-api
       promise:
