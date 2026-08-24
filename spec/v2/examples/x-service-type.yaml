@@ -7,7 +7,7 @@
 # downstream invention.
 #
 # This fixture exists so the extension rule is tested rather than asserted
-# -- it is what keeps AUTHORING.md §3.1's `x-` claim honest.
+# — it is what keeps AUTHORING.md §3.1's `x-` claim honest.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest
 metadata:

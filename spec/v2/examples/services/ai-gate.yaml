@@ -8,7 +8,7 @@
 # AUTHORING.md §5 for all eight types.
 #
 # `type: ai-gate` is what permits the judgment_slo block below. The schema
-# rejects judgment SLOs on any other type (opensrm-6w9d) -- v1 declared
+# rejects judgment SLOs on any other type (opensrm-6w9d) — v1 declared
 # that rule normatively but never enforced it in its shipped schema.
 # An ai-gate is NOT required to declare judgment SLOs, only permitted to.
 apiVersion: opensrm.nthlayer.io/v2

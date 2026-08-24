@@ -174,6 +174,12 @@ is about.
 documentation: **the schema rejects `judgment_slo` on any type but
 `ai-gate`.**
 
+Four of the six have an archetype in [§3](#3-choosing-a-starting-point)
+above. `batch` and `database` are equally valid types that do not — a
+nightly job or a managed datastore declares its type and then composes the
+blocks it needs from [§4](#4-block-by-block). What each of the six denotes
+is tabulated in `OPENSRM-CORE-v2.md` §3.1.
+
 ```yaml
   service:
     name: refund-approver
@@ -957,13 +963,11 @@ over-read:
 - **Judgment SLOs arriving via a template are not type-checked.** The
   schema forbids `judgment_slo` on a non-`ai-gate` manifest
   ([§3.1](#31-the-type-field)), but a `ServiceManifestTemplate` is
-  validated by a different definition, so the conditional never reaches it
-  — a template carrying `judgment_slo` validates even when it declares a
-  `type` of its own. Template
-  resolution happens at load time, outside validation, so a `worker`
-  extending such a template validates. Implementations are required to
-  revalidate after expansion (`OPENSRM-CORE-v2.md` §13); the schema alone
-  does not catch it.
+  validated by a different definition, so the conditional never reaches a
+  template — even one declaring a `type` of its own. Expansion happens at
+  load time, outside validation, so a `worker` extending such a template
+  validates. Implementations are required to revalidate after expansion
+  (`OPENSRM-CORE-v2.md` §13); the schema alone does not catch it.
 
 In short: the schema checks shape, not sense. It will not tell you your
 SLO is wrong, only that it is well-formed.

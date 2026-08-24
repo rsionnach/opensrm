@@ -666,7 +666,9 @@ Organisations running OpenSRM v1:
 3. **Move API contract references to OpenAPI/AsyncAPI documents.** v1 bespoke contract references need to be rewritten.
 4. **Retain judgment SLOs unchanged.** The judgment SLO framework is OpenSRM's original contribution; v2 formalises what v1 described informally.
 5. **Adopt CloudEvents envelopes for change events.** If v1 emitted custom change events, they move under the CloudEvents envelope.
-6. **Move `spec.type` to `spec.service.type`.** v1's service type moves onto the identity block and stays required, with the same six values `spec/v1/schema.json` already enumerates — v1's prose tabulated only four of them (§3.1). The field did not disappear in v2 — it moved. It is not, however, a pure relocation: v1's prose marked `spec.type` a MUST, but the shipped `spec/v1/schema.json` left it optional and v1 manifests exist that omit it. A migration tool must therefore prompt for the type, or apply a documented default, whenever the source manifest has none — the v2 field is required and has no fallback.
+6. **Move `spec.type` to `spec.service.type`.** v1's service type moves onto the identity block and stays required, with the same six values `spec/v1/schema.json` already enumerates — v1's prose tabulated only four of them (`spec/v1/specification.md` §3.1). The field did not disappear in v2; it moved.
+
+   It is not, however, a pure relocation. v1's prose marked `spec.type` a MUST, but the shipped `spec/v1/schema.json` left it optional, and v1 manifests exist that omit it. A migration tool must therefore prompt for the type, or apply a documented default, whenever the source manifest has none — the v2 field is required and has no fallback.
 
 ## 13. Conformance
 
