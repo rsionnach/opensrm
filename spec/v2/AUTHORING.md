@@ -186,10 +186,12 @@ An `ai-gate` is permitted to declare judgment SLOs, not obliged to — adopt
 the type first, author the judgment SLOs when you are ready.
 
 Four of the six have an archetype in [§3](#3-choosing-a-starting-point)
-above. `batch` and `database` are equally valid types that do not — a
-nightly job or a managed datastore declares its type and then composes the
-blocks it needs from [§4](#4-block-by-block). What each of the six denotes
-is tabulated in `OPENSRM-CORE-v2.md` §3.1.
+above. `batch` and `database` are equally valid types that do not —
+`batch` runs on a schedule and is measured on completion and freshness;
+`database` is a stateful store measured on query latency and replication.
+Either declares its type and then composes the blocks it needs from
+[§4](#4-block-by-block). What each of the six denotes is tabulated in
+`OPENSRM-CORE-v2.md` §3.1.
 
 If none of the six fits, an implementation may define its own type under
 the reserved `x-` prefix (`^x-[a-z][a-z0-9-]*$`) — `x-cache`, `x-web`. A
