@@ -107,8 +107,7 @@ spec:
   # Service identity
   service:
     name: payment-service
-    type: ai-gate                                  # See §3.1 — required; only
-                                                   # ai-gate may carry judgment_slo
+    type: ai-gate                                  # Required — see §3.1
     description: "Processes payment authorisation and capture for consumer transactions"
 
   # Classical SLOs — OpenSLO v1 documents

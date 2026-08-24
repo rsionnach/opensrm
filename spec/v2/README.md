@@ -26,7 +26,16 @@ validator; that covers the format.
 
 Conventions enforced: ratios are `0.0–1.0` (not percentages); durations match
 `^[0-9]+(ms|s|m|h|d|w)$`; throughput matches `^[0-9]+rps$`; owner/dependency
-references use Backstage `<kind>:<namespace>/<name>` form.
+references use Backstage `<kind>:<namespace>/<name>` form;
+`spec.service.type` is required and is one of `api`, `worker`, `stream`,
+`ai-gate`, `batch`, `database` or an implementation-defined
+`^x-[a-z][a-z0-9-]*$`.
+
+One cross-field rule is enforced: `judgment_slo` is rejected on any type but
+`ai-gate`. It does not run the other way — an `ai-gate` need not declare
+judgment SLOs, and nothing infers the type from their presence. A
+`ServiceManifestTemplate` is validated by its own definition, so the rule
+never reaches one; revalidate after expansion (spec §13).
 
 **Out of scope (per spec §4.4):** embedded classical SLOs under `slo` are
 OpenSLO v1 documents and are validated against the OpenSLO schema separately,
