@@ -956,8 +956,10 @@ over-read:
   ([§5.8](#58-calibration)).
 - **Judgment SLOs arriving via a template are not type-checked.** The
   schema forbids `judgment_slo` on a non-`ai-gate` manifest
-  ([§3.1](#31-the-type-field)), but a `ServiceManifestTemplate` may carry
-  `judgment_slo` and has no required `type` to check it against. Template
+  ([§3.1](#31-the-type-field)), but a `ServiceManifestTemplate` is
+  validated by a different definition, so the conditional never reaches it
+  — a template carrying `judgment_slo` validates even when it declares a
+  `type` of its own. Template
   resolution happens at load time, outside validation, so a `worker`
   extending such a template validates. Implementations are required to
   revalidate after expansion (`OPENSRM-CORE-v2.md` §13); the schema alone
