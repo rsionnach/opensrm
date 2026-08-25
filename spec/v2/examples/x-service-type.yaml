@@ -1,0 +1,21 @@
+# An implementation-specific service type under the reserved `x-` prefix.
+#
+# The six standard types (api, worker, stream, ai-gate, batch, database)
+# cover OpenSRM's vocabulary. An implementation needing another declares it
+# as `x-<name>`: nthlayer's `web` type becomes `x-web`. This keeps an
+# implementation-valid manifest OpenSRM-valid without OpenSRM owning a
+# downstream invention.
+#
+# This fixture exists so the extension rule is tested rather than asserted
+# — it is what keeps AUTHORING.md §3.1's `x-` claim honest.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: marketing-site
+spec:
+  owner:
+    group: "group:default/web-platform"
+  service:
+    name: marketing-site
+    type: x-web
+    description: "Serves the public marketing site and pricing pages"

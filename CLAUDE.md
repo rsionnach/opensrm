@@ -92,17 +92,21 @@ shift-left contract.
 
 ## Where to find detail
 
-- Full spec format conventions (service type mappings, SLO
-  structure, judgment SLO structure for `ai-gate`, notifications,
-  dependencies, design principles, component taxonomy, data flows,
-  integration points): `docs/spec-conventions.md`.
+- Full spec format conventions (SLO structure, judgment SLO
+  structure for `ai-gate`, notifications, dependencies, design
+  principles, component taxonomy, data flows, integration points):
+  `docs/spec-conventions.md`. Its service type mappings are **v1-era
+  and superseded** — it tabulates four types and describes `ai-gate`
+  as an extension of `api`. For v2, `OPENSRM-CORE-v2.md` §3.1 is the
+  authority: six values plus an `x-` extension prefix, required at
+  `spec.service.type`.
 - Authoritative specification:
   - `spec/v1/specification.md`.
   - `spec/v1/schema.json`.
 - OpenSRM v2 spec docs at repo root (moved from ecosystem root under
   opensrm-hty.6):
   - `OPENSRM-CORE-v2.md` — v2-draft core spec (supersedes v1, dated
-    2026-04-19). Machine-readable schema + worked examples:
+    2026-08-25). Machine-readable schema + worked examples:
     `spec/v2/schema.json` (validated by `spec/v2/validate.sh`).
   - `spec/v2/AUTHORING.md` — how to WRITE a v2 manifest: block-by-block
     walkthrough, all eight judgment SLO types worked, conventions, and

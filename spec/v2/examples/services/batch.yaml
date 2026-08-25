@@ -1,0 +1,18 @@
+# OpenSRM v2 — the `batch` archetype: a scheduled job.
+#
+# `batch` and `database` have no archetype section in AUTHORING.md, but
+# both are values an implementation MUST accept (OPENSRM-CORE-v2.md §3.1).
+# These fixtures exist so all six enum values are exercised, not just the
+# four with a written archetype.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: nightly-reconciliation
+  namespace: default
+spec:
+  owner:
+    group: "group:default/sre-finance"
+  service:
+    name: nightly-reconciliation
+    type: batch
+    description: "Reconciles settled payments against the ledger each night"

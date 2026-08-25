@@ -1,0 +1,17 @@
+# NEGATIVE FIXTURE — must be REJECTED by spec/v2/schema.json.
+#
+# `type` is not inheritable (§3.1). Were a template permitted one, this
+# template — ai-gate, carrying judgment SLOs — and a manifest typed
+# `worker` extending it would both validate alone, and the resolved
+# manifest's verdict would depend on whose value the implementation kept.
+# Forbidding the field on templates makes that pair unconstructible.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifestTemplate
+metadata:
+  name: decision-services-base
+  namespace: default
+spec:
+  service:
+    type: ai-gate
+  judgment_slo:
+    - $ref: "../../examples/judgment-slos/01-reversal-rate.yaml"

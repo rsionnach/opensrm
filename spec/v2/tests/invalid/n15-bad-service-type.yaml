@@ -1,0 +1,16 @@
+# NEGATIVE FIXTURE — must be REJECTED by spec/v2/schema.json.
+#
+# `gateway` is a real key in nthlayer-generate's metric-template registry
+# but is NOT an OpenSRM service type. It is rejected because it is neither
+# in the enum nor `x-` prefixed — an implementation-specific type must be
+# spelled `x-gateway`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: edge-gateway
+spec:
+  owner:
+    group: "group:default/sre-edge"
+  service:
+    name: edge-gateway
+    type: gateway

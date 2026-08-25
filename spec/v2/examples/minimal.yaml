@@ -1,6 +1,6 @@
 # The smallest manifest spec/v2/schema.json accepts: the envelope, an
-# owner, and a service identity. Everything else is optional to the
-# validator.
+# owner, and a service identity (`name` and `type`). Everything else is
+# optional to the validator.
 #
 # This fixture exists to keep AUTHORING.md §2 honest — it asserts this
 # document validates, so the guide's claim about the floor is tested
@@ -14,3 +14,4 @@ spec:
     group: "group:default/sre-checkout"
   service:
     name: checkout-api
+    type: api

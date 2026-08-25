@@ -75,7 +75,8 @@ There are three document kinds:
 | `ServiceManifestTemplate` | Shared defaults a manifest extends ([§4.8](#48-template--shared-defaults)). |
 
 The smallest manifest the schema accepts needs only an owner and a
-service identity:
+service identity — and an identity means both `name` and `type`
+([§3.1](#31-the-type-field)):
 
 ```yaml
 apiVersion: opensrm.nthlayer.io/v2
@@ -87,15 +88,16 @@ spec:
     group: "group:default/sre-checkout"
   service:
     name: checkout-api
+    type: api
 ```
 
 → [`examples/minimal.yaml`](examples/minimal.yaml)
 
-That is valid but useless — it declares ownership and nothing else. It
-is worth knowing as the floor, because it tells you the schema will not
-stop you shipping an empty manifest. Everything below is optional as far
-as the validator is concerned; whether it is optional for *you* is the
-subject of the rest of this guide.
+That is valid but useless — it declares ownership and a typed identity
+and nothing else. It is worth knowing as the floor, because it tells you
+the schema will not stop you shipping an empty manifest. Everything
+below is optional as far as the validator is concerned; whether it is
+optional for *you* is the subject of the rest of this guide.
 
 `apiVersion` is exactly `opensrm.nthlayer.io/v2` and `kind` is exactly
 `ServiceManifest` — both are constants, not patterns. A v1 `apiVersion:
@@ -108,15 +110,16 @@ matches your service and delete what does not apply.
 
 What distinguishes the archetypes is which blocks they use:
 
-| Archetype | Characteristic SLOs | `contracts`? | `judgment_slo`? | Example |
-|---|---|---|---|---|
-| **api** | availability, latency | Yes — callers need a promise | No | [`examples/services/api.yaml`](examples/services/api.yaml) |
-| **worker** | success rate, processing time | No — nothing calls it synchronously | No | [`examples/services/worker.yaml`](examples/services/worker.yaml) |
-| **stream** | consumer lag, throughput | Yes — via AsyncAPI | No | [`examples/services/stream.yaml`](examples/services/stream.yaml) |
-| **ai-gate** | availability, latency | Yes | **Yes** — the point of the archetype | [`examples/services/ai-gate.yaml`](examples/services/ai-gate.yaml) |
+| Archetype | `type` | Characteristic SLOs | `contracts`? | `judgment_slo`? | Example |
+|---|---|---|---|---|---|
+| **api** | `api` | availability, latency | Yes — callers need a promise | No | [`examples/services/api.yaml`](examples/services/api.yaml) |
+| **worker** | `worker` | success rate, processing time | No — nothing calls it synchronously | No | [`examples/services/worker.yaml`](examples/services/worker.yaml) |
+| **stream** | `stream` | consumer lag, throughput | Yes — via AsyncAPI | No | [`examples/services/stream.yaml`](examples/services/stream.yaml) |
+| **ai-gate** | `ai-gate` | availability, latency | Yes | **Yes** — the point of the archetype | [`examples/services/ai-gate.yaml`](examples/services/ai-gate.yaml) |
 
-Nothing in the manifest records which one you picked — the archetypes
-organise this guide only ([§3.1](#31-why-there-is-no-type-field)).
+`spec.service.type` records which one you picked, and the schema uses it —
+declaring judgment SLOs on anything but an `ai-gate` is rejected
+([§3.1](#31-the-type-field)).
 
 Three things are worth drawing out, because they are the mistakes people
 make when they start from the wrong archetype:
@@ -164,18 +167,65 @@ gate answered quickly and without erroring. They cannot tell you it
 answered *well*. That gap is what [§5](#5-the-eight-judgment-slo-types)
 is about.
 
-### 3.1 Why there is no `type` field
+### 3.1 The `type` field
 
-v1 had one, and made it normative: `spec/v1/specification.md` §11 lists
-type-specific validation as a **MUST** ("judgment SLOs only valid for
-`ai-gate` type"), and the schema listing in that document implements it
-as an `if`/`then`. The *shipped* `spec/v1/schema.json` never implemented
-that conditional, so the rule was normative but unenforced in v1 too.
+`spec.service.type` is required, and takes one of six values: `api`,
+`worker`, `stream`, `ai-gate`, `batch`, `database`. It does one job beyond
+documentation: **the schema rejects `judgment_slo` on any type but
+`ai-gate`.**
 
-v2 dropped the field outright. Nothing records which archetype you
-picked, and nothing stops a worker from declaring judgment SLOs. Whether
-that omission was deliberate is an open question against the v2
-draft (tracked internally as `opensrm-6w9d`).
+```yaml
+  service:
+    name: refund-approver
+    type: ai-gate            # required; permits the judgment_slo block
+```
+
+→ [`examples/services/ai-gate.yaml`](examples/services/ai-gate.yaml)
+
+An `ai-gate` is permitted to declare judgment SLOs, not obliged to — adopt
+the type first, author the judgment SLOs when you are ready.
+
+Four of the six have an archetype in [§3](#3-choosing-a-starting-point)
+above. `batch` and `database` are equally valid types that do not —
+`batch` runs on a schedule and is measured on completion and freshness;
+`database` is a stateful store measured on query latency and replication.
+Either declares its type and then composes the blocks it needs from
+[§4](#4-block-by-block). What each of the six denotes is tabulated in
+`OPENSRM-CORE-v2.md` §3.1.
+
+If none of the six fits, an implementation may define its own type under
+the reserved `x-` prefix (`^x-[a-z][a-z0-9-]*$`) — `x-cache`, `x-web`. A
+bare custom type is rejected: it must carry the prefix, so a reader can
+always tell a standard type from a local one. The escape hatch does not
+carry the judgment SLO permission with it — `ai-gate` is the only type
+that may declare them, so a decision service of your own takes
+`type: ai-gate` rather than an `x-` type.
+
+→ [`examples/x-service-type.yaml`](examples/x-service-type.yaml)
+
+Two things follow from the rule being about the `judgment_slo` **key**
+rather than its contents. An empty `judgment_slo: []` on a non-`ai-gate`
+manifest is rejected just as a populated one is — if your tooling emits
+empty collections by default, omit the key. And a
+`ServiceManifestTemplate` may not declare a `type` at all: it is not
+inheritable, every manifest declares its own, and a template that tries is
+rejected.
+
+**Why this reads as a v2 addition but is really a v1 restoration.** v1 had
+`spec.type` and made the rule normative: `spec/v1/specification.md` §11
+lists type-specific validation as a **MUST** ("judgment SLOs only valid
+for `ai-gate` type"), and the schema listing embedded in that document
+implements it as an `if`/`then`. The *shipped* `spec/v1/schema.json` never
+implemented that conditional, and left `type` optional — so two of v1's
+own examples omit the field entirely and the MUST could never bite. The v2
+draft then dropped the field, and the rule with it. It is now required,
+and enforced in the artefact rather than only in prose.
+
+The six values are v1's own. `spec/v1/schema.json`'s `ServiceType` enum
+already listed exactly `api`, `worker`, `stream`, `ai-gate`, `batch`,
+`database`; it is v1's *prose* (`spec/v1/specification.md` §3.1) that
+tabulates only the first four. v2 adopts the shipped enum verbatim and
+adds the `x-` extension branch — nothing else.
 
 ## 4. Block by block
 
@@ -209,12 +259,14 @@ convention.
 ```yaml
   service:
     name: checkout-api
+    type: api
     description: "Creates and confirms customer checkout sessions"
 ```
 
 → [`examples/services/api.yaml`](examples/services/api.yaml)
 
-`name` is the only required field. Spend a moment on `description`:
+`name` and `type` are required; `description` is not. For `type`, see
+[§3.1](#31-the-type-field). Spend a moment on `description`:
 write what the service *does for whom*, not what it is built from. It is
 the string a human sees when your service appears as somebody else's
 dependency, and "Go service backed by Postgres" tells them nothing about
@@ -254,7 +306,9 @@ about whether your objectives are well-formed.
 
 ### 4.4 `judgment_slo` — decision-quality SLOs
 
-Same two forms, inline or `$ref`:
+This block is only permitted on a service whose `spec.service.type` is
+`ai-gate`; the schema rejects it on any other type
+([§3.1](#31-the-type-field)). Same two forms as `slo`, inline or `$ref`:
 
 ```yaml
   judgment_slo:
@@ -919,8 +973,16 @@ over-read:
   object, so a misspelled merge key validates and silently no-ops.
 - **`method` and target keys are not bound** for `calibration`
   ([§5.8](#58-calibration)).
-- **Nothing restricts judgment SLOs to decision-making services**, since
-  v2 has no `spec.type` ([§3.1](#31-why-there-is-no-type-field)).
+- **Judgment SLOs arriving via a template are not type-checked.** The
+  schema forbids `judgment_slo` on a non-`ai-gate` manifest
+  ([§3.1](#31-the-type-field)), but a `ServiceManifestTemplate` is
+  validated by a different definition, so the conditional never reaches a
+  template. A template MUST NOT declare a `type` of its own — the schema
+  rejects one that does — so it can never contradict the manifest
+  extending it; but it may still carry `judgment_slo`, and expansion
+  happens at load time, outside validation, so a `worker` extending such a
+  template validates. Implementations are required to revalidate after
+  expansion (`OPENSRM-CORE-v2.md` §13); the schema alone does not catch it.
 
 In short: the schema checks shape, not sense. It will not tell you your
 SLO is wrong, only that it is well-formed.
@@ -943,7 +1005,7 @@ Both files are real, and the v2 result is in the validated fixture set.
 |---|---|---|
 | `apiVersion: opensrm/v1`, `kind: ServiceReliabilityManifest` | `apiVersion: opensrm.nthlayer.io/v2`, `kind: ServiceManifest` | Rename |
 | `metadata.team` / `.tier` / `.description` | `spec.owner`, `metadata.labels.tier`, `spec.service.description` | Moved |
-| `spec.type` (`api`/`worker`/`stream`/`ai-gate`) | — | **Removed** ([§3.1](#31-why-there-is-no-type-field)) |
+| `spec.type` (four values in v1's prose, six in `spec/v1/schema.json`) | `spec.service.type` — v1's shipped six, adopted verbatim | Moved ([§3.1](#31-the-type-field)) |
 | `spec.slos` (bespoke) | `spec.slo` — OpenSLO v1 documents | **Rewrite** |
 | `spec.contract` (singular) | `spec.contracts` (list) | Renamed + pluralised |
 | `spec.dependencies[].type` | Carried by the Backstage ref kind | Reshaped |
@@ -1169,7 +1231,9 @@ manifest until they have a home:
 7. Park the four homeless blocks somewhere before deleting them.
 8. Only now consider adding `judgment_slo`
    ([§5](#5-the-eight-judgment-slo-types)) — new capability, not
-   migration. Do it as its own change.
+   migration. Do it as its own change, and note that it requires
+   `spec.service.type: ai-gate` ([§3.1](#31-the-type-field)); on any
+   other type the schema rejects the block.
 
 ## 8. Validating your manifest
 

@@ -42,6 +42,7 @@ spec:
 
   service:
     name: payment-api
+    type: api
     description: "Handles payment processing for checkout"
 
   # v1: spec.slos, a bespoke block keyed by SLO kind.

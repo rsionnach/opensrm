@@ -9,6 +9,7 @@ spec:
     group: "group:default/sre-checkout"
   service:
     name: checkout-api
+    type: api
   instrumentation:
     required_metrics:
       - name: http_requests_total

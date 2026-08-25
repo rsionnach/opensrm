@@ -2,7 +2,7 @@
 
 **Status:** Draft for implementation
 **Supersedes:** OpenSRM v1 (dev.to article, February 2026)
-**Date:** 2026-04-19
+**Date:** 2026-08-25
 
 ---
 
@@ -107,6 +107,7 @@ spec:
   # Service identity
   service:
     name: payment-service
+    type: ai-gate                                  # Required — see §3.1
     description: "Processes payment authorisation and capture for consumer transactions"
 
   # Classical SLOs — OpenSLO v1 documents
@@ -136,6 +137,35 @@ spec:
 ```
 
 The manifest uses Backstage's `apiVersion/kind/metadata/spec` envelope shape. This is deliberate: any Backstage catalogue can treat OpenSRM manifests as additional entity kinds with no parsing infrastructure changes.
+
+### 3.1 Service types
+
+`spec.service.type` records the service's operational pattern. It is **required**.
+
+An implementation MUST accept these six values:
+
+| Type | Meaning |
+|---|---|
+| `api` | Synchronously called; callers depend on a latency and availability promise |
+| `worker` | Processes queued work; nothing calls it synchronously |
+| `stream` | Consumes an event stream; measured on lag and throughput |
+| `ai-gate` | Makes decisions whose quality is measurable — the judgment SLO archetype |
+| `batch` | Runs on a schedule; measured on completion and freshness |
+| `database` | Stateful store; measured on query latency and replication |
+
+`ai-gate` denotes decision-making, not AI implementation. A service qualifies because its output is a consequential classification, decision, or action whose quality can be measured — whether that output comes from a model, a rule engine, or a human approver (§5). A purely rule-based or human-in-the-loop approval service that wants judgment SLOs declares `type: ai-gate`.
+
+An implementation MAY define additional types under the reserved `x-` prefix, matching `^x-[a-z][a-z0-9-]*$`. Implementations MUST NOT define additional bare types — a type that is neither one of the six nor `x-` prefixed MUST be rejected. This keeps an implementation-specific type valid under OpenSRM without OpenSRM adopting it.
+
+Type-conditional validation, restoring the v1 rule:
+
+- A manifest whose `spec.service.type` is not `ai-gate` MUST NOT declare `spec.judgment_slo`. Judgment SLOs measure decision quality and are only meaningful for a service that makes decisions. The key itself is what is forbidden: an empty `spec.judgment_slo: []` counts as declaring it and MUST be rejected. A tool that emits empty collections by default MUST omit the key on a non-`ai-gate` manifest. The rule follows the judgment SLO rather than the file it lives in: a standalone `kind: JudgmentSLO` document MUST NOT name a non-`ai-gate` service in its `spec.service`, and an implementation that resolves standalone judgment SLOs against the catalogue MUST enforce this at load time. Schema validation alone cannot — the two documents are validated separately, and neither can see the other.
+- An `ai-gate` service MAY declare judgment SLOs but is not required to. A service may adopt the type before its judgment SLOs are authored.
+- The restriction is to `ai-gate` alone, not to decision services generally: an `x-` type MUST NOT declare judgment SLOs either. An implementation whose decision services want them declares `ai-gate` — which, per the paragraph above, is about what the service does and not how it is built.
+
+`type` is not inheritable. A `ServiceManifestTemplate` MUST NOT declare `spec.service.type`, and an extending manifest MUST declare its own. Were a template permitted one, a template typed `ai-gate` carrying judgment SLOs and a manifest typed `worker` extending it would both validate alone, and the resolved manifest's verdict would depend on whose value an implementation kept — the same two files accepted by one conformant implementation and rejected by another.
+
+Because template resolution happens at load time rather than during schema validation, a template carrying `judgment_slo` could otherwise supply them to a manifest of any type. An implementation MUST therefore revalidate the fully resolved manifest, after template expansion, against the same rules (§9, §13).
 
 ## 4. Classical SLOs (via OpenSLO)
 
@@ -529,7 +559,6 @@ metadata:
 spec:
   slo:
     - $ref: "./slos/baseline-availability.yaml"
-  judgment_slo: []
   contracts: []
   instrumentation:
     required_metrics: [...]
@@ -639,6 +668,13 @@ Organisations running OpenSRM v1:
 3. **Move API contract references to OpenAPI/AsyncAPI documents.** v1 bespoke contract references need to be rewritten.
 4. **Retain judgment SLOs unchanged.** The judgment SLO framework is OpenSRM's original contribution; v2 formalises what v1 described informally.
 5. **Adopt CloudEvents envelopes for change events.** If v1 emitted custom change events, they move under the CloudEvents envelope.
+6. **Move `spec.type` to `spec.service.type`.** v1's service type moves onto the identity block and stays required, with the same six values `spec/v1/schema.json` already enumerates — v1's prose tabulated only four of them (`spec/v1/specification.md` §3.1). The field did not disappear in v2; it moved.
+
+   It is not, however, a pure relocation. v1's prose marked `spec.type` a MUST, but the shipped `spec/v1/schema.json` left it optional, and v1 manifests exist that omit it. A migration tool must therefore prompt for the type, or apply a documented default, whenever the source manifest has none — the v2 field is required and has no fallback.
+
+   On a `ServiceManifestTemplate`, delete `spec.type` outright rather than relocating it — templates MUST NOT declare a type (§3.1), so a mechanical relocation produces a document the schema rejects.
+
+   Delete the old locations as you go. A manifest carrying both `spec.type` and `spec.service.type`, or carrying a `metadata.labels.type` alongside it, validates — the schema does not police either — and leaves two discriminators with no precedence rule between them. Implementations that read a label to recover the type before this field existed must be migrated to `spec.service.type` rather than left to disagree with it.
 
 ## 13. Conformance
 
@@ -650,6 +686,8 @@ An OpenSRM v2 implementation MUST:
 - Resolve cross-references (dependencies, contracts, templates, owners) and fail load on unresolvable references
 - Generate change events as CloudEvents v1.0 envelopes when manifests change
 - Support template resolution (§9)
+- Revalidate the fully resolved manifest after template expansion, so type-conditional rules (§3.1) cannot be bypassed by a template
+- Enforce the same type-conditional rules on standalone `kind: JudgmentSLO` documents when binding them to the service each names, so the rules cannot be bypassed by moving a judgment SLO into a second file
 
 An implementation SHOULD:
 

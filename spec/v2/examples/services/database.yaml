@@ -1,0 +1,16 @@
+# OpenSRM v2 — the `database` archetype: a stateful store.
+#
+# See the note in batch.yaml: this pairs with it to exercise the two enum
+# values that have no archetype section in AUTHORING.md.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: ledger-primary
+  namespace: default
+spec:
+  owner:
+    group: "group:default/sre-finance"
+  service:
+    name: ledger-primary
+    type: database
+    description: "Primary ledger store; query latency and replication lag are the SLIs"

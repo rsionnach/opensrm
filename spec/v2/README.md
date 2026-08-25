@@ -26,7 +26,19 @@ validator; that covers the format.
 
 Conventions enforced: ratios are `0.0–1.0` (not percentages); durations match
 `^[0-9]+(ms|s|m|h|d|w)$`; throughput matches `^[0-9]+rps$`; owner/dependency
-references use Backstage `<kind>:<namespace>/<name>` form.
+references use Backstage `<kind>:<namespace>/<name>` form;
+`spec.service.type` is required and is one of `api`, `worker`, `stream`,
+`ai-gate`, `batch`, `database` or an implementation-defined
+`^x-[a-z][a-z0-9-]*$`.
+
+One cross-field rule is enforced: `judgment_slo` is rejected on any type but
+`ai-gate` — including on an `x-` type, and including an empty
+`judgment_slo: []`, since the key is what the rule forbids. It does not run
+the other way: an `ai-gate` need not declare judgment SLOs, and nothing
+infers the type from their presence. A `ServiceManifestTemplate` is
+validated by its own definition, so the rule never reaches one — a template
+may not declare a `type`, but it may still carry `judgment_slo`, so
+revalidate after expansion (spec §13).
 
 **Out of scope (per spec §4.4):** embedded classical SLOs under `slo` are
 OpenSLO v1 documents and are validated against the OpenSLO schema separately,
@@ -43,11 +55,15 @@ spec/v2/
 ├── examples/                   # valid fixtures — every file here must validate
 │   ├── judgment-slos/01..08-*.yaml   # one JudgmentSLO per standard type
 │   ├── services/{api,worker,stream,ai-gate}.yaml  # one per service archetype
+│   ├── services/{batch,database}.yaml # the two types with no archetype
+│   ├── services/ai-gate-without-judgment-slos.yaml # the rule's permissive side
 │   ├── migration/api-full-v2.yaml    # the repo-root v1 manifest, migrated
 │   ├── minimal.yaml            # smallest manifest the schema accepts
 │   ├── service-manifest-full.yaml
 │   ├── service-manifest-template.yaml
-│   └── template-extension.yaml # a manifest extending that template
+│   ├── judgment-slo-template.yaml # a template carrying judgment SLOs
+│   ├── template-extension.yaml # a manifest extending that template
+│   └── x-service-type.yaml     # an implementation-specific `x-` service type
 └── tests/invalid/              # negative fixtures that MUST be rejected
 ```
 

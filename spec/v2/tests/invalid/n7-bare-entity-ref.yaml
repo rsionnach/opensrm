@@ -9,3 +9,4 @@ spec:
     group: "payments"
   service:
     name: payment-api
+    type: api

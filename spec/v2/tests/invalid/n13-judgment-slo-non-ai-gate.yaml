@@ -1,0 +1,18 @@
+# NEGATIVE FIXTURE — must be REJECTED by spec/v2/schema.json.
+#
+# A worker declaring a judgment SLO. This is the rule opensrm-6w9d exists
+# to enforce: judgment SLOs measure decision quality, so they are only
+# meaningful on a decision-making service. v1 stated this as a MUST
+# (spec/v1/specification.md §11) but its shipped schema never enforced it.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: reconciliation-worker
+spec:
+  owner:
+    group: "group:default/sre-finance"
+  service:
+    name: reconciliation-worker
+    type: worker
+  judgment_slo:
+    - $ref: "./judgment-slos/01-reversal-rate.yaml"
