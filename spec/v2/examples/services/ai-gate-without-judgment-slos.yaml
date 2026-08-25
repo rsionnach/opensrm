@@ -1,0 +1,20 @@
+# OpenSRM v2 — an `ai-gate` declaring NO judgment SLOs.
+#
+# The conditional in schema.json runs one way only: a non-ai-gate MUST NOT
+# declare judgment_slo, but an ai-gate is permitted them, not obliged
+# (OPENSRM-CORE-v2.md §3.1). A service may adopt the type before its
+# judgment SLOs are authored. Every other ai-gate fixture carries the
+# block, so without this one nothing would fail if the rule were ever
+# made bidirectional.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-triage
+  namespace: default
+spec:
+  owner:
+    group: "group:default/payments"
+  service:
+    name: refund-triage
+    type: ai-gate
+    description: "Triages refund requests; judgment SLOs not yet authored"

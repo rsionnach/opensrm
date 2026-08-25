@@ -55,7 +55,7 @@
       "description": "Service operational pattern. The six standard values, or an implementation-specific type under the reserved `x-` prefix.",
       "oneOf": [
         { "enum": ["api", "worker", "stream", "ai-gate", "batch", "database"] },
-        { "type": "string", "pattern": "^x-[a-z][a-z0-9-]*$" }
+        { "type": "string", "pattern": "^x-[a-z][a-z0-9-]*$", "not": { "pattern": "\\n" } }
       ]
     },
     "Metadata": {

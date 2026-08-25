@@ -55,6 +55,8 @@ spec/v2/
 ├── examples/                   # valid fixtures — every file here must validate
 │   ├── judgment-slos/01..08-*.yaml   # one JudgmentSLO per standard type
 │   ├── services/{api,worker,stream,ai-gate}.yaml  # one per service archetype
+│   ├── services/{batch,database}.yaml # the two types with no archetype
+│   ├── services/ai-gate-without-judgment-slos.yaml # the rule's permissive side
 │   ├── migration/api-full-v2.yaml    # the repo-root v1 manifest, migrated
 │   ├── minimal.yaml            # smallest manifest the schema accepts
 │   ├── service-manifest-full.yaml

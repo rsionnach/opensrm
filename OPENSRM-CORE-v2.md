@@ -159,7 +159,7 @@ An implementation MAY define additional types under the reserved `x-` prefix, ma
 
 Type-conditional validation, restoring the v1 rule:
 
-- A manifest whose `spec.service.type` is not `ai-gate` MUST NOT declare `spec.judgment_slo`. Judgment SLOs measure decision quality and are only meaningful for a service that makes decisions. The key itself is what is forbidden: an empty `spec.judgment_slo: []` counts as declaring it and MUST be rejected. A tool that emits empty collections by default MUST omit the key on a non-`ai-gate` manifest.
+- A manifest whose `spec.service.type` is not `ai-gate` MUST NOT declare `spec.judgment_slo`. Judgment SLOs measure decision quality and are only meaningful for a service that makes decisions. The key itself is what is forbidden: an empty `spec.judgment_slo: []` counts as declaring it and MUST be rejected. A tool that emits empty collections by default MUST omit the key on a non-`ai-gate` manifest. The rule follows the judgment SLO rather than the file it lives in: a standalone `kind: JudgmentSLO` document MUST NOT name a non-`ai-gate` service in its `spec.service`, and an implementation that resolves standalone judgment SLOs against the catalogue MUST enforce this at load time. Schema validation alone cannot — the two documents are validated separately, and neither can see the other.
 - An `ai-gate` service MAY declare judgment SLOs but is not required to. A service may adopt the type before its judgment SLOs are authored.
 - The restriction is to `ai-gate` alone, not to decision services generally: an `x-` type MUST NOT declare judgment SLOs either. An implementation whose decision services want them declares `ai-gate` — which, per the paragraph above, is about what the service does and not how it is built.
 
@@ -672,6 +672,8 @@ Organisations running OpenSRM v1:
 
    It is not, however, a pure relocation. v1's prose marked `spec.type` a MUST, but the shipped `spec/v1/schema.json` left it optional, and v1 manifests exist that omit it. A migration tool must therefore prompt for the type, or apply a documented default, whenever the source manifest has none — the v2 field is required and has no fallback.
 
+   On a `ServiceManifestTemplate`, delete `spec.type` outright rather than relocating it — templates MUST NOT declare a type (§3.1), so a mechanical relocation produces a document the schema rejects.
+
    Delete the old locations as you go. A manifest carrying both `spec.type` and `spec.service.type`, or carrying a `metadata.labels.type` alongside it, validates — the schema does not police either — and leaves two discriminators with no precedence rule between them. Implementations that read a label to recover the type before this field existed must be migrated to `spec.service.type` rather than left to disagree with it.
 
 ## 13. Conformance
@@ -685,6 +687,7 @@ An OpenSRM v2 implementation MUST:
 - Generate change events as CloudEvents v1.0 envelopes when manifests change
 - Support template resolution (§9)
 - Revalidate the fully resolved manifest after template expansion, so type-conditional rules (§3.1) cannot be bypassed by a template
+- Enforce the same type-conditional rules on standalone `kind: JudgmentSLO` documents when binding them to the service each names, so the rules cannot be bypassed by moving a judgment SLO into a second file
 
 An implementation SHOULD:
 
