@@ -52,7 +52,7 @@
       "additionalProperties": { "type": "string" }
     },
     "ServiceType": {
-      "description": "Service operational pattern. The six standard values, or an implementation-specific type under the reserved `x-` prefix.",
+      "description": "Service operational pattern. The six standard values, or an implementation-specific type under the reserved `x-` prefix. The `not`/`\\n` guard on the extension branch is deliberate: regex engines disagree about whether `$` matches before a trailing newline, so without it `x-web\\n` (a block scalar, a natural authoring accident) is rejected by ECMA-262 engines and accepted by Python's `re`. The enum branch matches exactly and needs no guard.",
       "oneOf": [
         { "enum": ["api", "worker", "stream", "ai-gate", "batch", "database"] },
         { "type": "string", "pattern": "^x-[a-z][a-z0-9-]*$", "not": { "pattern": "\\n" } }
@@ -100,7 +100,7 @@
           },
           "then": {
             "properties": {
-              "spec": { "not": { "required": ["judgment_slo"] } }
+              "spec": { "properties": { "judgment_slo": false } }
             }
           }
         }
@@ -162,9 +162,9 @@
       "description": "Service identity within a ServiceManifestTemplate. Nothing is required — a template supplies defaults, and the extending manifest supplies the identity. Manifests use ServiceIdentity, which requires `name` and `type`. `type` is not inheritable: a template MUST NOT declare one, so that a template's type can never contradict the type of a manifest extending it.",
       "properties": {
         "name": { "type": "string" },
+        "type": false,
         "description": { "type": "string" }
-      },
-      "not": { "required": ["type"] }
+      }
     },
     "SLOItem": {
       "description": "Either an external $ref to an OpenSLO document, or an inline OpenSLO v1 SLO document (validated against the OpenSLO schema separately, not here).",

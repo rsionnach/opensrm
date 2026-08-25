@@ -2,7 +2,7 @@
 
 **Status:** Draft for implementation
 **Supersedes:** OpenSRM v1 (dev.to article, February 2026)
-**Date:** 2026-04-19
+**Date:** 2026-08-25
 
 ---
 
