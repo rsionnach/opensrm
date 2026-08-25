@@ -159,12 +159,12 @@
     },
     "TemplateServiceIdentity": {
       "type": "object",
-      "description": "Service identity within a ServiceManifestTemplate. Nothing is required — a template supplies defaults, and the extending manifest supplies the identity. Manifests use ServiceIdentity, which requires `name` and `type`.",
+      "description": "Service identity within a ServiceManifestTemplate. Nothing is required — a template supplies defaults, and the extending manifest supplies the identity. Manifests use ServiceIdentity, which requires `name` and `type`. `type` is not inheritable: a template MUST NOT declare one, so that a template's type can never contradict the type of a manifest extending it.",
       "properties": {
         "name": { "type": "string" },
-        "type": { "$ref": "#/definitions/ServiceType" },
         "description": { "type": "string" }
-      }
+      },
+      "not": { "required": ["type"] }
     },
     "SLOItem": {
       "description": "Either an external $ref to an OpenSLO document, or an inline OpenSLO v1 SLO document (validated against the OpenSLO schema separately, not here).",

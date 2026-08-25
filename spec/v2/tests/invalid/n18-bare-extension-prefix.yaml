@@ -1,0 +1,16 @@
+# NEGATIVE FIXTURE — must be REJECTED by spec/v2/schema.json.
+#
+# The lower boundary of `^x-[a-z][a-z0-9-]*$`: the prefix alone is not a
+# type. This pins the regex against a future relaxation — `x-` carries no
+# meaning, and a manifest that names nothing after the prefix has not
+# extended anything.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: mystery-service
+spec:
+  owner:
+    group: "group:default/platform"
+  service:
+    name: mystery-service
+    type: x-

@@ -32,10 +32,13 @@ references use Backstage `<kind>:<namespace>/<name>` form;
 `^x-[a-z][a-z0-9-]*$`.
 
 One cross-field rule is enforced: `judgment_slo` is rejected on any type but
-`ai-gate`. It does not run the other way — an `ai-gate` need not declare
-judgment SLOs, and nothing infers the type from their presence. A
-`ServiceManifestTemplate` is validated by its own definition, so the rule
-never reaches one; revalidate after expansion (spec §13).
+`ai-gate` — including on an `x-` type, and including an empty
+`judgment_slo: []`, since the key is what the rule forbids. It does not run
+the other way: an `ai-gate` need not declare judgment SLOs, and nothing
+infers the type from their presence. A `ServiceManifestTemplate` is
+validated by its own definition, so the rule never reaches one — a template
+may not declare a `type`, but it may still carry `judgment_slo`, so
+revalidate after expansion (spec §13).
 
 **Out of scope (per spec §4.4):** embedded classical SLOs under `slo` are
 OpenSLO v1 documents and are validated against the OpenSLO schema separately,

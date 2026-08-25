@@ -159,8 +159,11 @@ An implementation MAY define additional types under the reserved `x-` prefix, ma
 
 Type-conditional validation, restoring the v1 rule:
 
-- A manifest whose `spec.service.type` is not `ai-gate` MUST NOT declare `spec.judgment_slo`. Judgment SLOs measure decision quality and are only meaningful for a service that makes decisions.
+- A manifest whose `spec.service.type` is not `ai-gate` MUST NOT declare `spec.judgment_slo`. Judgment SLOs measure decision quality and are only meaningful for a service that makes decisions. The key itself is what is forbidden: an empty `spec.judgment_slo: []` counts as declaring it and MUST be rejected. A tool that emits empty collections by default MUST omit the key on a non-`ai-gate` manifest.
 - An `ai-gate` service MAY declare judgment SLOs but is not required to. A service may adopt the type before its judgment SLOs are authored.
+- The restriction is to `ai-gate` alone, not to decision services generally: an `x-` type MUST NOT declare judgment SLOs either. An implementation whose decision services want them declares `ai-gate` — which, per the paragraph above, is about what the service does and not how it is built.
+
+`type` is not inheritable. A `ServiceManifestTemplate` MUST NOT declare `spec.service.type`, and an extending manifest MUST declare its own. Were a template permitted one, a template typed `ai-gate` carrying judgment SLOs and a manifest typed `worker` extending it would both validate alone, and the resolved manifest's verdict would depend on whose value an implementation kept — the same two files accepted by one conformant implementation and rejected by another.
 
 Because template resolution happens at load time rather than during schema validation, a template carrying `judgment_slo` could otherwise supply them to a manifest of any type. An implementation MUST therefore revalidate the fully resolved manifest, after template expansion, against the same rules (§9, §13).
 
@@ -668,6 +671,8 @@ Organisations running OpenSRM v1:
 6. **Move `spec.type` to `spec.service.type`.** v1's service type moves onto the identity block and stays required, with the same six values `spec/v1/schema.json` already enumerates — v1's prose tabulated only four of them (`spec/v1/specification.md` §3.1). The field did not disappear in v2; it moved.
 
    It is not, however, a pure relocation. v1's prose marked `spec.type` a MUST, but the shipped `spec/v1/schema.json` left it optional, and v1 manifests exist that omit it. A migration tool must therefore prompt for the type, or apply a documented default, whenever the source manifest has none — the v2 field is required and has no fallback.
+
+   Delete the old locations as you go. A manifest carrying both `spec.type` and `spec.service.type`, or carrying a `metadata.labels.type` alongside it, validates — the schema does not police either — and leaves two discriminators with no precedence rule between them. Implementations that read a label to recover the type before this field existed must be migrated to `spec.service.type` rather than left to disagree with it.
 
 ## 13. Conformance
 

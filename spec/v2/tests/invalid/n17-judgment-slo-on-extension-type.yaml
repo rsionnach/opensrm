@@ -1,0 +1,18 @@
+# NEGATIVE FIXTURE — must be REJECTED by spec/v2/schema.json.
+#
+# An x- type declaring a judgment SLO. The restriction is to `ai-gate`
+# alone, not to decision services generally — the escape hatch of §3.1
+# does not carry the judgment_slo permission with it. An implementation
+# whose decision services want judgment SLOs declares `ai-gate`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: fraud-gate
+spec:
+  owner:
+    group: "group:default/risk"
+  service:
+    name: fraud-gate
+    type: x-fraud-gate
+  judgment_slo:
+    - $ref: "../../examples/judgment-slos/01-reversal-rate.yaml"

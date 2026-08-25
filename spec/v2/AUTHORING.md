@@ -196,9 +196,20 @@ Either declares its type and then composes the blocks it needs from
 If none of the six fits, an implementation may define its own type under
 the reserved `x-` prefix (`^x-[a-z][a-z0-9-]*$`) — `x-cache`, `x-web`. A
 bare custom type is rejected: it must carry the prefix, so a reader can
-always tell a standard type from a local one.
+always tell a standard type from a local one. The escape hatch does not
+carry the judgment SLO permission with it — `ai-gate` is the only type
+that may declare them, so a decision service of your own takes
+`type: ai-gate` rather than an `x-` type.
 
 → [`examples/x-service-type.yaml`](examples/x-service-type.yaml)
+
+Two things follow from the rule being about the `judgment_slo` **key**
+rather than its contents. An empty `judgment_slo: []` on a non-`ai-gate`
+manifest is rejected just as a populated one is — if your tooling emits
+empty collections by default, omit the key. And a
+`ServiceManifestTemplate` may not declare a `type` at all: it is not
+inheritable, every manifest declares its own, and a template that tries is
+rejected.
 
 **Why this reads as a v2 addition but is really a v1 restoration.** v1 had
 `spec.type` and made the rule normative: `spec/v1/specification.md` §11
@@ -966,10 +977,12 @@ over-read:
   schema forbids `judgment_slo` on a non-`ai-gate` manifest
   ([§3.1](#31-the-type-field)), but a `ServiceManifestTemplate` is
   validated by a different definition, so the conditional never reaches a
-  template — even one declaring a `type` of its own. Expansion happens at
-  load time, outside validation, so a `worker` extending such a template
-  validates. Implementations are required to revalidate after expansion
-  (`OPENSRM-CORE-v2.md` §13); the schema alone does not catch it.
+  template. A template MUST NOT declare a `type` of its own — the schema
+  rejects one that does — so it can never contradict the manifest
+  extending it; but it may still carry `judgment_slo`, and expansion
+  happens at load time, outside validation, so a `worker` extending such a
+  template validates. Implementations are required to revalidate after
+  expansion (`OPENSRM-CORE-v2.md` §13); the schema alone does not catch it.
 
 In short: the schema checks shape, not sense. It will not tell you your
 SLO is wrong, only that it is well-formed.
