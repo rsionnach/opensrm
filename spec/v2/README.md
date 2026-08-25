@@ -61,6 +61,7 @@ spec/v2/
 │   ├── minimal.yaml            # smallest manifest the schema accepts
 │   ├── service-manifest-full.yaml
 │   ├── service-manifest-template.yaml
+│   ├── judgment-slo-template.yaml # a template carrying judgment SLOs
 │   ├── template-extension.yaml # a manifest extending that template
 │   └── x-service-type.yaml     # an implementation-specific `x-` service type
 └── tests/invalid/              # negative fixtures that MUST be rejected

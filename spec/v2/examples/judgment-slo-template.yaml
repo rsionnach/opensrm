@@ -1,0 +1,18 @@
+# OpenSRM v2 ServiceManifestTemplate carrying judgment SLOs.
+#
+# This is the shape §3.1 and §13 exist to describe. A template MUST NOT
+# declare a `type` (n19), but it MAY carry `judgment_slo` — and schema
+# validation cannot see through expansion, so a manifest of any type
+# extending this template validates. That is why §13 requires an
+# implementation to revalidate the fully resolved manifest.
+#
+# Nothing in the fixture set extends this template: it exists to keep the
+# template-side of the rule exercised, not to be resolved.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifestTemplate
+metadata:
+  name: decision-services-base
+  namespace: default
+spec:
+  judgment_slo:
+    - $ref: "./judgment-slos/01-reversal-rate.yaml"
