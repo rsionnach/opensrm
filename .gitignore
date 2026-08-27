@@ -46,3 +46,9 @@ temp/
 
 # Local backups created by the auto-memory retirement plan (2026-06-04)
 *.bak
+
+# Worktrees Claude Code creates for --worktree and for subagents running with
+# `isolation: worktree`. Safe to use in THIS repo (spec only — no Python, no
+# sibling path dependencies); the other ecosystem members must use sibling
+# worktrees instead, via .claude/bin/eco-worktree.sh at the ecosystem root.
+.claude/worktrees/
