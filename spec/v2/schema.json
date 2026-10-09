@@ -83,7 +83,7 @@
       "required": ["apiVersion", "kind", "metadata", "spec"],
       "allOf": [
         {
-          "description": "Judgment SLOs measure decision quality and are only meaningful on a decision-making service. Restores v1 §11's type-specific validation MUST, which v1's shipped schema never enforced.",
+          "description": "Judgment SLOs and judgment thresholds measure decision quality and are only meaningful on a decision-making service. Restores v1 §11's type-specific validation MUST, which v1's shipped schema never enforced.",
           "if": {
             "properties": {
               "spec": {
@@ -100,7 +100,7 @@
           },
           "then": {
             "properties": {
-              "spec": { "properties": { "judgment_slo": false } }
+              "spec": { "properties": { "judgment_slo": false, "judgment_threshold": false } }
             }
           }
         }
@@ -124,6 +124,11 @@
               "type": "array",
               "description": "Native OpenSRM judgment SLOs (inline JudgmentSLO specs or $ref) — decision-quality targets, distinct from classical `slo`.",
               "items": { "$ref": "#/definitions/JudgmentSLOItem" }
+            },
+            "judgment_threshold": {
+              "type": "array",
+              "description": "Bounds on judgment error magnitudes (segments, stability, calibration, audit backlog, feedback latency) — distinct from judgment_slo, which holds rate targets with error budgets. Decision 3c, opensrm-l33e.",
+              "items": { "$ref": "#/definitions/JudgmentThresholdSpec" }
             },
             "contracts": {
               "type": "array",
@@ -181,7 +186,7 @@
       ]
     },
     "JudgmentSLOItem": {
-      "description": "Either an external $ref or an inline judgment-SLO spec (the discriminated union of the eight standard types).",
+      "description": "Either an external $ref or an inline judgment-SLO spec (the discriminated union of the five standard types).",
       "oneOf": [
         { "$ref": "#/definitions/Ref" },
         { "$ref": "#/definitions/JudgmentSLOSpec" }
@@ -199,7 +204,7 @@
     },
     "JudgmentSLOSpec": {
       "type": "object",
-      "description": "A judgment SLO. The `judgment_type` value selects one of the eight standard shapes; the matching branch below adds the measurement/sampling/probe/outcome_signal and target fields that type requires.",
+      "description": "A judgment SLO. The `judgment_type` value selects one of the five standard shapes; the matching branch below adds the measurement/sampling/probe/outcome_signal and target fields that type requires.",
       "required": ["service", "judgment_type"],
       "properties": {
         "service": { "type": "string" },
@@ -209,10 +214,7 @@
             "high_confidence_failure",
             "audit_sampling",
             "outcomes",
-            "escalation",
-            "segments",
-            "stability",
-            "calibration"
+            "escalation"
           ]
         },
         "breach_actions": {
@@ -295,8 +297,9 @@
               "target": {
                 "type": "object",
                 "required": ["audit_completion_rate"],
+                "description": "audit_backlog_maximum_age moved to judgment_threshold (type: audit_backlog) in opensrm-l33e; `false` rejects the old placement instead of silently ignoring it, since this schema does not close objects.",
                 "properties": {
-                  "audit_backlog_maximum_age": { "$ref": "#/definitions/Duration" },
+                  "audit_backlog_maximum_age": false,
                   "audit_completion_rate": { "$ref": "#/definitions/Ratio" }
                 }
               }
@@ -341,32 +344,38 @@
               }
             }
           }
-        },
+        }
+      ]
+    },
+    "JudgmentThresholdSpec": {
+      "type": "object",
+      "description": "A bound on a judgment ERROR MAGNITUDE (decision 3c, opensrm-l33e). Not an SLO: no error budget and no complement — a breach is the measured value exceeding a bound. Inline only. `bounds` is closed so that a misspelled bound is an error rather than an unenforced limit.",
+      "required": ["type", "bounds"],
+      "properties": {
+        "type": { "enum": ["segments", "stability", "calibration", "audit_backlog", "feedback_latency"] },
+        "bounds": { "type": "object" }
+      },
+      "allOf": [
         {
-          "if": { "properties": { "judgment_type": { "const": "segments" } }, "required": ["judgment_type"] },
+          "if": { "properties": { "type": { "const": "segments" } }, "required": ["type"] },
           "then": {
-            "required": ["segment_dimension", "segment_values", "target"],
+            "required": ["segment_dimension", "segment_values", "bounds"],
             "properties": {
               "segment_dimension": { "type": "string" },
-              "segment_values": {
-                "type": "array",
-                "items": { "type": "string" },
-                "minItems": 1
-              },
-              "target": {
+              "segment_values": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+              "bounds": {
                 "type": "object",
+                "additionalProperties": false,
                 "required": ["maximum_variance_from_overall"],
-                "properties": {
-                  "maximum_variance_from_overall": { "$ref": "#/definitions/Ratio" }
-                }
+                "properties": { "maximum_variance_from_overall": { "$ref": "#/definitions/Ratio" } }
               }
             }
           }
         },
         {
-          "if": { "properties": { "judgment_type": { "const": "stability" } }, "required": ["judgment_type"] },
+          "if": { "properties": { "type": { "const": "stability" } }, "required": ["type"] },
           "then": {
-            "required": ["probe", "target"],
+            "required": ["probe", "bounds"],
             "properties": {
               "probe": {
                 "type": "object",
@@ -376,32 +385,32 @@
                   "frequency": { "enum": ["hourly", "daily", "weekly"] }
                 }
               },
-              "target": {
+              "bounds": {
                 "type": "object",
+                "additionalProperties": false,
                 "required": ["maximum_drift"],
-                "properties": {
-                  "maximum_drift": { "$ref": "#/definitions/Ratio" }
-                }
+                "properties": { "maximum_drift": { "$ref": "#/definitions/Ratio" } }
               }
             }
           }
         },
         {
-          "if": { "properties": { "judgment_type": { "const": "calibration" } }, "required": ["judgment_type"] },
+          "if": { "properties": { "type": { "const": "calibration" } }, "required": ["type"] },
           "then": {
-            "required": ["measurement", "target"],
+            "required": ["measurement", "bounds"],
             "properties": {
               "measurement": {
                 "type": "object",
-                "required": ["bins", "window", "method"],
+                "required": ["bins", "window"],
                 "properties": {
                   "bins": { "type": "integer", "minimum": 2 },
                   "window": { "$ref": "#/definitions/Duration" },
-                  "method": { "enum": ["brier_score", "expected_calibration_error"] }
+                  "method": false
                 }
               },
-              "target": {
+              "bounds": {
                 "type": "object",
+                "additionalProperties": false,
                 "anyOf": [
                   { "required": ["maximum_brier_score"] },
                   { "required": ["maximum_expected_calibration_error"] }
@@ -409,6 +418,40 @@
                 "properties": {
                   "maximum_brier_score": { "type": "number", "minimum": 0, "maximum": 1, "description": "Brier score (0-1); not a Ratio semantically, hence inline bounds" },
                   "maximum_expected_calibration_error": { "$ref": "#/definitions/Ratio" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "audit_backlog" } }, "required": ["type"] },
+          "then": {
+            "required": ["bounds"],
+            "properties": {
+              "bounds": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["maximum_age"],
+                "properties": { "maximum_age": { "$ref": "#/definitions/Duration" } }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "feedback_latency" } }, "required": ["type"] },
+          "then": {
+            "required": ["bounds"],
+            "properties": {
+              "bounds": {
+                "type": "object",
+                "additionalProperties": false,
+                "anyOf": [
+                  { "required": ["maximum_p50"] },
+                  { "required": ["maximum_p90"] }
+                ],
+                "properties": {
+                  "maximum_p50": { "$ref": "#/definitions/Duration" },
+                  "maximum_p90": { "$ref": "#/definitions/Duration" }
                 }
               }
             }
@@ -598,6 +641,7 @@
             "service": { "$ref": "#/definitions/TemplateServiceIdentity" },
             "slo": { "type": "array", "items": { "$ref": "#/definitions/SLOItem" } },
             "judgment_slo": { "type": "array", "items": { "$ref": "#/definitions/JudgmentSLOItem" } },
+            "judgment_threshold": { "type": "array", "items": { "$ref": "#/definitions/JudgmentThresholdSpec" } },
             "contracts": { "type": "array", "items": { "$ref": "#/definitions/Contract" } },
             "dependencies": { "type": "array", "items": { "$ref": "#/definitions/Dependency" } },
             "instrumentation": { "$ref": "#/definitions/Instrumentation" }

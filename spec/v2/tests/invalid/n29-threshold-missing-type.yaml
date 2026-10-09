@@ -1,0 +1,13 @@
+# MUST be rejected: every threshold names its type.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - bounds: { maximum_drift: 0.02 }

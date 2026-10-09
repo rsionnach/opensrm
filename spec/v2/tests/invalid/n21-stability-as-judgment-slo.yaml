@@ -1,4 +1,6 @@
-# Judgment SLO: stability — consistent decisions on a frozen probe set.
+# MUST be rejected: stability is not a judgment SLO in v2 (decision 3c). This was
+# examples/judgment-slos/07-stability.yaml until opensrm-l33e; declare it under a
+# ServiceManifest's spec.judgment_threshold instead.
 apiVersion: opensrm.nthlayer.io/v2
 kind: JudgmentSLO
 metadata:

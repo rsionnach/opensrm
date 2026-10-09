@@ -1,0 +1,16 @@
+# MUST be rejected: judgment_threshold, like judgment_slo, is only meaningful
+# on a decision-making service.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: checkout-api
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: checkout-api
+    type: api
+  judgment_threshold:
+    - type: stability
+      probe: { frozen_input_set: "s3://probes/x.jsonl", frequency: daily }
+      bounds: { maximum_drift: 0.02 }

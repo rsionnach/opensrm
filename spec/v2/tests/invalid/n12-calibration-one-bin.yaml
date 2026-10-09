@@ -1,15 +1,16 @@
 # MUST be rejected: calibration bins below the schema floor of 2.
 # One bin is not a reliability curve (AUTHORING.md §5.8).
 apiVersion: opensrm.nthlayer.io/v2
-kind: JudgmentSLO
+kind: ServiceManifest
 metadata:
-  name: one-bin-calibration
+  name: refund-approver
 spec:
-  service: investigation-agent
-  judgment_type: calibration
-  measurement:
-    bins: 1
-    window: 30d
-    method: brier_score
-  target:
-    maximum_brier_score: 0.05
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: calibration
+      measurement: { bins: 1, window: 30d }
+      bounds: { maximum_brier_score: 0.05 }

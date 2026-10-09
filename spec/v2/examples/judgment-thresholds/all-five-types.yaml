@@ -1,0 +1,40 @@
+# Judgment thresholds — one of each of the five types (decision 3c).
+# Bounds on error magnitudes: breach when the measured value EXCEEDS the bound.
+# No error budget and no complement, unlike judgment_slo.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: credit-decision-agent
+  labels:
+    tier: critical   # optional in the schema; nthlayer-common still requires it (opensrm-9bil)
+spec:
+  owner:
+    group: group:default/risk
+  service:
+    name: credit-decision-agent
+    type: ai-gate
+  judgment_threshold:
+    - type: segments
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds:
+        maximum_variance_from_overall: 0.05
+    - type: stability
+      probe:
+        frozen_input_set: "s3://probes/credit-decision-2026q1.jsonl"
+        frequency: daily
+      bounds:
+        maximum_drift: 0.02
+    - type: calibration
+      measurement:
+        bins: 10
+        window: 30d
+      bounds:
+        maximum_brier_score: 0.05
+    - type: audit_backlog
+      bounds:
+        maximum_age: 24h
+    - type: feedback_latency
+      bounds:
+        maximum_p50: 1h
+        maximum_p90: 24h

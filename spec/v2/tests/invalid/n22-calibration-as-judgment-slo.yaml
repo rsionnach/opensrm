@@ -1,4 +1,6 @@
-# Judgment SLO: calibration — expressed confidence matches actual accuracy.
+# MUST be rejected: calibration is not a judgment SLO in v2 (decision 3c). This was
+# examples/judgment-slos/08-calibration.yaml until opensrm-l33e; declare it under a
+# ServiceManifest's spec.judgment_threshold instead.
 apiVersion: opensrm.nthlayer.io/v2
 kind: JudgmentSLO
 metadata:
