@@ -353,7 +353,10 @@
       "required": ["type", "bounds"],
       "properties": {
         "type": { "enum": ["segments", "stability", "calibration", "audit_backlog", "feedback_latency"] },
-        "bounds": { "type": "object" }
+        "bounds": { "type": "object" },
+        "breach_actions": { "not": {}, "description": "Thresholds do not declare breach actions (opensrm-l33e). Rejected so a breach_actions block carried over from judgment_slo fails instead of being silently ignored." },
+        "target": { "not": {}, "description": "Thresholds declare `bounds`, not `target` (opensrm-l33e). Rejected so a stale target from judgment_slo fails instead of being silently ignored." },
+        "judgment_type": { "not": {}, "description": "Thresholds use `type`, not `judgment_type` (opensrm-l33e)." }
       },
       "allOf": [
         {

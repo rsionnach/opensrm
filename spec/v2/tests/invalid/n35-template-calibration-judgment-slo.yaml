@@ -1,0 +1,12 @@
+# MUST be rejected: calibration is a judgment threshold, not a judgment SLO (opensrm-l33e). A template's judgment_slo must not accept a calibration item.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifestTemplate
+metadata:
+  name: payment-services-base
+  namespace: default
+spec:
+  judgment_slo:
+    - service: refund-approver
+      judgment_type: calibration
+      measurement: { bins: 10, window: 30d }
+      target: { maximum_brier_score: 0.05 }

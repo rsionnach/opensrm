@@ -1,0 +1,16 @@
+# MUST be rejected: thresholds declare `bounds`, not `target` (opensrm-l33e). A stale target carried over from judgment_slo must fail rather than be silently ignored.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: calibration
+      measurement: { bins: 10, window: 30d }
+      bounds: { maximum_brier_score: 0.05 }
+      target: { maximum_brier_score: 0.05 }

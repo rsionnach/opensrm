@@ -168,7 +168,7 @@ Type-conditional validation, restoring the v1 rule:
 
 `type` is not inheritable. A `ServiceManifestTemplate` MUST NOT declare `spec.service.type`, and an extending manifest MUST declare its own. Were a template permitted one, a template typed `ai-gate` carrying judgment SLOs and a manifest typed `worker` extending it would both validate alone, and the resolved manifest's verdict would depend on whose value an implementation kept — the same two files accepted by one conformant implementation and rejected by another.
 
-Because template resolution happens at load time rather than during schema validation, a template carrying `judgment_slo` could otherwise supply them to a manifest of any type. An implementation MUST therefore revalidate the fully resolved manifest, after template expansion, against the same rules (§9, §13).
+Because template resolution happens at load time rather than during schema validation, a template carrying `judgment_slo` or `judgment_threshold` could otherwise supply them to a manifest of any type. An implementation MUST therefore revalidate the fully resolved manifest, after template expansion, against the same rules (§9, §13).
 
 ## 4. Classical SLOs (via OpenSLO)
 
