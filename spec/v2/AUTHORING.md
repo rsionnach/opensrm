@@ -2,12 +2,12 @@
 
 A practical guide to writing an OpenSRM v2 `ServiceManifest`: what each
 block is for, which ones your service actually needs, how to express all
-eight judgment SLO types, and how to migrate from v1.
+five judgment SLO types, and how to migrate from v1.
 
 > **Status: v2 is a draft.** `spec/v1/` remains canonical. v2 is
 > specified in [`../../OPENSRM-CORE-v2.md`](../../OPENSRM-CORE-v2.md) and
 > validated by [`schema.json`](schema.json). Write v2 manifests today if
-> you want the eight-type judgment SLO framework or the OpenSLO/Backstage
+> you want the five-type judgment SLO framework or the OpenSLO/Backstage
 > composition; expect the draft to move before it stabilises.
 
 Every YAML block in this guide is an excerpt from a real file, linked
@@ -25,14 +25,26 @@ the repo root and are, correctly, not valid under the v2 schema.
 2. [The envelope](#2-the-envelope)
 3. [Choosing a starting point](#3-choosing-a-starting-point)
 4. [Block by block](#4-block-by-block)
-5. [The eight judgment SLO types](#5-the-eight-judgment-slo-types)
+5. [The five judgment SLO types](#5-the-five-judgment-slo-types)
+   - 5.1 [`reversal_rate`](#51-reversal_rate)
+   - 5.2 [`high_confidence_failure`](#52-high_confidence_failure)
+   - 5.3 [`audit_sampling`](#53-audit_sampling)
+   - 5.4 [`outcomes`](#54-outcomes)
+   - 5.5 [`escalation`](#55-escalation)
+   - 5.6 [`breach_actions`](#56-breach_actions--applies-to-all-five)
+   - 5A. [The five judgment threshold types](#5a-the-five-judgment-threshold-types)
+     - 5A.1 [`segments`](#5a1-segments)
+     - 5A.2 [`stability`](#5a2-stability)
+     - 5A.3 [`calibration`](#5a3-calibration)
+     - 5A.4 [`audit_backlog`](#5a4-audit_backlog)
+     - 5A.5 [`feedback_latency`](#5a5-feedback_latency)
 6. [Conventions and gotchas](#6-conventions-and-gotchas)
 7. [Migrating from v1](#7-migrating-from-v1)
 8. [Validating your manifest](#8-validating-your-manifest)
 
 New to OpenSRM? Read in order. Migrating an existing v1 manifest? Start
 at [§7](#7-migrating-from-v1), which points back into the detail.
-Writing your first judgment SLO? [§5](#5-the-eight-judgment-slo-types)
+Writing your first judgment SLO? [§5](#5-the-five-judgment-slo-types)
 stands alone.
 
 ## 1. What a manifest is for
@@ -72,7 +84,7 @@ There are three document kinds:
 |---|---|
 | `ServiceManifest` | One service's reliability declaration. The main event. |
 | `JudgmentSLO` | A standalone judgment SLO, referenced from a manifest. |
-| `ServiceManifestTemplate` | Shared defaults a manifest extends ([§4.8](#48-template--shared-defaults)). |
+| `ServiceManifestTemplate` | Shared defaults a manifest extends ([§4.9](#49-template--shared-defaults)). |
 
 The smallest manifest the schema accepts needs only an owner and a
 service identity — and an identity means both `name` and `type`
@@ -164,7 +176,7 @@ conditions are about consumption discipline rather than authentication:
 
 **An ai-gate is an api plus judgment SLOs.** Classical SLOs tell you the
 gate answered quickly and without erroring. They cannot tell you it
-answered *well*. That gap is what [§5](#5-the-eight-judgment-slo-types)
+answered *well*. That gap is what [§5](#5-the-five-judgment-slo-types)
 is about.
 
 ### 3.1 The `type` field
@@ -325,11 +337,47 @@ This block is only permitted on a service whose `spec.service.type` is
 → [`examples/services/ai-gate.yaml`](examples/services/ai-gate.yaml)
 
 Unlike `slo`, these **are** fully validated: `judgment_type` selects one
-of eight branches, each requiring its own `measurement`/`sampling`/
+of five branches, each requiring its own `measurement`/`sampling`/
 `probe`/`target` shape. Get the shape wrong and the fixture suite
-catches it. [§5](#5-the-eight-judgment-slo-types) covers all eight.
+catches it. [§5](#5-the-five-judgment-slo-types) covers all five.
 
-### 4.5 `contracts` — what you promise callers
+Error magnitudes — segments, stability, calibration, audit backlog, feedback latency — are not judgment SLOs; declare them under `judgment_threshold` (§4.5).
+
+### 4.5 `judgment_threshold` — bounds on error magnitudes
+
+Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. (Decision 3c, opensrm-l33e.)
+
+```yaml
+judgment_threshold:
+  - type: segments
+    segment_dimension: customer_tier
+    segment_values: [enterprise, smb, consumer]
+    bounds:
+      maximum_variance_from_overall: 0.05
+  - type: stability
+    probe:
+      frozen_input_set: "s3://probes/credit-decision-2026q1.jsonl"
+      frequency: daily
+    bounds:
+      maximum_drift: 0.02
+  - type: calibration
+    measurement:
+      bins: 10
+      window: 30d
+    bounds:
+      maximum_brier_score: 0.05
+  - type: audit_backlog
+    bounds:
+      maximum_age: 24h
+  - type: feedback_latency
+    bounds:
+      maximum_p50: 1h
+      maximum_p90: 24h
+```
+
+Each type is described in §5A.
+
+### 4.6 `contracts` — what you promise callers
 
 A contract is a promise to the services that call you. It is the block
 that makes cross-service reasoning possible, and it is **not** the same
@@ -368,7 +416,7 @@ down even when they feel obvious: an unstated condition is one you
 cannot point at when a caller hammers you without a rate limit and then
 asks why you missed your number.
 
-### 4.6 `dependencies` — what you expect from others
+### 4.7 `dependencies` — what you expect from others
 
 The mirror image of `contracts`. Your dependency's `promise` and your
 `expected_*` values should agree; where they do not, a consumer can
@@ -395,7 +443,7 @@ enum; the examples here use `fail_closed`, `graceful_degradation`,
 `retry_with_backoff` and `fail_open_to_human`. Agree on a vocabulary
 within your organisation, because nothing in the schema will.
 
-### 4.7 `instrumentation` — what the service must emit
+### 4.8 `instrumentation` — what the service must emit
 
 The declaration that makes everything above computable, and a checklist
 for the service owner:
@@ -437,7 +485,7 @@ This block declares what the service **emits**, not what is built on top
 of it. Dashboards, alert rules and trace sampling rates are not
 manifest concerns in v2.
 
-### 4.8 `template` — shared defaults
+### 4.9 `template` — shared defaults
 
 For organisations with many similar services, factor the common parts
 into a `ServiceManifestTemplate`:
@@ -492,7 +540,7 @@ Two warnings, because both of these fail late rather than at validation:
   specified, treat `overrides` as the least safe block in the format and
   check any expansion by hand.
 
-## 5. The eight judgment SLO types
+## 5. The five judgment SLO types
 
 Judgment SLOs are OpenSRM's original contribution — the part no other
 standard specifies. They measure whether a service's decisions are
@@ -504,8 +552,8 @@ classifiers, rule engines, and human-in-the-loop approval queues all
 qualify. If the service's output is a call someone could disagree
 with, these apply.
 
-Eight types are the standard vocabulary. Implementations MUST support
-all eight; organisations MAY define more under their own `apiVersion`.
+Five types are the standard vocabulary. Implementations MUST support
+all five; organisations MAY define more under their own `apiVersion`.
 Each type below gives what it measures, when to reach for it, how to set
 the target, what a breach means, and the mistake people make.
 
@@ -609,7 +657,6 @@ spec:
       - segment: low_confidence
         rate: 0.25
   target:
-    audit_backlog_maximum_age: 24h
     audit_completion_rate: 0.95
 ```
 
@@ -626,9 +673,9 @@ declares the sampling rate and holds the audit queue accountable.
 **Setting the target** means stratifying. A flat `overall_rate` spends
 your reviewers' scarce attention uniformly across decisions that do not
 deserve it uniformly — sample high-stakes and low-confidence decisions
-harder, as above. Then set `audit_completion_rate` and
-`audit_backlog_maximum_age` to what your reviewer capacity can actually
-sustain.
+harder, as above. Then set `audit_completion_rate` to what your reviewer
+capacity can actually sustain. The backlog age bound is a judgment
+threshold — see §5A.4.
 
 **A breach means** you have stopped auditing at the declared rate, so
 every other judgment SLO fed by audit data is now running on stale or
@@ -636,8 +683,7 @@ thin evidence. Treat it as an integrity failure of the whole judgment
 SLO set, not a minor process miss.
 
 **Common mistake:** declaring a sampling rate the team has no capacity
-to review, then quietly falling behind. The backlog target exists to
-make that visible. The opposite error is quieter and worse: an
+to review, then quietly falling behind. The opposite error is quieter and worse: an
 `overall_rate` of `0` validates, and starves every judgment SLO that
 depends on audit-derived ground truth without any of them reporting a
 breach.
@@ -714,19 +760,47 @@ number moved tells you which.
 **Common mistake:** treating a low escalation rate as unambiguously
 good. It is only good if agreement stays high.
 
-### 5.6 `segments`
+### 5.6 `breach_actions` — applies to all five
+
+Any judgment SLO may declare what happens when it breaks. Four action
+forms are available: `notify`, `create_case` (with a `P0`–`P3`
+priority), `reduce_autonomy`, and `action_request`.
 
 ```yaml
-spec:
-  service: credit-decision-agent
-  judgment_type: segments
-  segment_dimension: customer_tier
-  segment_values: [enterprise, smb, consumer]
-  target:
-    maximum_variance_from_overall: 0.05
+      breach_actions:
+        - create_case:
+            priority: P1
+        - reduce_autonomy:
+            agent: refund-approver
+            new_autonomy_level: recommend_only
 ```
 
-→ [`examples/judgment-slos/06-segments.yaml`](examples/judgment-slos/06-segments.yaml)
+→ [`examples/services/ai-gate.yaml`](examples/services/ai-gate.yaml)
+
+`reduce_autonomy` is the one worth dwelling on: it lets a service
+declare, in advance and in version control, how much authority it should
+lose when its own quality degrades. Deciding that while things are calm
+is much easier than deciding it mid-incident.
+
+The manifest only *declares* these. Which consumer dispatches them, and
+how, is deliberately out of scope.
+
+## 5A. The five judgment threshold types
+
+Bounds on error magnitudes, declared under `judgment_threshold` (§4.5). A breach is the measured value exceeding any declared bound.
+
+### 5A.1 `segments`
+
+```yaml
+judgment_threshold:
+  - type: segments
+    segment_dimension: customer_tier
+    segment_values: [enterprise, smb, consumer]
+    bounds:
+      maximum_variance_from_overall: 0.05
+```
+
+→ [`examples/judgment-thresholds/all-five-types.yaml`](examples/judgment-thresholds/all-five-types.yaml)
 
 **Measures** whether quality holds *evenly*. A service at 95% overall
 that runs at 60% for one segment has a serious problem that the
@@ -756,20 +830,19 @@ it is the dimension's only value, the variance is identically zero and
 the SLO can never fire; if it is not, everything you left off the list
 goes unmonitored.
 
-### 5.7 `stability`
+### 5A.2 `stability`
 
 ```yaml
-spec:
-  service: content-classifier
-  judgment_type: stability
-  probe:
-    frozen_input_set: "s3://probes/content-classifier-2026q1.jsonl"
-    frequency: daily
-  target:
-    maximum_drift: 0.02
+judgment_threshold:
+  - type: stability
+    probe:
+      frozen_input_set: "s3://probes/content-classifier-2026q1.jsonl"
+      frequency: daily
+    bounds:
+      maximum_drift: 0.02
 ```
 
-→ [`examples/judgment-slos/07-stability.yaml`](examples/judgment-slos/07-stability.yaml)
+→ [`examples/judgment-thresholds/all-five-types.yaml`](examples/judgment-thresholds/all-five-types.yaml)
 
 **Measures** whether the same inputs still get the same decisions. A
 frozen probe set is replayed on a schedule and the answers compared
@@ -794,21 +867,19 @@ but it must be attributable to a change someone made.
 **Common mistake:** refreshing the probe set to make drift go away. That
 converts your one silent-change detector into a rubber stamp.
 
-### 5.8 `calibration`
+### 5A.3 `calibration`
 
 ```yaml
-spec:
-  service: investigation-agent
-  judgment_type: calibration
-  measurement:
-    bins: 10
-    window: 30d
-    method: brier_score
-  target:
-    maximum_brier_score: 0.05
+judgment_threshold:
+  - type: calibration
+    measurement:
+      bins: 10
+      window: 30d
+    bounds:
+      maximum_brier_score: 0.05
 ```
 
-→ [`examples/judgment-slos/08-calibration.yaml`](examples/judgment-slos/08-calibration.yaml)
+→ [`examples/judgment-thresholds/all-five-types.yaml`](examples/judgment-thresholds/all-five-types.yaml)
 
 **Measures** whether expressed confidence means anything: of the
 decisions the service called 80% likely, are about 80% correct?
@@ -819,10 +890,7 @@ needs its own SLO. Note the relationship to §5.2: `high_confidence_failure`
 watches one end of the confidence range, `calibration` assesses the whole
 curve.
 
-**Setting the target** requires matching `method` to the target key.
-`brier_score` pairs with `maximum_brier_score`;
-`expected_calibration_error` pairs with
-`maximum_expected_calibration_error`. `bins` controls the resolution of
+**Setting the target** means declaring the bound(s) you want evaluated — `maximum_brier_score`, `maximum_expected_calibration_error`, or both; each declared bound is evaluated. `bins` controls the resolution of
 the reliability curve — more bins need more data per bin to stay
 meaningful, and the schema floors it at 2, since one bin is not a curve.
 
@@ -831,34 +899,39 @@ everything downstream that gates on it is running on a number that does
 not mean what it says.
 
 **Common mistake:** comparing calibration numbers computed with
-different `bins` or a different `method` and treating the difference as
+different `bins` or a different metric and treating the difference as
 a change in quality. Neither metric is comparable across configurations
 — if you re-tune `bins`, your history restarts.
 
-### 5.9 `breach_actions` — applies to all eight
+### 5A.4 `audit_backlog`
 
-Any judgment SLO may declare what happens when it breaks. Four action
-forms are available: `notify`, `create_case` (with a `P0`–`P3`
-priority), `reduce_autonomy`, and `action_request`.
+**Setting the bound** means choosing what your reviewer capacity can
+actually sustain. Declaring a sampling rate (§5.3) the team has no
+capacity to review means quietly falling behind; the backlog age bound
+exists to make that visible.
 
 ```yaml
-      breach_actions:
-        - create_case:
-            priority: P1
-        - reduce_autonomy:
-            agent: refund-approver
-            new_autonomy_level: recommend_only
+judgment_threshold:
+  - type: audit_backlog
+    bounds:
+      maximum_age: 24h
 ```
 
-→ [`examples/services/ai-gate.yaml`](examples/services/ai-gate.yaml)
+→ [`examples/judgment-thresholds/all-five-types.yaml`](examples/judgment-thresholds/all-five-types.yaml)
 
-`reduce_autonomy` is the one worth dwelling on: it lets a service
-declare, in advance and in version control, how much authority it should
-lose when its own quality degrades. Deciding that while things are calm
-is much easier than deciding it mid-incident.
+### 5A.5 `feedback_latency`
 
-The manifest only *declares* these. Which consumer dispatches them, and
-how, is deliberately out of scope.
+How long until ground truth arrives for a decision; it bounds how quickly any judgment SLO can notice a regression.
+
+```yaml
+judgment_threshold:
+  - type: feedback_latency
+    bounds:
+      maximum_p50: 1h
+      maximum_p90: 24h
+```
+
+→ [`examples/judgment-thresholds/all-five-types.yaml`](examples/judgment-thresholds/all-five-types.yaml)
 
 ## 6. Conventions and gotchas
 
@@ -915,7 +988,7 @@ should track your promise, not your private target.
 ### 6.2 Ratios are 0.0–1.0, never percentages
 
 `0.999`, not `99.9`. This is the wire format, enforced by the `Ratio`
-type (`minimum: 0`, `maximum: 1`).
+type (`minimum: 0`, `maximum: 1`). This includes `judgment_threshold` bounds typed as Ratio.
 
 The forgiving failure is writing `99.9` where `0.999` was meant: it is
 rejected, loudly. The dangerous one is writing `0.99` for `99.9%` —
@@ -967,12 +1040,12 @@ over-read:
   it. Validation-time green, load-time red.
 - **Template nesting is not caught.** A `ServiceManifestTemplate` whose
   own `spec` carries `template.extends` validates, despite one-level
-  inheritance being the rule ([§4.8](#48-template--shared-defaults)).
+  inheritance being the rule ([§4.9](#49-template--shared-defaults)).
   So does an `extends` naming a template that does not exist.
 - **Nothing inside `overrides` is checked** — it is typed as a bare
   object, so a misspelled merge key validates and silently no-ops.
 - **`method` and target keys are not bound** for `calibration`
-  ([§5.8](#58-calibration)).
+  ([§5A.3](#5a3-calibration)).
 - **Judgment SLOs arriving via a template are not type-checked.** The
   schema forbids `judgment_slo` on a non-`ai-gate` manifest
   ([§3.1](#31-the-type-field)), but a `ServiceManifestTemplate` is
@@ -1215,6 +1288,8 @@ manifest until they have a home:
   your CD pipeline — which can still read the SLOs above to make the
   same decisions, but must now be told to.
 
+v1 `calibration` and `feedback_latency` now have a home: `judgment_threshold` (§4.5).
+
 ### 7.7 Suggested order
 
 1. Rename the envelope and confirm it validates. Everything else fails
@@ -1230,7 +1305,7 @@ manifest until they have a home:
    `type` each metric now needs.
 7. Park the four homeless blocks somewhere before deleting them.
 8. Only now consider adding `judgment_slo`
-   ([§5](#5-the-eight-judgment-slo-types)) — new capability, not
+   ([§5](#5-the-five-judgment-slo-types)) — new capability, not
    migration. Do it as its own change, and note that it requires
    `spec.service.type: ai-gate` ([§3.1](#31-the-type-field)); on any
    other type the schema rejects the block.

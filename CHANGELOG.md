@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — BREAKING (v2-draft)
+- **Judgment error magnitudes are no longer SLOs** (decision 3c, opensrm-l33e).
+  `segments`, `stability` and `calibration` leave `judgment_slo`, and
+  `audit_sampling`'s `audit_backlog_maximum_age` leaves its target. All four
+  move to the new `spec.judgment_threshold` list, which also gains
+  `feedback_latency`. A breach is the measured value exceeding a declared bound;
+  there is no error budget and no complement.
+
+  Before:
+
+  ```yaml
+  judgment_slo:
+    - judgment_type: calibration
+      measurement: { bins: 10, window: 30d, method: brier_score }
+      target: { maximum_brier_score: 0.05 }
+  ```
+
+  After:
+
+  ```yaml
+  judgment_threshold:
+    - type: calibration
+      measurement: { bins: 10, window: 30d }
+      bounds: { maximum_brier_score: 0.05 }
+  ```
+
+  `target` becomes `bounds`, with the same field names, except that the backlog
+  bound is `bounds.maximum_age` under `type: audit_backlog`. `measurement.method`
+  is removed: declare either calibration bound, or both, and each is evaluated.
+  `judgment_threshold` is inline-only and, like `judgment_slo`, only permitted on
+  an `ai-gate` service.
+
 ### Changed
 - Standardized `apiVersion` to `opensrm/v1` across spec, schema, and all examples (previously `opensrm.io/v1` in spec and `srm/v1` in schema/examples)
 - Moved `judgment-slo-spec.md` to `spec/v1/judgment-slos.md` as canonical location

@@ -119,6 +119,9 @@ spec:
   judgment_slo:
     - <see §5 for full schema>
 
+  judgment_threshold:                           # §5.5 — bounds on error magnitudes (inline only)
+    - <see §5.5 for full schema>
+
   # Reliability contracts — what this service promises to callers (see §6)
   contracts:
     - <see §6>
@@ -260,7 +263,7 @@ Judgment SLO documents can be embedded in a service manifest's `judgment_slo` bl
 
 ### 5.2 Judgment SLO types
 
-Eight types are specified as the core vocabulary. Organisations can define additional types under their own `apiVersion`; conformant implementations MUST support the eight standard types and MAY support additional types.
+Five types are specified as the core vocabulary. Organisations can define additional types under their own `apiVersion`; conformant implementations MUST support the five standard types and MAY support additional types.
 
 #### 5.2.1 Reversal rate
 
@@ -311,9 +314,10 @@ spec:
       - segment: "low_confidence"
         rate: 0.25
   target:
-    audit_backlog_maximum_age: 24h     # audits completed within 24h
     audit_completion_rate: 0.95
 ```
+
+The audit backlog bound is a judgment threshold (§5.5, `type: audit_backlog`), not part of this target.
 
 #### 5.2.4 Outcomes
 
@@ -343,56 +347,11 @@ spec:
     escalation_human_agreement_rate: 0.8  # humans agree with escalation 80% of the time
 ```
 
-#### 5.2.6 Segments
-
-Tracks that SLO performance is consistent across meaningful segments (customer tiers, geographies, request types). A service with 95% accuracy overall but 60% accuracy on a specific segment has a segment problem that overall SLOs hide.
-
-```yaml
-spec:
-  service: credit-decision-agent
-  judgment_type: segments
-  segment_dimension: customer_tier
-  segment_values: [enterprise, smb, consumer]
-  target:
-    maximum_variance_from_overall: 0.05  # no segment more than 5% below overall
-```
-
-#### 5.2.7 Stability
-
-Tracks that the service produces consistent decisions for equivalent inputs over time. A service whose decisions drift with model updates, prompt changes, or upstream data changes has a stability problem.
-
-```yaml
-spec:
-  service: content-classifier
-  judgment_type: stability
-  probe:
-    frozen_input_set: "s3://probes/content-classifier-2026q1.jsonl"
-    frequency: daily
-  target:
-    maximum_drift: 0.02                # decisions on the probe set change at most 2% per measurement
-```
-
-#### 5.2.8 Calibration
-
-Tracks that expressed confidence matches actual accuracy. If the service says it's 80% confident, does it get 80% of those decisions right?
-
-```yaml
-spec:
-  service: investigation-agent
-  judgment_type: calibration
-  measurement:
-    bins: 10                           # 0.0-0.1, 0.1-0.2, ..., 0.9-1.0
-    window: 30d
-    method: brier_score                # or expected_calibration_error
-  target:
-    maximum_brier_score: 0.05
-```
-
 ### 5.3 Statistical requirements
 
 Judgment-SLO evaluation relies on established statistical methods, not bespoke formulas. A conformant implementation MUST compute:
 
-- **Calibration metrics** using accepted methods such as Brier score or expected calibration error, binned over the specified measurement window
+- **Calibration metrics** (§5.5.3) using accepted methods such as Brier score or expected calibration error, binned over the specified measurement window
 - **Confidence intervals** around reversal-rate and outcome-rate estimates, with interval width appropriate to the sample size
 - **Segment-variance statistics** for judgment SLOs with segment dimensions, using hypothesis tests appropriate to the segment distribution
 - **Cohort retention analysis** for reversal rate and outcomes, tracking decisions from emission through resolution
@@ -420,6 +379,76 @@ breach_actions:
 ```
 
 How these actions are dispatched — which consumer handles which action type, what the notification mechanism is, how cases are rendered — is a consumer concern, not an OpenSRM concern. The spec describes what the manifest *declares*; consumers decide what to *do* with the declaration.
+
+### 5.5 Judgment thresholds
+
+Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. (Decision 3c, opensrm-l33e.)
+
+#### 5.5.1 Segments
+
+Tracks that SLO performance is consistent across meaningful segments (customer tiers, geographies, request types). A service with 95% accuracy overall but 60% accuracy on a specific segment has a segment problem that overall SLOs hide.
+
+```yaml
+judgment_threshold:
+  - type: segments
+    segment_dimension: customer_tier
+    segment_values: [enterprise, smb, consumer]
+    bounds:
+      maximum_variance_from_overall: 0.05
+```
+
+#### 5.5.2 Stability
+
+Tracks that the service produces consistent decisions for equivalent inputs over time. A service whose decisions drift with model updates, prompt changes, or upstream data changes has a stability problem.
+
+```yaml
+judgment_threshold:
+  - type: stability
+    probe:
+      frozen_input_set: "s3://probes/credit-decision-2026q1.jsonl"
+      frequency: daily
+    bounds:
+      maximum_drift: 0.02
+```
+
+#### 5.5.3 Calibration
+
+Tracks that expressed confidence matches actual accuracy. If the service says it's 80% confident, does it get 80% of those decisions right?
+
+```yaml
+judgment_threshold:
+  - type: calibration
+    measurement:
+      bins: 10
+      window: 30d
+    bounds:
+      maximum_brier_score: 0.05
+```
+
+Declare either bound or both; each declared bound is evaluated.
+
+#### 5.5.4 Audit backlog
+
+The age of the oldest unaudited sample; a stale backlog means the audit sample is no longer representative.
+
+```yaml
+judgment_threshold:
+  - type: audit_backlog
+    bounds:
+      maximum_age: 24h
+```
+
+#### 5.5.5 Feedback latency
+
+How long until ground truth arrives for a decision; it bounds how quickly any judgment SLO can notice a regression.
+
+```yaml
+judgment_threshold:
+  - type: feedback_latency
+    bounds:
+      maximum_p50: 1h
+      maximum_p90: 24h
+```
 
 ## 6. Reliability Contracts (OpenSRM's original contribution)
 
@@ -698,7 +727,7 @@ An implementation SHOULD:
 
 An implementation MAY:
 
-- Extend judgment SLO types beyond the eight standards under its own `apiVersion`
+- Extend judgment SLO types beyond the five standards under its own `apiVersion`
 - Add custom annotations under reserved namespaces
 - Target any observability backend capable of representing the declared SLOs
 - Adopt the `nthlayer.decision.*` attributes described in §11.3 pending upstream standardisation
@@ -719,7 +748,7 @@ The submission narrative is "OpenSRM is the missing composition layer between ex
 
 ## 15. Open Questions
 
-- **Judgment SLO type extensibility.** The eight standard types may not cover all real-world needs. Should there be a formal extension mechanism (new types registered with a TC), or should organisations just use custom `apiVersion` values?
+- **Judgment SLO type extensibility.** The five standard types may not cover all real-world needs. Should there be a formal extension mechanism (new types registered with a TC), or should organisations just use custom `apiVersion` values?
 - **Contract breach credits.** The `sla_credits` block references an external calculation document. Is that enough, or should OpenSRM specify a contract-breach credit semantics?
 - **Template composition.** One level of template inheritance is simple; some organisations may want more. Is the single-level limit acceptable?
 - **Multi-cluster manifests.** A service deployed to multiple clusters/regions may have different reliability characteristics per cluster. Does the manifest model need to extend for this, or do we just recommend per-cluster manifests?
