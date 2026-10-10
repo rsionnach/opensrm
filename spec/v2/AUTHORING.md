@@ -762,10 +762,10 @@ good. It is only good if agreement stays high.
 
 ### 5.6 `breach_actions` — applies to all five
 
-Any judgment SLO may declare what happens when it breaks. (Thresholds,
-§5A, cannot.) Four action
+Any judgment SLO may declare what happens when it breaks. Four action
 forms are available: `notify`, `create_case` (with a `P0`–`P3`
-priority), `reduce_autonomy`, and `action_request`.
+priority), `reduce_autonomy`, and `action_request`. Thresholds (§5A)
+cannot declare breach actions.
 
 ```yaml
       breach_actions:
@@ -887,7 +887,7 @@ decisions the service called 80% likely, are about 80% correct?
 
 **Reach for it when** confidence values are consumed by anything —
 routing, thresholds, autonomy levels. If confidence drives behaviour, it
-needs its own SLO. Note the relationship to §5.2: `high_confidence_failure`
+needs its own bound. Note the relationship to §5.2: `high_confidence_failure`
 watches one end of the confidence range, `calibration` assesses the whole
 curve.
 
