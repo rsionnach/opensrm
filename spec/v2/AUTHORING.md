@@ -836,7 +836,7 @@ goes unmonitored.
 judgment_threshold:
   - type: stability
     probe:
-      frozen_input_set: "s3://probes/content-classifier-2026q1.jsonl"
+      frozen_input_set: "s3://probes/credit-decision-2026q1.jsonl"
       frequency: daily
     bounds:
       maximum_drift: 0.02
