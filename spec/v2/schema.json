@@ -356,7 +356,8 @@
         "bounds": { "type": "object" },
         "breach_actions": { "not": {}, "description": "Thresholds do not declare breach actions (opensrm-l33e). Rejected so a breach_actions block carried over from judgment_slo fails instead of being silently ignored." },
         "target": { "not": {}, "description": "Thresholds declare `bounds`, not `target` (opensrm-l33e). Rejected so a stale target from judgment_slo fails instead of being silently ignored." },
-        "judgment_type": { "not": {}, "description": "Thresholds use `type`, not `judgment_type` (opensrm-l33e)." }
+        "judgment_type": { "not": {}, "description": "Thresholds use `type`, not `judgment_type` (opensrm-l33e)." },
+        "service": { "not": {}, "description": "Thresholds are inline; the enclosing manifest's service is implied (opensrm-l33e). Rejected so an entry carried over from judgment_slo, or copied from another manifest, fails instead of silently attaching here." }
       },
       "allOf": [
         {
@@ -364,8 +365,8 @@
           "then": {
             "required": ["segment_dimension", "segment_values", "bounds"],
             "properties": {
-              "segment_dimension": { "type": "string" },
-              "segment_values": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+              "segment_dimension": { "type": "string", "minLength": 1 },
+              "segment_values": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
               "bounds": {
                 "type": "object",
                 "additionalProperties": false,
