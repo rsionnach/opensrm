@@ -1,0 +1,20 @@
+# OpenSRM v2 ServiceManifestTemplate carrying judgment thresholds.
+#
+# A template MAY carry `judgment_threshold`; its items are the same
+# JudgmentThresholdSpec a ServiceManifest uses (decision 3c,
+# opensrm-l33e). Nothing in the fixture set extends this template: it
+# exists to keep the template side of the rule exercised.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifestTemplate
+metadata:
+  name: decision-services-thresholds-base
+  namespace: default
+spec:
+  judgment_threshold:
+    # Stability bound shared by every decision service built on this base.
+    - type: stability
+      probe:
+        frozen_input_set: "s3://probes/credit-decision-2026q1.jsonl"
+        frequency: daily
+      bounds:
+        maximum_drift: 0.02

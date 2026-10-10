@@ -1,0 +1,18 @@
+# MUST be rejected: maximum_p90 is a Duration (integer plus
+# ms/s/m/h/d/w); `1 day` is prose (opensrm-l33e).
+# One defect only: `maximum_p90: "1 day"`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: feedback_latency
+      bounds:
+        maximum_p50: 1h
+        maximum_p90: "1 day"

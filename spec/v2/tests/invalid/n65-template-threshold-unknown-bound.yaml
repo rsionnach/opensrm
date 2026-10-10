@@ -1,0 +1,19 @@
+# MUST be rejected: a template's judgment_threshold items are
+# JudgmentThresholdSpec, so a stability entry's closed bounds apply
+# there too (opensrm-l33e).
+# One defect only: `maximum_variance` beside the correct
+# `maximum_drift`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifestTemplate
+metadata:
+  name: decision-services-base
+  namespace: default
+spec:
+  judgment_threshold:
+    - type: stability
+      probe:
+        frozen_input_set: "s3://probes/credit-decision-2026q1.jsonl"
+        frequency: daily
+      bounds:
+        maximum_drift: 0.02
+        maximum_variance: 0.05

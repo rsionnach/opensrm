@@ -1,0 +1,20 @@
+# MUST be rejected: probe.frequency is hourly, daily or weekly;
+# `monthly` is not one (opensrm-l33e).
+# One defect only: `probe.frequency: monthly`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: stability
+      probe:
+        frozen_input_set: "s3://probes/credit-decision-2026q1.jsonl"
+        frequency: monthly
+      bounds:
+        maximum_drift: 0.02

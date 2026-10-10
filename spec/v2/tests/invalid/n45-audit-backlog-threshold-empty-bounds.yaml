@@ -1,0 +1,16 @@
+# MUST be rejected: an audit_backlog threshold must declare maximum_age;
+# an empty bounds object bounds nothing (opensrm-l33e).
+# One defect only: `bounds: {}`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: audit_backlog
+      bounds: {}
