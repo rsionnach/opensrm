@@ -1044,8 +1044,6 @@ over-read:
   So does an `extends` naming a template that does not exist.
 - **Nothing inside `overrides` is checked** — it is typed as a bare
   object, so a misspelled merge key validates and silently no-ops.
-- **`method` and target keys are not bound** for `calibration`
-  ([§5A.3](#5a3-calibration)).
 - **Judgment SLOs arriving via a template are not type-checked.** The
   schema forbids `judgment_slo` on a non-`ai-gate` manifest
   ([§3.1](#31-the-type-field)), but a `ServiceManifestTemplate` is

@@ -45,7 +45,16 @@ spec:
         source: lineage
       target:
         maximum_reversal_rate: 0.05
-    - $ref: "./judgment-slos/08-calibration.yaml"
+    - $ref: "./judgment-slos/02-high-confidence-failure.yaml"
+
+  # Error magnitudes are bounds, not SLOs (decision 3c): see judgment_threshold.
+  judgment_threshold:
+    - type: calibration
+      measurement:
+        bins: 10
+        window: 30d
+      bounds:
+        maximum_brier_score: 0.05
 
   contracts:
     - name: payment-authorisation-api
