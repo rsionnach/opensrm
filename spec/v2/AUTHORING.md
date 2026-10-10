@@ -762,7 +762,8 @@ good. It is only good if agreement stays high.
 
 ### 5.6 `breach_actions` — applies to all five
 
-Any judgment SLO (not a threshold, §5A) may declare what happens when it breaks. Four action
+Any judgment SLO may declare what happens when it breaks. (Thresholds,
+§5A, cannot.) Four action
 forms are available: `notify`, `create_case` (with a `P0`–`P3`
 priority), `reduce_autonomy`, and `action_request`.
 
@@ -808,10 +809,10 @@ aggregate hides.
 
 **Reach for it whenever decisions affect identifiable groups** —
 customer tiers, geographies, languages, request types. On decisions
-affecting people, this is often the judgment SLO that matters most, and
+affecting people, this is often the judgment threshold that matters most, and
 aggregate metrics are structurally incapable of surfacing it.
 
-**Setting the target** means choosing `segment_dimension` where you
+**Setting the bound** means choosing `segment_dimension` where you
 suspect performance actually varies, not where the data is easiest to
 join. Enumerate `segment_values` explicitly — a segment absent from the
 list is not monitored.
@@ -823,11 +824,11 @@ sample all produce this.
 
 **Common mistake:** picking one dimension and calling the question
 answered. Segment problems hide along the dimension you did not declare;
-several `segments` SLOs on different dimensions is a reasonable manifest.
+several `segments` thresholds on different dimensions is a reasonable manifest.
 Watch the degenerate case too: a single entry in `segment_values`
 validates, and compares that one segment against the overall figure. If
 it is the dimension's only value, the variance is identically zero and
-the SLO can never fire; if it is not, everything you left off the list
+the threshold can never fire; if it is not, everything you left off the list
 goes unmonitored.
 
 ### 5A.2 `stability`
@@ -854,7 +855,7 @@ upstream feature changes. This is the only type that catches silent
 behavioural change, because it is the only one holding the input
 constant.
 
-**Setting the target** starts with the probe set, which is the real
+**Setting the bound** starts with the probe set, which is the real
 work. It must be *frozen* and representative; a probe set of easy cases
 will report stability you do not have. Version it — the path in the
 example carries `2026q1` for that reason — and re-cut it deliberately,
@@ -890,9 +891,12 @@ needs its own SLO. Note the relationship to §5.2: `high_confidence_failure`
 watches one end of the confidence range, `calibration` assesses the whole
 curve.
 
-**Setting the target** means declaring the bound(s) you want evaluated — `maximum_brier_score`, `maximum_expected_calibration_error`, or both; each declared bound is evaluated. `bins` controls the resolution of
-the reliability curve — more bins need more data per bin to stay
-meaningful, and the schema floors it at 2, since one bin is not a curve.
+**Setting the bound** means declaring the bound(s) you want
+evaluated — `maximum_brier_score`, `maximum_expected_calibration_error`,
+or both; each declared bound is evaluated. `bins` controls the
+resolution of the reliability curve — more bins need more data per bin
+to stay meaningful, and the schema floors it at 2, since one bin is not
+a curve.
 
 **A breach means** the confidence signal is not trustworthy, so
 everything downstream that gates on it is running on a number that does
@@ -946,7 +950,7 @@ judgment_threshold:
 **Reach for it when** judgment SLOs depend on outcomes or audits that
 arrive after the fact.
 
-**Setting the target** means declaring p50 for the typical case, p90 for
+**Setting the bound** means declaring p50 for the typical case, p90 for
 the tail, or both.
 
 **A breach means** ground truth is arriving too slowly for judgment SLOs
