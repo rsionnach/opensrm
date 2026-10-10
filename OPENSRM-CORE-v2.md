@@ -349,11 +349,11 @@ spec:
 
 ### 5.3 Statistical requirements
 
-Judgment-SLO evaluation relies on established statistical methods, not bespoke formulas. A conformant implementation MUST compute:
+Judgment SLO and threshold evaluation relies on established statistical methods, not bespoke formulas. A conformant implementation MUST compute:
 
 - **Calibration metrics** (§5.5.3) using accepted methods such as Brier score or expected calibration error, binned over the specified measurement window
 - **Confidence intervals** around reversal-rate and outcome-rate estimates, with interval width appropriate to the sample size
-- **Segment-variance statistics** for judgment SLOs with segment dimensions, using hypothesis tests appropriate to the segment distribution
+- **Segment-variance statistics** (§5.5.1) for `segments` judgment thresholds, using hypothesis tests appropriate to the segment distribution
 - **Cohort retention analysis** for reversal rate and outcomes, tracking decisions from emission through resolution
 
 The wire format for judgment-SLO outcomes is the OTel `gen_ai.evaluation.result` event (OTel semconv v1.39.0+), extended with the `nthlayer.decision.*` attributes described in §11.3.
@@ -382,7 +382,7 @@ How these actions are dispatched — which consumer handles which action type, w
 
 ### 5.5 Judgment thresholds
 
-Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. (Decision 3c, opensrm-l33e.)
+Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. (Decision 3c, opensrm-l33e.) Thresholds do not declare `breach_actions` in this version of the spec.
 
 #### 5.5.1 Segments
 

@@ -204,7 +204,7 @@
     },
     "JudgmentSLOSpec": {
       "type": "object",
-      "description": "A judgment SLO. The `judgment_type` value selects one of the five standard shapes; the matching branch below adds the measurement/sampling/probe/outcome_signal and target fields that type requires.",
+      "description": "A judgment SLO. The `judgment_type` value selects one of the five standard shapes; the matching branch below adds the measurement/sampling/outcome_signal and target fields that type requires.",
       "required": ["service", "judgment_type"],
       "properties": {
         "service": { "type": "string" },
@@ -405,7 +405,7 @@
                 "properties": {
                   "bins": { "type": "integer", "minimum": 2 },
                   "window": { "$ref": "#/definitions/Duration" },
-                  "method": false
+                  "method": { "not": {}, "description": "measurement.method was removed in opensrm-l33e: the declared bounds decide what is evaluated. Rejected so stale manifests fail loudly." }
                 }
               },
               "bounds": {

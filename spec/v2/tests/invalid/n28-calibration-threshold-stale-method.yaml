@@ -1,4 +1,6 @@
-# MUST be rejected: measurement.method was removed in opensrm-l33e - the declared bounds decide what is evaluated.
+# MUST be rejected: measurement.method was removed in opensrm-l33e —
+# the declared bounds decide what is evaluated, so a stale method key
+# fails loudly.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest
 metadata:

@@ -683,7 +683,7 @@ thin evidence. Treat it as an integrity failure of the whole judgment
 SLO set, not a minor process miss.
 
 **Common mistake:** declaring a sampling rate the team has no capacity
-to review, then quietly falling behind. The opposite error is quieter and worse: an
+to review, then quietly falling behind. Quieter and worse: an
 `overall_rate` of `0` validates, and starves every judgment SLO that
 depends on audit-derived ground truth without any of them reporting a
 breach.
@@ -762,7 +762,7 @@ good. It is only good if agreement stays high.
 
 ### 5.6 `breach_actions` — applies to all five
 
-Any judgment SLO may declare what happens when it breaks. Four action
+Any judgment SLO (not a threshold, §5A) may declare what happens when it breaks. Four action
 forms are available: `notify`, `create_case` (with a `P0`–`P3`
 priority), `reduce_autonomy`, and `action_request`.
 
@@ -787,7 +787,7 @@ how, is deliberately out of scope.
 
 ## 5A. The five judgment threshold types
 
-Bounds on error magnitudes, declared under `judgment_threshold` (§4.5). A breach is the measured value exceeding any declared bound.
+Bounds on error magnitudes, declared under `judgment_threshold` (§4.5). A breach is the measured value exceeding any declared bound. Thresholds do not declare `breach_actions` in this version of the spec.
 
 ### 5A.1 `segments`
 
@@ -905,11 +905,6 @@ a change in quality. Neither metric is comparable across configurations
 
 ### 5A.4 `audit_backlog`
 
-**Setting the bound** means choosing what your reviewer capacity can
-actually sustain. Declaring a sampling rate (§5.3) the team has no
-capacity to review means quietly falling behind; the backlog age bound
-exists to make that visible.
-
 ```yaml
 judgment_threshold:
   - type: audit_backlog
@@ -919,9 +914,22 @@ judgment_threshold:
 
 → [`examples/judgment-thresholds/all-five-types.yaml`](examples/judgment-thresholds/all-five-types.yaml)
 
-### 5A.5 `feedback_latency`
+**Measures** how old the oldest unreviewed audit item is.
 
-How long until ground truth arrives for a decision; it bounds how quickly any judgment SLO can notice a regression.
+**Reach for it when** you declare an `audit_sampling` rate (§5.3). The
+backlog age bound makes falling behind visible.
+
+**Setting the bound** means choosing what your reviewer capacity can
+actually sustain. Declaring a sampling rate the team has no capacity to
+review means quietly falling behind.
+
+**A breach means** audits are queuing faster than they are reviewed, so
+audit-derived ground truth is going stale.
+
+**Common mistake:** sizing the sampling rate first and the bound never,
+so the backlog grows with nothing to report it.
+
+### 5A.5 `feedback_latency`
 
 ```yaml
 judgment_threshold:
@@ -932,6 +940,20 @@ judgment_threshold:
 ```
 
 → [`examples/judgment-thresholds/all-five-types.yaml`](examples/judgment-thresholds/all-five-types.yaml)
+
+**Measures** the time from a decision to its ground truth arriving.
+
+**Reach for it when** judgment SLOs depend on outcomes or audits that
+arrive after the fact.
+
+**Setting the target** means declaring p50 for the typical case, p90 for
+the tail, or both.
+
+**A breach means** ground truth is arriving too slowly for judgment SLOs
+to notice a regression within their window.
+
+**Common mistake:** setting the bound longer than the judgment SLO
+windows it feeds, which hides regressions.
 
 ## 6. Conventions and gotchas
 
@@ -988,7 +1010,10 @@ should track your promise, not your private target.
 ### 6.2 Ratios are 0.0–1.0, never percentages
 
 `0.999`, not `99.9`. This is the wire format, enforced by the `Ratio`
-type (`minimum: 0`, `maximum: 1`). This includes `judgment_threshold` bounds typed as Ratio.
+type (`minimum: 0`, `maximum: 1`). This includes the Ratio-typed `judgment_threshold` bounds:
+`maximum_variance_from_overall`, `maximum_drift` and
+`maximum_expected_calibration_error` (`maximum_brier_score` has the same
+0–1 range).
 
 The forgiving failure is writing `99.9` where `0.999` was meant: it is
 rejected, loudly. The dangerous one is writing `0.99` for `99.9%` —
