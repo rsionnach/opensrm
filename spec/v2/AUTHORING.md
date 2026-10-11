@@ -345,7 +345,7 @@ Error magnitudes — segments, stability, calibration, audit backlog, feedback l
 
 ### 4.5 `judgment_threshold` — bounds on error magnitudes
 
-Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. (Decision 3c, opensrm-l33e.)
+Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. You may repeat a type — for instance `segments` on two dimensions; each entry is evaluated on its own. (Decision 3c, opensrm-l33e.)
 
 ```yaml
 judgment_threshold:
@@ -815,7 +815,7 @@ aggregate metrics are structurally incapable of surfacing it.
 **Setting the bound** means choosing `segment_dimension` where you
 suspect performance actually varies, not where the data is easiest to
 join. Enumerate `segment_values` explicitly — a segment absent from the
-list is not monitored.
+list is not monitored. `maximum_variance_from_overall` is the absolute gap, in ratio points, between a segment and the overall figure, in either direction (CORE §5.5.1).
 
 **A breach means** at least one segment is being served materially worse
 than the whole. Check which before assuming the model is at fault: thin
@@ -946,6 +946,7 @@ judgment_threshold:
 → [`examples/judgment-thresholds/all-five-types.yaml`](examples/judgment-thresholds/all-five-types.yaml)
 
 **Measures** the time from a decision to its ground truth arriving.
+Measured over a rolling 30-day window (CORE §5.5.5).
 
 **Reach for it when** judgment SLOs depend on outcomes or audits that
 arrive after the fact.

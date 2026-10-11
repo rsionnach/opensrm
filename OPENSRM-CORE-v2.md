@@ -382,11 +382,11 @@ How these actions are dispatched — which consumer handles which action type, w
 
 ### 5.5 Judgment thresholds
 
-Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. Thresholds do not declare `breach_actions` in this version of the spec. A threshold entry MUST NOT carry `service`, `target` or `judgment_type`: the service is the enclosing manifest's, the value is `bounds`, and the discriminator is `type`. `segment_dimension` and each `segment_values` entry MUST be non-empty. (Decision 3c, opensrm-l33e.)
+Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest, or a ServiceManifestTemplate such a manifest extends. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. Thresholds do not declare `breach_actions` in this version of the spec. A threshold entry MUST NOT carry `service`, `target` or `judgment_type`: the service is the enclosing manifest's, the value is `bounds`, and the discriminator is `type`. `segment_dimension` and each `segment_values` entry MUST be non-empty. A manifest MAY declare several entries of the same `type` (for example `segments` on two dimensions); each entry is evaluated independently, and a breach of any one is a breach. (Decision 3c, opensrm-l33e.)
 
 #### 5.5.1 Segments
 
-Tracks that measured performance does not vary beyond the declared bound across meaningful segments (customer tiers, geographies, request types). A service with 95% accuracy overall but 60% accuracy on a specific segment has a segment problem that overall SLOs hide.
+Tracks that measured performance does not vary beyond the declared bound across meaningful segments (customer tiers, geographies, request types). A service with 95% accuracy overall but 60% accuracy on a specific segment has a segment problem that overall SLOs hide. `maximum_variance_from_overall` is the largest permitted absolute difference, in ratio points, between any listed segment's rate and the overall rate: `0.05` allows a segment to sit at most five points from overall, above or below.
 
 ```yaml
 judgment_threshold:
@@ -440,7 +440,7 @@ judgment_threshold:
 
 #### 5.5.5 Feedback latency
 
-How long until ground truth arrives for a decision; it bounds how quickly any judgment SLO can notice a regression.
+How long until ground truth arrives for a decision; it bounds how quickly any judgment SLO can notice a regression. The p50 and p90 are computed over the decisions of a rolling 30-day window; a manifest cannot change that window in this version of the spec.
 
 ```yaml
 judgment_threshold:
@@ -717,6 +717,7 @@ An OpenSRM v2 implementation MUST:
 - Support template resolution (§9)
 - Revalidate the fully resolved manifest after template expansion, so type-conditional rules (§3.1) cannot be bypassed by a template
 - Enforce the same type-conditional rules on standalone `kind: JudgmentSLO` documents when binding them to the service each names, so the rules cannot be bypassed by moving a judgment SLO into a second file
+- An implementation that evaluates judgment thresholds MUST support all five threshold types (§5.5), MUST evaluate every declared bound of every entry, and MUST treat a measured value above any declared bound as a breach
 
 An implementation SHOULD:
 
