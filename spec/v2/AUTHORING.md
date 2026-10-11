@@ -345,7 +345,7 @@ Error magnitudes — segments, stability, calibration, audit backlog, feedback l
 
 ### 4.5 `judgment_threshold` — bounds on error magnitudes
 
-Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest or a ServiceManifestTemplate it extends. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. You may repeat a type — for instance `segments` on two dimensions; each entry is evaluated on its own. (Decision 3c, opensrm-l33e.)
+Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest or a ServiceManifestTemplate it extends. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. You may repeat a type — for instance `segments` on two dimensions; each entry is evaluated on its own, and a breach of any one is a breach (CORE §5.5). (Decision 3c, opensrm-l33e.)
 
 ```yaml
 judgment_threshold:
@@ -815,10 +815,11 @@ aggregate metrics are structurally incapable of surfacing it.
 **Setting the bound** means choosing `segment_dimension` where you
 suspect performance actually varies, not where the data is easiest to
 join. Enumerate `segment_values` explicitly — a segment absent from the
-list is not monitored. `maximum_variance_from_overall` is the absolute gap, in ratio points, between a segment and the overall figure, in either direction (CORE §5.5.1).
+list is not monitored. `maximum_variance_from_overall` is the absolute difference between a segment's rate and the overall rate (`0.05` = five percentage points), in either direction: a segment doing better than overall by more than the bound also breaches, because the bound caps spread (CORE §5.5.1).
 
-**A breach means** at least one segment is being served materially worse
-than the whole. Check which before assuming the model is at fault: thin
+**A breach means** at least one segment's rate has drifted more than the
+bound away from the overall rate, in either direction (usually, but not
+only, a segment being served worse). Check which before assuming the model is at fault: thin
 training data, a broken upstream join, or an unrepresentative audit
 sample all produce this.
 
@@ -826,7 +827,7 @@ sample all produce this.
 answered. Segment problems hide along the dimension you did not declare;
 several `segments` thresholds on different dimensions is a reasonable manifest.
 Watch the degenerate case too: a single entry in `segment_values`
-validates, and compares that one segment against the overall figure. If
+validates, and compares that one segment against the overall rate. If
 it is the dimension's only value, the variance is identically zero and
 the threshold can never fire; if it is not, everything you left off the list
 goes unmonitored.
@@ -946,7 +947,7 @@ judgment_threshold:
 → [`examples/judgment-thresholds/all-five-types.yaml`](examples/judgment-thresholds/all-five-types.yaml)
 
 **Measures** the time from a decision to its ground truth arriving.
-Measured over a rolling 30-day window (CORE §5.5.5).
+Measured over decisions whose ground truth arrived in the last 30 days (CORE §5.5.5).
 
 **Reach for it when** judgment SLOs depend on outcomes or audits that
 arrive after the fact.
