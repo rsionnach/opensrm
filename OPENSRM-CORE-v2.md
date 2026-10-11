@@ -452,9 +452,9 @@ judgment_threshold:
 
 #### 5.5.6 Evaluation
 
-The rules below apply to every threshold type; the type-specific rules in §5.5.1–§5.5.5 refine them, and where a type-specific rule narrows one of these (as §5.5.4 does for an empty backlog), the type-specific rule applies.
+The rules below apply to every threshold type; the type-specific rules in §5.5.1–§5.5.5 refine these; where one narrows a rule (as §5.5.4 does for an empty backlog), the type-specific rule applies.
 
-1. **E1 Breach.** A breach is the measured value strictly exceeding a declared bound; a value equal to the bound is within bounds. Every declared bound of every entry is evaluated, and each entry is evaluated independently, and a breach of any one is a breach.
+1. **E1 Breach.** A breach is a measured value strictly exceeding a declared bound; a value equal to the bound is within bounds. Every declared bound of every entry is evaluated, each entry independently, and a breach of any one bound of any entry is a breach.
 2. **E2 Units.** Duration bounds are compared after normalising both values to a common unit.
 3. **E3 Not evaluable.** When a bound cannot be measured — no decisions, a listed segment with no decisions, or no ground truth arriving in a `feedback_latency` window — its outcome is *not evaluable*: not a breach, and an implementation MUST report it rather than treat it as within bounds. The outcome is decided per bound and, for `segments`, per listed segment. The form of the report is implementation-defined.
 4. **E4 Precedence.** Where outcomes are combined — across bounds, across the listed segments of one entry, or across entries — a breach takes precedence over not evaluable, which takes precedence over within bounds.
@@ -727,7 +727,8 @@ An OpenSRM v2 implementation MUST:
 - Revalidate the fully resolved manifest after template expansion, so type-conditional rules (§3.1) cannot be bypassed by a template
 - Enforce the same type-conditional rules on standalone `kind: JudgmentSLO` documents when binding them to the service each names, so the rules cannot be bypassed by moving a judgment SLO into a second file
 - Where it evaluates judgment thresholds, support all five threshold types (§5.5)
-- Where it evaluates judgment thresholds, evaluate every declared bound of every entry, treating a measured value that strictly exceeds a bound as a breach and a value equal to it as within bounds (§5.5.6 E1, E2)
+- Where it evaluates judgment thresholds, evaluate every declared bound of every entry, treating a measured value that strictly exceeds a bound as a breach and a value equal to it as within bounds (§5.5.6 E1)
+- Where it evaluates judgment thresholds, compare Duration bounds after normalising both values to a common unit (§5.5.6 E2)
 - Where it evaluates judgment thresholds, report a bound that cannot be measured as not evaluable (§5.5.6 E3)
 - Where it evaluates judgment thresholds, combine outcomes by the precedence in §5.5.6 E4
 
