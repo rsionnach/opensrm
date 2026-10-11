@@ -1,0 +1,25 @@
+# Judgment thresholds — single-bound forms (decision 3c).
+# Pins that either bound alone is enough: feedback_latency with only
+# maximum_p90, and calibration with only maximum_expected_calibration_error.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: triage-agent
+  labels:
+    tier: critical   # optional in the schema; nthlayer-common still requires it (opensrm-9bil)
+spec:
+  owner:
+    group: group:default/risk
+  service:
+    name: triage-agent
+    type: ai-gate
+  judgment_threshold:
+    - type: feedback_latency
+      bounds:
+        maximum_p90: 24h
+    - type: calibration
+      measurement:
+        bins: 10
+        window: 30d
+      bounds:
+        maximum_expected_calibration_error: 0.03

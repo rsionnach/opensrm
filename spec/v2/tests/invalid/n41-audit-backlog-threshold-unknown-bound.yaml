@@ -1,0 +1,18 @@
+# MUST be rejected: audit_backlog bounds is closed, so a misspelled
+# bound is an error rather than an unenforced limit (opensrm-l33e).
+# One defect only: `max_age` beside the correct `maximum_age`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: audit_backlog
+      bounds:
+        maximum_age: 24h
+        max_age: 24h

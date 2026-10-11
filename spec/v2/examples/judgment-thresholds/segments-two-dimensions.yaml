@@ -1,0 +1,26 @@
+# Judgment thresholds — a type may repeat (CORE §5.5).
+# Two `segments` entries on different dimensions; each entry is
+# evaluated independently, and a breach of either is a breach.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: pricing-agent
+  labels:
+    tier: critical   # optional in the schema; nthlayer-common still requires it (opensrm-9bil)
+spec:
+  owner:
+    group: group:default/risk
+  service:
+    name: pricing-agent
+    type: ai-gate
+  judgment_threshold:
+    - type: segments
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds:
+        maximum_variance_from_overall: 0.05
+    - type: segments
+      segment_dimension: region
+      segment_values: [eu, us, apac]
+      bounds:
+        maximum_variance_from_overall: 0.08

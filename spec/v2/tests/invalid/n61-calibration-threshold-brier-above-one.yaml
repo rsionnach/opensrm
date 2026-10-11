@@ -1,0 +1,20 @@
+# MUST be rejected: a Brier score lies in 0-1, so maximum_brier_score
+# may not exceed 1 (opensrm-l33e).
+# One defect only: `maximum_brier_score: 1.5`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: calibration
+      measurement:
+        bins: 10
+        window: 30d
+      bounds:
+        maximum_brier_score: 1.5

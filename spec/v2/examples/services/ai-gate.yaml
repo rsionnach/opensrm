@@ -85,16 +85,18 @@ spec:
             agent: refund-approver
             new_autonomy_level: recommend_only
 
-    # Quality must not vary by customer segment.
-    - service: refund-approver
-      judgment_type: segments
-      segment_dimension: customer_tier
-      segment_values: [enterprise, smb, consumer]
-      target:
-        maximum_variance_from_overall: 0.05
-
     # External reference — same effect, kept in its own document.
     - $ref: "../judgment-slos/03-audit-sampling.yaml"
+
+  # Error magnitudes are bounds, not SLOs (decision 3c): no error budget, no
+  # complement — breach when the measured value exceeds the bound.
+  judgment_threshold:
+    # Quality must not vary by customer segment.
+    - type: segments
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds:
+        maximum_variance_from_overall: 0.05
 
   contracts:
     - name: refund-decision-api

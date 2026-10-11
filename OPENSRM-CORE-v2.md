@@ -119,6 +119,9 @@ spec:
   judgment_slo:
     - <see §5 for full schema>
 
+  judgment_threshold:                           # §5.5 — bounds on error magnitudes (inline only)
+    - <see §5.5 for full schema>
+
   # Reliability contracts — what this service promises to callers (see §6)
   contracts:
     - <see §6>
@@ -165,7 +168,7 @@ Type-conditional validation, restoring the v1 rule:
 
 `type` is not inheritable. A `ServiceManifestTemplate` MUST NOT declare `spec.service.type`, and an extending manifest MUST declare its own. Were a template permitted one, a template typed `ai-gate` carrying judgment SLOs and a manifest typed `worker` extending it would both validate alone, and the resolved manifest's verdict would depend on whose value an implementation kept — the same two files accepted by one conformant implementation and rejected by another.
 
-Because template resolution happens at load time rather than during schema validation, a template carrying `judgment_slo` could otherwise supply them to a manifest of any type. An implementation MUST therefore revalidate the fully resolved manifest, after template expansion, against the same rules (§9, §13).
+Because template resolution happens at load time rather than during schema validation, a template carrying `judgment_slo` or `judgment_threshold` could otherwise supply them to a manifest of any type. An implementation MUST therefore revalidate the fully resolved manifest, after template expansion, against the same rules (§9, §13).
 
 ## 4. Classical SLOs (via OpenSLO)
 
@@ -260,7 +263,7 @@ Judgment SLO documents can be embedded in a service manifest's `judgment_slo` bl
 
 ### 5.2 Judgment SLO types
 
-Eight types are specified as the core vocabulary. Organisations can define additional types under their own `apiVersion`; conformant implementations MUST support the eight standard types and MAY support additional types.
+Five types are specified as the core vocabulary. Organisations can define additional types under their own `apiVersion`; conformant implementations MUST support the five standard types and MAY support additional types.
 
 #### 5.2.1 Reversal rate
 
@@ -311,9 +314,10 @@ spec:
       - segment: "low_confidence"
         rate: 0.25
   target:
-    audit_backlog_maximum_age: 24h     # audits completed within 24h
     audit_completion_rate: 0.95
 ```
+
+The audit backlog bound is a judgment threshold (§5.5, `type: audit_backlog`), not part of this target.
 
 #### 5.2.4 Outcomes
 
@@ -343,58 +347,13 @@ spec:
     escalation_human_agreement_rate: 0.8  # humans agree with escalation 80% of the time
 ```
 
-#### 5.2.6 Segments
-
-Tracks that SLO performance is consistent across meaningful segments (customer tiers, geographies, request types). A service with 95% accuracy overall but 60% accuracy on a specific segment has a segment problem that overall SLOs hide.
-
-```yaml
-spec:
-  service: credit-decision-agent
-  judgment_type: segments
-  segment_dimension: customer_tier
-  segment_values: [enterprise, smb, consumer]
-  target:
-    maximum_variance_from_overall: 0.05  # no segment more than 5% below overall
-```
-
-#### 5.2.7 Stability
-
-Tracks that the service produces consistent decisions for equivalent inputs over time. A service whose decisions drift with model updates, prompt changes, or upstream data changes has a stability problem.
-
-```yaml
-spec:
-  service: content-classifier
-  judgment_type: stability
-  probe:
-    frozen_input_set: "s3://probes/content-classifier-2026q1.jsonl"
-    frequency: daily
-  target:
-    maximum_drift: 0.02                # decisions on the probe set change at most 2% per measurement
-```
-
-#### 5.2.8 Calibration
-
-Tracks that expressed confidence matches actual accuracy. If the service says it's 80% confident, does it get 80% of those decisions right?
-
-```yaml
-spec:
-  service: investigation-agent
-  judgment_type: calibration
-  measurement:
-    bins: 10                           # 0.0-0.1, 0.1-0.2, ..., 0.9-1.0
-    window: 30d
-    method: brier_score                # or expected_calibration_error
-  target:
-    maximum_brier_score: 0.05
-```
-
 ### 5.3 Statistical requirements
 
-Judgment-SLO evaluation relies on established statistical methods, not bespoke formulas. A conformant implementation MUST compute:
+Judgment SLO and threshold evaluation relies on established statistical methods, not bespoke formulas. A conformant implementation MUST compute:
 
-- **Calibration metrics** using accepted methods such as Brier score or expected calibration error, binned over the specified measurement window
+- **Calibration metrics** (§5.5.3) using accepted methods such as Brier score or expected calibration error, binned over the specified measurement window
 - **Confidence intervals** around reversal-rate and outcome-rate estimates, with interval width appropriate to the sample size
-- **Segment-variance statistics** for judgment SLOs with segment dimensions, using hypothesis tests appropriate to the segment distribution
+- **Segment-variance statistics** (§5.5.1) for `segments` judgment thresholds, using hypothesis tests appropriate to the segment distribution (reported with the §5.5.1 outcome; does not decide the breach)
 - **Cohort retention analysis** for reversal rate and outcomes, tracking decisions from emission through resolution
 
 The wire format for judgment-SLO outcomes is the OTel `gen_ai.evaluation.result` event (OTel semconv v1.39.0+), extended with the `nthlayer.decision.*` attributes described in §11.3.
@@ -420,6 +379,85 @@ breach_actions:
 ```
 
 How these actions are dispatched — which consumer handles which action type, what the notification mechanism is, how cases are rendered — is a consumer concern, not an OpenSRM concern. The spec describes what the manifest *declares*; consumers decide what to *do* with the declaration.
+
+### 5.5 Judgment thresholds
+
+Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest, or a ServiceManifestTemplate it extends. The resolved `judgment_threshold` list is the template's entries followed by the manifest's entries — a manifest cannot remove a threshold its template declares; `overrides.judgment_threshold` may append entries but MUST NOT remove or replace a template's entries — and the ai-gate requirement applies to the resolved manifest. Each entry names a `type` and a closed `bounds` object. Thresholds do not declare `breach_actions` in this version of the spec. A threshold entry MUST NOT carry `service`, `target` or `judgment_type`: the service is the enclosing manifest's, the value is `bounds`, and the discriminator is `type`. `segment_dimension` and each `segment_values` entry MUST be non-empty. A manifest MAY declare several entries of the same `type` (for example `segments` on two dimensions). How an implementation evaluates thresholds is defined in §5.5.6. (Decision 3c, opensrm-l33e.)
+
+#### 5.5.1 Segments
+
+Tracks that measured performance does not vary beyond the declared bound across meaningful segments (customer tiers, geographies, request types). A service with 95% accuracy overall but 60% accuracy on a specific segment has a segment problem that overall SLOs hide. `maximum_variance_from_overall` is the largest permitted absolute difference between any listed segment's rate and the overall rate (`0.05` = five percentage points): a segment's rate may sit at most that far from the overall rate, above or below, so a segment doing better than overall by more than the bound also breaches (§5.5.6 E1), because the bound caps spread. The breach is decided on the measured difference (the point estimate); the hypothesis tests §5.3 requires for segment variance are reported as confidence alongside it and do not decide the breach.
+
+```yaml
+judgment_threshold:
+  - type: segments
+    segment_dimension: customer_tier
+    segment_values: [enterprise, smb, consumer]
+    bounds:
+      maximum_variance_from_overall: 0.05
+```
+
+#### 5.5.2 Stability
+
+Tracks that the service produces consistent decisions for equivalent inputs over time. A service whose decisions drift with model updates, prompt changes, or upstream data changes has a stability problem.
+
+```yaml
+judgment_threshold:
+  - type: stability
+    probe:
+      frozen_input_set: "s3://probes/credit-decision-2026q1.jsonl"
+      frequency: daily
+    bounds:
+      maximum_drift: 0.02
+```
+
+#### 5.5.3 Calibration
+
+Tracks that expressed confidence matches actual accuracy. If the service says it's 80% confident, does it get 80% of those decisions right?
+
+```yaml
+judgment_threshold:
+  - type: calibration
+    measurement:
+      bins: 10
+      window: 30d
+    bounds:
+      maximum_brier_score: 0.05
+```
+
+Declare either bound or both; each declared bound is evaluated.
+
+#### 5.5.4 Audit backlog
+
+The age of the oldest unaudited sample; a stale backlog means the audit sample is no longer representative. When every sampled decision has been audited the backlog is empty: its age is zero and it is within bounds. The outcome is *not evaluable* (§5.5.6 E3) only when no decision has been sampled yet.
+
+```yaml
+judgment_threshold:
+  - type: audit_backlog
+    bounds:
+      maximum_age: 24h
+```
+
+#### 5.5.5 Feedback latency
+
+How long until ground truth arrives for a decision; it bounds how quickly any judgment SLO can notice a regression. The p50 and p90 are computed over the decisions whose ground truth arrived in the last 30 days (a rolling window anchored on arrival; decisions still awaiting ground truth are not counted); a manifest cannot change that window in this version of the spec.
+
+```yaml
+judgment_threshold:
+  - type: feedback_latency
+    bounds:
+      maximum_p50: 1h
+      maximum_p90: 24h
+```
+
+#### 5.5.6 Evaluation
+
+The rules below apply to every threshold type; the type-specific rules in §5.5.1–§5.5.5 refine these; a type-specific rule may narrow a rule here (as §5.5.4 narrows E3 for an empty backlog) but never contradicts one, and where it narrows, it applies.
+
+1. **E1 Breach.** A breach is a measured value strictly exceeding a declared bound; a value equal to the bound is within bounds. Every declared bound of every entry is evaluated, each entry independently, and a breach of any one bound of any entry is a breach.
+2. **E2 Units.** Duration bounds are compared after normalising both values to a common unit.
+3. **E3 Not evaluable.** When a bound cannot be measured — no decisions, a listed segment with no decisions, or no ground truth arriving in a `feedback_latency` window — its outcome is *not evaluable*: not a breach, and an implementation MUST report it rather than treat it as within bounds. The outcome is decided per bound and, for `segments`, per listed segment. The form of the report is implementation-defined.
+4. **E4 Precedence.** Where outcomes are combined — across bounds, across the listed segments of one entry, or across entries — a breach takes precedence over not evaluable, which takes precedence over within bounds.
 
 ## 6. Reliability Contracts (OpenSRM's original contribution)
 
@@ -688,6 +726,11 @@ An OpenSRM v2 implementation MUST:
 - Support template resolution (§9)
 - Revalidate the fully resolved manifest after template expansion, so type-conditional rules (§3.1) cannot be bypassed by a template
 - Enforce the same type-conditional rules on standalone `kind: JudgmentSLO` documents when binding them to the service each names, so the rules cannot be bypassed by moving a judgment SLO into a second file
+- Where it evaluates judgment thresholds, support all five threshold types (§5.5)
+- Where it evaluates judgment thresholds, evaluate every declared bound of every entry, treating a measured value that strictly exceeds a bound as a breach and a value equal to it as within bounds (§5.5.6 E1)
+- Where it evaluates judgment thresholds, compare Duration bounds after normalising both values to a common unit (§5.5.6 E2)
+- Where it evaluates judgment thresholds, report a bound that cannot be measured as not evaluable (§5.5.6 E3)
+- Where it evaluates judgment thresholds, combine outcomes by the precedence in §5.5.6 E4
 
 An implementation SHOULD:
 
@@ -698,7 +741,7 @@ An implementation SHOULD:
 
 An implementation MAY:
 
-- Extend judgment SLO types beyond the eight standards under its own `apiVersion`
+- Extend judgment SLO types beyond the five standards under its own `apiVersion`
 - Add custom annotations under reserved namespaces
 - Target any observability backend capable of representing the declared SLOs
 - Adopt the `nthlayer.decision.*` attributes described in §11.3 pending upstream standardisation
@@ -719,7 +762,7 @@ The submission narrative is "OpenSRM is the missing composition layer between ex
 
 ## 15. Open Questions
 
-- **Judgment SLO type extensibility.** The eight standard types may not cover all real-world needs. Should there be a formal extension mechanism (new types registered with a TC), or should organisations just use custom `apiVersion` values?
+- **Judgment SLO type extensibility.** The five standard types may not cover all real-world needs. Should there be a formal extension mechanism (new types registered with a TC), or should organisations just use custom `apiVersion` values?
 - **Contract breach credits.** The `sla_credits` block references an external calculation document. Is that enough, or should OpenSRM specify a contract-breach credit semantics?
 - **Template composition.** One level of template inheritance is simple; some organisations may want more. Is the single-level limit acceptable?
 - **Multi-cluster manifests.** A service deployed to multiple clusters/regions may have different reliability characteristics per cluster. Does the manifest model need to extend for this, or do we just recommend per-cluster manifests?

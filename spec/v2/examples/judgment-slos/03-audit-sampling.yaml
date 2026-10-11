@@ -1,4 +1,6 @@
-# Judgment SLO: audit_sampling — human audit sampling rates + backlog target.
+# Judgment SLO: audit_sampling — human audit sampling rates + completion target.
+# The backlog bound that used to sit here is a judgment_threshold
+# (type: audit_backlog) since opensrm-l33e; see ../judgment-thresholds/.
 apiVersion: opensrm.nthlayer.io/v2
 kind: JudgmentSLO
 metadata:
@@ -15,5 +17,4 @@ spec:
       - segment: low_confidence
         rate: 0.25
   target:
-    audit_backlog_maximum_age: 24h
     audit_completion_rate: 0.95

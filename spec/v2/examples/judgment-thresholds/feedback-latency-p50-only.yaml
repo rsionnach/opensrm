@@ -1,0 +1,19 @@
+# Judgment thresholds — feedback_latency with maximum_p50 alone (decision 3c).
+# Pins that p50 by itself satisfies the bounds anyOf; single-bounds.yaml
+# pins p90 alone.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: intake-agent
+  labels:
+    tier: critical   # optional in the schema; nthlayer-common still requires it (opensrm-9bil)
+spec:
+  owner:
+    group: group:default/risk
+  service:
+    name: intake-agent
+    type: ai-gate
+  judgment_threshold:
+    - type: feedback_latency
+      bounds:
+        maximum_p50: 1h

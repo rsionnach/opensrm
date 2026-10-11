@@ -1,0 +1,20 @@
+# MUST be rejected: `type` must be one of the five threshold types;
+# `drift` is not one (opensrm-l33e).
+# One defect only: `type: drift` on an otherwise valid stability entry.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: drift
+      probe:
+        frozen_input_set: "s3://probes/credit-decision-2026q1.jsonl"
+        frequency: daily
+      bounds:
+        maximum_drift: 0.02

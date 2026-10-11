@@ -109,7 +109,7 @@ shift-left contract.
     2026-08-25). Machine-readable schema + worked examples:
     `spec/v2/schema.json` (validated by `spec/v2/validate.sh`).
   - `spec/v2/AUTHORING.md` — how to WRITE a v2 manifest: block-by-block
-    walkthrough, all eight judgment SLO types worked, conventions, and
+    walkthrough, all five judgment SLO types and five judgment threshold types worked, conventions, and
     v1→v2 migration. The entry point for manifest authors;
     `OPENSRM-CORE-v2.md` stays the normative spec and `spec/v2/README.md`
     covers the validator.

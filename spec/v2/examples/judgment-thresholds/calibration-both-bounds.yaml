@@ -1,0 +1,22 @@
+# Calibration with BOTH bounds. Each declared bound is evaluated; a breach of
+# either is a breach. (Before opensrm-l33e only the first was ever read.)
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: investigation-agent
+  labels:
+    tier: critical   # optional in the schema; nthlayer-common still requires it (opensrm-9bil)
+spec:
+  owner:
+    group: group:default/risk
+  service:
+    name: investigation-agent
+    type: ai-gate
+  judgment_threshold:
+    - type: calibration
+      measurement:
+        bins: 10
+        window: 30d
+      bounds:
+        maximum_brier_score: 0.05
+        maximum_expected_calibration_error: 0.03
