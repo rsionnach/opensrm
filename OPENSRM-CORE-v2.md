@@ -452,7 +452,7 @@ judgment_threshold:
 
 #### 5.5.6 Evaluation
 
-The rules below apply to every threshold type; the type-specific rules in §5.5.1–§5.5.5 refine these; where one narrows a rule (as §5.5.4 does for an empty backlog), the type-specific rule applies.
+The rules below apply to every threshold type; the type-specific rules in §5.5.1–§5.5.5 refine these; a type-specific rule may narrow a rule here (as §5.5.4 narrows E3 for an empty backlog) but never contradicts one, and where it narrows, it applies.
 
 1. **E1 Breach.** A breach is a measured value strictly exceeding a declared bound; a value equal to the bound is within bounds. Every declared bound of every entry is evaluated, each entry independently, and a breach of any one bound of any entry is a breach.
 2. **E2 Units.** Duration bounds are compared after normalising both values to a common unit.
