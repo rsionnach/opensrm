@@ -1,6 +1,6 @@
 # MUST be rejected: maximum_brier_score is a number; a quoted value
 # is a string, which the 0-1 range check alone would not catch
-# (opensrm-l33e, design spec 2.2: strings are rejected).
+# (opensrm-l33e; design spec §1.1 types it "number, 0–1").
 # One defect only: `maximum_brier_score: "0.05"`.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest
