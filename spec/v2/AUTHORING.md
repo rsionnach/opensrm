@@ -345,7 +345,7 @@ Error magnitudes — segments, stability, calibration, audit backlog, feedback l
 
 ### 4.5 `judgment_threshold` — bounds on error magnitudes
 
-Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest or a ServiceManifestTemplate it extends (the resolved list is the template's entries followed by the manifest's, so a manifest cannot remove a threshold its template declares; the ai-gate check applies after resolution). Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. You may repeat a type — for instance `segments` on two dimensions; each entry is evaluated on its own, and a breach of any one is a breach (CORE §5.5). No data is reported as not evaluable — never as a pass (CORE §5.5). (Decision 3c, opensrm-l33e.)
+Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest or a ServiceManifestTemplate it extends (the resolved list is the template's entries followed by the manifest's, so a manifest cannot remove a threshold its template declares, and `overrides.judgment_threshold` may append entries but not remove or replace them (CORE §5.5); the ai-gate check applies after resolution). Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. You may repeat a type — for instance `segments` on two dimensions; each entry is evaluated on its own, and a breach of any one is a breach, and a breach outranks not evaluable, which outranks within bounds (CORE §5.5). No data is reported as not evaluable — never as a pass (CORE §5.5). (Decision 3c, opensrm-l33e.)
 
 ```yaml
 judgment_threshold:
@@ -919,7 +919,7 @@ judgment_threshold:
 
 → [`examples/judgment-thresholds/all-five-types.yaml`](examples/judgment-thresholds/all-five-types.yaml)
 
-**Measures** how old the oldest unreviewed audit item is.
+**Measures** how old the oldest unreviewed audit item is. An empty backlog — everything audited — is age zero and within bounds, not "not evaluable" (CORE §5.5.4).
 
 **Reach for it when** you declare an `audit_sampling` rate (§5.3). The
 backlog age bound makes falling behind visible.
