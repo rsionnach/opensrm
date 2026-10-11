@@ -345,7 +345,7 @@ Error magnitudes — segments, stability, calibration, audit backlog, feedback l
 
 ### 4.5 `judgment_threshold` — bounds on error magnitudes
 
-Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest or a ServiceManifestTemplate it extends (template and manifest lists combine per CORE §9; the ai-gate check applies after resolution). Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. You may repeat a type — for instance `segments` on two dimensions; each entry is evaluated on its own, and a breach of any one is a breach (CORE §5.5). (Decision 3c, opensrm-l33e.)
+Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest or a ServiceManifestTemplate it extends (the resolved list is the template's entries followed by the manifest's, so a manifest cannot remove a threshold its template declares; the ai-gate check applies after resolution). Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. You may repeat a type — for instance `segments` on two dimensions; each entry is evaluated on its own, and a breach of any one is a breach (CORE §5.5). No data is reported as not evaluable — never as a pass (CORE §5.5). (Decision 3c, opensrm-l33e.)
 
 ```yaml
 judgment_threshold:
@@ -815,7 +815,7 @@ aggregate metrics are structurally incapable of surfacing it.
 **Setting the bound** means choosing `segment_dimension` where you
 suspect performance actually varies, not where the data is easiest to
 join. Enumerate `segment_values` explicitly — a segment absent from the
-list is not monitored. `maximum_variance_from_overall` is the absolute difference between a segment's rate and the overall rate (`0.05` = five percentage points), in either direction: a segment doing better than overall by more than the bound also breaches, because the bound caps spread (CORE §5.5.1).
+list is not monitored. `maximum_variance_from_overall` is the absolute difference between a segment's rate and the overall rate (`0.05` = five percentage points), in either direction: a segment doing better than overall by more than the bound also breaches, because the bound caps spread (CORE §5.5.1). The breach is decided on the measured difference itself; the significance tests §5.3 asks for are reported alongside it as confidence and do not decide the breach. A listed segment with no decisions is reported as not evaluable, not as a pass (CORE §5.5).
 
 **A breach means** at least one segment's rate has drifted more than the
 bound away from the overall rate, in either direction (usually, but not
