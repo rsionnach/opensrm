@@ -382,11 +382,11 @@ How these actions are dispatched — which consumer handles which action type, w
 
 ### 5.5 Judgment thresholds
 
-Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest, or a ServiceManifestTemplate it extends. The resolved `judgment_threshold` list is the template's entries followed by the manifest's entries — a manifest cannot remove a threshold its template declares; `overrides.judgment_threshold` may append entries but MUST NOT remove or replace a template's entries — and the ai-gate requirement applies to the resolved manifest. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. Thresholds do not declare `breach_actions` in this version of the spec. A threshold entry MUST NOT carry `service`, `target` or `judgment_type`: the service is the enclosing manifest's, the value is `bounds`, and the discriminator is `type`. `segment_dimension` and each `segment_values` entry MUST be non-empty. A manifest MAY declare several entries of the same `type` (for example `segments` on two dimensions); each entry is evaluated independently, and a breach of any one is a breach. When a bound cannot be measured — no decisions, a listed segment with no decisions, or no ground truth arriving in a `feedback_latency` window — its outcome is *not evaluable*: not a breach, and an implementation MUST report it rather than treat it as within bounds. The outcome is decided per bound and, for `segments`, per listed segment. Where outcomes are combined — across bounds, across the listed segments of one entry, or across entries — a breach takes precedence over not evaluable, which takes precedence over within bounds. Duration bounds are compared after normalising both values to a common unit. (Decision 3c, opensrm-l33e.)
+Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest, or a ServiceManifestTemplate it extends. The resolved `judgment_threshold` list is the template's entries followed by the manifest's entries — a manifest cannot remove a threshold its template declares; `overrides.judgment_threshold` may append entries but MUST NOT remove or replace a template's entries — and the ai-gate requirement applies to the resolved manifest. Each entry names a `type` and a closed `bounds` object. Thresholds do not declare `breach_actions` in this version of the spec. A threshold entry MUST NOT carry `service`, `target` or `judgment_type`: the service is the enclosing manifest's, the value is `bounds`, and the discriminator is `type`. `segment_dimension` and each `segment_values` entry MUST be non-empty. A manifest MAY declare several entries of the same `type` (for example `segments` on two dimensions). How an implementation evaluates thresholds is defined in §5.5.6. (Decision 3c, opensrm-l33e.)
 
 #### 5.5.1 Segments
 
-Tracks that measured performance does not vary beyond the declared bound across meaningful segments (customer tiers, geographies, request types). A service with 95% accuracy overall but 60% accuracy on a specific segment has a segment problem that overall SLOs hide. `maximum_variance_from_overall` is the largest permitted absolute difference between any listed segment's rate and the overall rate (`0.05` = five percentage points): a segment's rate may sit at most that far from the overall rate, above or below, so a segment doing better than overall by more than the bound also breaches, because the bound caps spread. The breach is decided on the measured difference (the point estimate); the hypothesis tests §5.3 requires for segment variance are reported as confidence alongside it and do not decide the breach.
+Tracks that measured performance does not vary beyond the declared bound across meaningful segments (customer tiers, geographies, request types). A service with 95% accuracy overall but 60% accuracy on a specific segment has a segment problem that overall SLOs hide. `maximum_variance_from_overall` is the largest permitted absolute difference between any listed segment's rate and the overall rate (`0.05` = five percentage points): a segment's rate may sit at most that far from the overall rate, above or below, so a segment doing better than overall by more than the bound also breaches (§5.5.6 E1), because the bound caps spread. The breach is decided on the measured difference (the point estimate); the hypothesis tests §5.3 requires for segment variance are reported as confidence alongside it and do not decide the breach.
 
 ```yaml
 judgment_threshold:
@@ -429,7 +429,7 @@ Declare either bound or both; each declared bound is evaluated.
 
 #### 5.5.4 Audit backlog
 
-The age of the oldest unaudited sample; a stale backlog means the audit sample is no longer representative. When every sampled decision has been audited the backlog is empty: its age is zero and it is within bounds. The outcome is *not evaluable* (§5.5) only when no decision has been sampled yet.
+The age of the oldest unaudited sample; a stale backlog means the audit sample is no longer representative. When every sampled decision has been audited the backlog is empty: its age is zero and it is within bounds. The outcome is *not evaluable* (§5.5.6 E3) only when no decision has been sampled yet.
 
 ```yaml
 judgment_threshold:
@@ -449,6 +449,15 @@ judgment_threshold:
       maximum_p50: 1h
       maximum_p90: 24h
 ```
+
+#### 5.5.6 Evaluation
+
+The rules below apply to every threshold type; the type-specific rules in §5.5.1–§5.5.5 add to them.
+
+1. **E1 Breach.** A breach is the measured value strictly exceeding a declared bound; a value equal to the bound is within bounds. Every declared bound of every entry is evaluated, and each entry is evaluated independently, and a breach of any one is a breach.
+2. **E2 Units.** Duration bounds are compared after normalising both values to a common unit.
+3. **E3 Not evaluable.** When a bound cannot be measured — no decisions, a listed segment with no decisions, or no ground truth arriving in a `feedback_latency` window — its outcome is *not evaluable*: not a breach, and an implementation MUST report it rather than treat it as within bounds. The outcome is decided per bound and, for `segments`, per listed segment. The form of the report is implementation-defined.
+4. **E4 Precedence.** Where outcomes are combined — across bounds, across the listed segments of one entry, or across entries — a breach takes precedence over not evaluable, which takes precedence over within bounds.
 
 ## 6. Reliability Contracts (OpenSRM's original contribution)
 
@@ -717,7 +726,10 @@ An OpenSRM v2 implementation MUST:
 - Support template resolution (§9)
 - Revalidate the fully resolved manifest after template expansion, so type-conditional rules (§3.1) cannot be bypassed by a template
 - Enforce the same type-conditional rules on standalone `kind: JudgmentSLO` documents when binding them to the service each names, so the rules cannot be bypassed by moving a judgment SLO into a second file
-- Where it evaluates judgment thresholds, support all five threshold types (§5.5), evaluate every declared bound of every entry, treat a measured value above any declared bound as a breach, and report a bound that cannot be measured as not evaluable (§5.5)
+- Where it evaluates judgment thresholds, support all five threshold types (§5.5)
+- Where it evaluates judgment thresholds, evaluate every declared bound of every entry, breaching only when a measured value strictly exceeds a bound (§5.5.6 E1, E2)
+- Where it evaluates judgment thresholds, report a bound that cannot be measured as not evaluable (§5.5.6 E3)
+- Where it evaluates judgment thresholds, combine outcomes by the precedence in §5.5.6 E4
 
 An implementation SHOULD:
 
