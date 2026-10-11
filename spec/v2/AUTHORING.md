@@ -345,7 +345,7 @@ Error magnitudes — segments, stability, calibration, audit backlog, feedback l
 
 ### 4.5 `judgment_threshold` — bounds on error magnitudes
 
-Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. You may repeat a type — for instance `segments` on two dimensions; each entry is evaluated on its own. (Decision 3c, opensrm-l33e.)
+Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest or a ServiceManifestTemplate it extends. Each entry names a `type` and a closed `bounds` object; a breach is the measured value exceeding any declared bound. You may repeat a type — for instance `segments` on two dimensions; each entry is evaluated on its own. (Decision 3c, opensrm-l33e.)
 
 ```yaml
 judgment_threshold:

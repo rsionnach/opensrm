@@ -386,7 +386,7 @@ Some measures of decision quality are not SLOs. A segment variance, a drift boun
 
 #### 5.5.1 Segments
 
-Tracks that measured performance does not vary beyond the declared bound across meaningful segments (customer tiers, geographies, request types). A service with 95% accuracy overall but 60% accuracy on a specific segment has a segment problem that overall SLOs hide. `maximum_variance_from_overall` is the largest permitted absolute difference, in ratio points, between any listed segment's rate and the overall rate: `0.05` allows a segment to sit at most five points from overall, above or below.
+Tracks that measured performance does not vary beyond the declared bound across meaningful segments (customer tiers, geographies, request types). A service with 95% accuracy overall but 60% accuracy on a specific segment has a segment problem that overall SLOs hide. `maximum_variance_from_overall` is the largest permitted absolute difference, in ratio points, between any listed segment's rate and the overall rate: `0.05` allows a segment's rate to sit at most 0.05 (five percentage points) from the overall rate, above or below.
 
 ```yaml
 judgment_threshold:
