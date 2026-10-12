@@ -367,13 +367,23 @@
             "additionalProperties": false,
             "properties": {
               "type": {},
-              "metric": { "enum": ["reversal_rate", "high_confidence_failure", "outcomes", "escalation"], "description": "The judgment rate compared across segments (opensrm-7zpz). audit_sampling is excluded: it measures sampling, not performance." },
+              "metric": { "enum": ["reversal_rate", "high_confidence_failure", "outcomes", "escalation"], "description": "The judgment rate compared across segments (opensrm-7zpz). escalation means the escalation rate, not the human agreement rate. audit_sampling is excluded: it measures sampling, not performance." },
               "segment_dimension": { "type": "string", "minLength": 1 },
               "segment_values": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
+              "outcome_signal": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["source", "window"],
+                "description": "For metric outcomes only: the same outcome signal the outcomes judgment SLO declares (window = how long after a decision to wait for its outcome).",
+                "properties": {
+                  "source": { "type": "string", "minLength": 1 },
+                  "window": { "$ref": "#/definitions/Duration" }
+                }
+              },
               "measurement": {
                 "type": "object",
                 "additionalProperties": false,
-                "description": "The named metric's own rate parameters. window defaults to 30d.",
+                "description": "The named metric's own rate parameters. window is the population window and defaults to 30d.",
                 "properties": {
                   "window": { "$ref": "#/definitions/Duration" },
                   "source": { "enum": ["lineage", "calibration_sample", "downstream_signal"] },
@@ -397,6 +407,11 @@
                 "if": { "properties": { "metric": { "const": "high_confidence_failure" } }, "required": ["metric"] },
                 "then": { "required": ["measurement"], "properties": { "measurement": { "required": ["confidence_threshold"] } } },
                 "else": { "properties": { "measurement": { "properties": { "confidence_threshold": { "not": {}, "description": "confidence_threshold parameterises high_confidence_failure only." } } } } }
+              },
+              {
+                "if": { "properties": { "metric": { "const": "outcomes" } }, "required": ["metric"] },
+                "then": { "required": ["outcome_signal"] },
+                "else": { "properties": { "outcome_signal": { "not": {}, "description": "outcome_signal parameterises outcomes only." } } }
               }
             ]
           }

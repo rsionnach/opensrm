@@ -12,7 +12,7 @@ spec:
     type: ai-gate
   judgment_threshold:
     - type: segments
-      metric: outcomes
+      metric: escalation
       measurement:
         window: 7 days
       segment_dimension: customer_tier

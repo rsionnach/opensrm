@@ -1,0 +1,24 @@
+# MUST be rejected: outcome_signal parameterises outcomes only (opensrm-7zpz).
+# One defect only: `outcome_signal` with `metric: reversal_rate`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: segments
+      metric: reversal_rate
+      measurement:
+        source: lineage
+      outcome_signal:
+        source: retro-consumer
+        window: 1h
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds:
+        maximum_variance_from_overall: 0.05

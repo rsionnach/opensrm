@@ -820,11 +820,15 @@ aggregate metrics are structurally incapable of surfacing it.
 
 **Choosing the rate.** `metric` says which rate must hold evenly:
 `reversal_rate`, `high_confidence_failure`, `outcomes` or `escalation`,
-each defined as for the judgment SLO of that name. Give it the same
+each defined as for the judgment SLO of that name (`escalation` is the
+escalation rate, not the human agreement rate). Give it the same
 parameter its SLO form needs — `measurement.source` for
 `reversal_rate`, `measurement.confidence_threshold` for
-`high_confidence_failure` — and optionally `measurement.window`
-(default `30d`). One entry checks one rate; if reversals *and*
+`high_confidence_failure`, an `outcome_signal` (`source`, `window`) for
+`outcomes` — and optionally `measurement.window` (default `30d`). Do not
+confuse the two windows on an `outcomes` entry: `outcome_signal.window`
+is how long to wait for each decision's outcome, `measurement.window` is
+how far back decisions are counted. One entry checks one rate; if reversals *and*
 escalations must both hold evenly across tiers, declare two entries
 (CORE §5.5.1).
 
@@ -1078,7 +1082,10 @@ over-read:
   `additionalProperties: false` on `spec`, so a typo like `judgement_slo`
   or `contract` (singular, v1 habit) is silently ignored rather than
   flagged. Your block simply does nothing. This looseness is a known gap
-  in the draft schema, tracked internally as `opensrm-vquh`.
+  in the draft schema, tracked internally as `opensrm-vquh`. The
+  exception is `judgment_threshold`: each entry, and its `measurement`,
+  `probe` and `outcome_signal` objects, is closed, so an unknown key
+  there *is* an error (CORE §5.5).
 - **Classical SLO bodies are not validated** — only that each item is a
   `$ref` or carries `kind: SLO` ([§4.3](#43-slo--classical-slos)).
   Validate them against the OpenSLO schema separately.

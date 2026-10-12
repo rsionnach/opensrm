@@ -12,7 +12,7 @@ spec:
     type: ai-gate
   judgment_threshold:
     - type: segments
-      metric: outcomes
+      metric: escalation
       window: 7d
       segment_dimension: customer_tier
       segment_values: [enterprise, smb, consumer]

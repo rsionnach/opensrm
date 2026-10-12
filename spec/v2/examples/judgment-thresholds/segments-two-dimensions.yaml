@@ -24,8 +24,11 @@ spec:
         maximum_variance_from_overall: 0.05
     - type: segments
       metric: outcomes
+      outcome_signal:
+        source: retro-consumer   # as on an outcomes judgment SLO
+        window: 1h               # wait this long for each decision's outcome
       measurement:
-        window: 7d
+        window: 7d               # population window (default 30d)
       segment_dimension: region
       segment_values: [eu, us, apac]
       bounds:

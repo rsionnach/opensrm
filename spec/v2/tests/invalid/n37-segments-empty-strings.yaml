@@ -11,7 +11,7 @@ spec:
     type: ai-gate
   judgment_threshold:
     - type: segments
-      metric: outcomes
+      metric: escalation
       segment_dimension: ""
       segment_values: [enterprise, smb]
       bounds: { maximum_variance_from_overall: 0.05 }

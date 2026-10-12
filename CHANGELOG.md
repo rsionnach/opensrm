@@ -10,11 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed — BREAKING (v2-draft)
 - **A `segments` threshold names the rate it compares** (opensrm-7zpz).
   `metric` is now required: `reversal_rate`, `high_confidence_failure`,
-  `outcomes` or `escalation`, with that judgment SLO type's definition
-  (`audit_sampling` is not a performance rate). An optional `measurement`
-  block carries the rate's parameters: `window` (default `30d`), `source`
-  (required for `reversal_rate`) and `confidence_threshold` (required for
-  `high_confidence_failure`). Previously an entry named neither a rate nor a
+  `outcomes` or `escalation` (the escalation rate), with that judgment SLO
+  type's definition (`audit_sampling` is not a performance rate). The
+  rate's parameters come with it: `measurement.window` (population window,
+  default `30d`), `measurement.source` (required for `reversal_rate`),
+  `measurement.confidence_threshold` (required for
+  `high_confidence_failure`) and `outcome_signal` (`source`, `window`;
+  required for `outcomes`). Previously an entry named neither a rate nor a
   window, so no two implementations had to evaluate it alike.
 
   ```yaml
@@ -26,8 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       segment_values: [enterprise, smb, consumer]
       bounds: { maximum_variance_from_overall: 0.05 }
   ```
-- **Judgment threshold entries are closed**, as are their `measurement` and
-  `probe` objects (opensrm-7zpz). A key the type does not define is now a
+- **Judgment threshold entries are closed**, as are their `measurement`,
+  `probe` and `outcome_signal` objects (opensrm-7zpz). A key the type does not define is now a
   validation error; before, a misplaced `window:` or a misspelled
   `frequncy:` validated and was silently ignored.
 

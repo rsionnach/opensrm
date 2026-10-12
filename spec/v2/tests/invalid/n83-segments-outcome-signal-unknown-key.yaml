@@ -1,5 +1,5 @@
-# MUST be rejected: source parameterises reversal_rate only; on another metric it would be silently ignored (opensrm-7zpz).
-# One defect only: `metric: outcomes` with `measurement.source`.
+# MUST be rejected: outcome_signal is closed (opensrm-7zpz).
+# One defect only: `outcome_signal.wait`.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest
 metadata:
@@ -13,8 +13,10 @@ spec:
   judgment_threshold:
     - type: segments
       metric: outcomes
-      measurement:
-        source: lineage
+      outcome_signal:
+        source: retro-consumer
+        window: 1h
+        wait: 2h
       segment_dimension: customer_tier
       segment_values: [enterprise, smb, consumer]
       bounds:
