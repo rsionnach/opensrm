@@ -14,6 +14,7 @@ spec:
     type: ai-gate
   judgment_threshold:
     - type: segments
+      metric: outcomes
       segment_dimension: customer_tier
       segment_values: [enterprise, smb, consumer]
       bounds:

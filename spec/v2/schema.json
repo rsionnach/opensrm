@@ -363,26 +363,54 @@
         {
           "if": { "properties": { "type": { "const": "segments" } }, "required": ["type"] },
           "then": {
-            "required": ["segment_dimension", "segment_values", "bounds"],
+            "required": ["metric", "segment_dimension", "segment_values", "bounds"],
+            "additionalProperties": false,
             "properties": {
+              "type": {},
+              "metric": { "enum": ["reversal_rate", "high_confidence_failure", "outcomes", "escalation"], "description": "The judgment rate compared across segments (opensrm-7zpz). audit_sampling is excluded: it measures sampling, not performance." },
               "segment_dimension": { "type": "string", "minLength": 1 },
               "segment_values": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
+              "measurement": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "The named metric's own rate parameters. window defaults to 30d.",
+                "properties": {
+                  "window": { "$ref": "#/definitions/Duration" },
+                  "source": { "enum": ["lineage", "calibration_sample", "downstream_signal"] },
+                  "confidence_threshold": { "$ref": "#/definitions/Ratio" }
+                }
+              },
               "bounds": {
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["maximum_variance_from_overall"],
                 "properties": { "maximum_variance_from_overall": { "$ref": "#/definitions/Ratio" } }
               }
-            }
+            },
+            "allOf": [
+              {
+                "if": { "properties": { "metric": { "const": "reversal_rate" } }, "required": ["metric"] },
+                "then": { "required": ["measurement"], "properties": { "measurement": { "required": ["source"] } } },
+                "else": { "properties": { "measurement": { "properties": { "source": { "not": {}, "description": "source parameterises reversal_rate only." } } } } }
+              },
+              {
+                "if": { "properties": { "metric": { "const": "high_confidence_failure" } }, "required": ["metric"] },
+                "then": { "required": ["measurement"], "properties": { "measurement": { "required": ["confidence_threshold"] } } },
+                "else": { "properties": { "measurement": { "properties": { "confidence_threshold": { "not": {}, "description": "confidence_threshold parameterises high_confidence_failure only." } } } } }
+              }
+            ]
           }
         },
         {
           "if": { "properties": { "type": { "const": "stability" } }, "required": ["type"] },
           "then": {
             "required": ["probe", "bounds"],
+            "additionalProperties": false,
             "properties": {
+              "type": {},
               "probe": {
                 "type": "object",
+                "additionalProperties": false,
                 "required": ["frozen_input_set", "frequency"],
                 "properties": {
                   "frozen_input_set": { "type": "string" },
@@ -402,9 +430,12 @@
           "if": { "properties": { "type": { "const": "calibration" } }, "required": ["type"] },
           "then": {
             "required": ["measurement", "bounds"],
+            "additionalProperties": false,
             "properties": {
+              "type": {},
               "measurement": {
                 "type": "object",
+                "additionalProperties": false,
                 "required": ["bins", "window"],
                 "properties": {
                   "bins": { "type": "integer", "minimum": 2 },
@@ -431,7 +462,9 @@
           "if": { "properties": { "type": { "const": "audit_backlog" } }, "required": ["type"] },
           "then": {
             "required": ["bounds"],
+            "additionalProperties": false,
             "properties": {
+              "type": {},
               "bounds": {
                 "type": "object",
                 "additionalProperties": false,
@@ -445,7 +478,9 @@
           "if": { "properties": { "type": { "const": "feedback_latency" } }, "required": ["type"] },
           "then": {
             "required": ["bounds"],
+            "additionalProperties": false,
             "properties": {
+              "type": {},
               "bounds": {
                 "type": "object",
                 "additionalProperties": false,

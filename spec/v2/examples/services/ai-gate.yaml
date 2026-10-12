@@ -93,6 +93,9 @@ spec:
   judgment_threshold:
     # Quality must not vary by customer segment.
     - type: segments
+      metric: reversal_rate
+      measurement:
+        source: lineage
       segment_dimension: customer_tier
       segment_values: [enterprise, smb, consumer]
       bounds:

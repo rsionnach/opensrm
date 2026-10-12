@@ -1,5 +1,5 @@
 # Judgment thresholds — a type may repeat (CORE §5.5).
-# Two `segments` entries on different dimensions; each entry is
+# Two `segments` entries on different dimensions and rates; each entry is
 # evaluated independently, and a breach of either is a breach.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest
@@ -15,11 +15,17 @@ spec:
     type: ai-gate
   judgment_threshold:
     - type: segments
+      metric: reversal_rate
+      measurement:
+        source: lineage
       segment_dimension: customer_tier
       segment_values: [enterprise, smb, consumer]
       bounds:
         maximum_variance_from_overall: 0.05
     - type: segments
+      metric: outcomes
+      measurement:
+        window: 7d
       segment_dimension: region
       segment_values: [eu, us, apac]
       bounds:
