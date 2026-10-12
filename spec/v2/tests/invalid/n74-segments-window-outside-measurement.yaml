@@ -1,4 +1,4 @@
-# MUST be rejected: threshold entries are closed (opensrm-7zpz); a window belongs under measurement, and at the entry's top level it would be silently ignored.
+# MUST be rejected: threshold entries are closed (opensrm-7zpz); a window belongs under measurement, and at the entry's top level it would otherwise be silently ignored.
 # One defect only: `window: 7d` beside `metric`.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest

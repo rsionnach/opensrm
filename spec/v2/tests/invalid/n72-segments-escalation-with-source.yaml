@@ -1,4 +1,4 @@
-# MUST be rejected: source parameterises reversal_rate only; on another metric it would be silently ignored (opensrm-7zpz).
+# MUST be rejected: source parameterises reversal_rate only; on another metric it would otherwise be silently ignored (opensrm-7zpz).
 # One defect only: `metric: escalation` with `measurement.source`.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest

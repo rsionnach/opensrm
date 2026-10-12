@@ -383,7 +383,7 @@
               "measurement": {
                 "type": "object",
                 "additionalProperties": false,
-                "description": "The named metric's own rate parameters. window is the population window and defaults to 30d.",
+                "description": "The named metric's rate parameters. window: any metric; population window, default 30d. source: reversal_rate only (required). confidence_threshold: high_confidence_failure only (required).",
                 "properties": {
                   "window": { "$ref": "#/definitions/Duration" },
                   "source": { "enum": ["lineage", "calibration_sample", "downstream_signal"] },
