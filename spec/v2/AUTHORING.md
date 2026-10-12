@@ -830,8 +830,9 @@ confuse the two windows on an `outcomes` entry: `outcome_signal.window`
 is how long to wait for each decision's outcome, `measurement.window` is
 how far back decisions are counted. Only decisions whose outcome window
 has elapsed are counted, so make `measurement.window` comfortably longer
-than `outcome_signal.window`; otherwise most of the population is still
-pending and segments read as not evaluable (CORE §5.5.6 E3). One entry checks one rate; if reversals *and*
+than `outcome_signal.window`. If it is not longer, no decision's outcome
+window has elapsed by the time it is counted, so the entry is never
+evaluable (CORE §5.5.6 E3). One entry checks one rate; if reversals *and*
 escalations must both hold evenly across tiers, declare two entries
 (CORE §5.5.1).
 
