@@ -1,0 +1,20 @@
+# MUST be rejected: the stability probe is closed (opensrm-7zpz); a misspelled key would be silently ignored.
+# One defect only: `probe.frequncy`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: stability
+      probe:
+        frozen_input_set: "s3://probes/refunds.jsonl"
+        frequency: daily
+        frequncy: hourly
+      bounds:
+        maximum_drift: 0.02

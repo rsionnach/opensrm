@@ -1,0 +1,21 @@
+# MUST be rejected: segments measurement is closed (opensrm-7zpz); a misspelled key would be silently ignored.
+# One defect only: `measurement.windw`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: segments
+      metric: escalation
+      measurement:
+        windw: 7d
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds:
+        maximum_variance_from_overall: 0.05

@@ -1,0 +1,20 @@
+# MUST be rejected: threshold entries are closed (CORE §5.5, opensrm-7zpz).
+# One defect only: `bins: 10` at the entry level instead of under measurement.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: calibration
+      bins: 10
+      measurement:
+        bins: 10
+        window: 30d
+      bounds:
+        maximum_expected_calibration_error: 0.05

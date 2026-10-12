@@ -363,26 +363,69 @@
         {
           "if": { "properties": { "type": { "const": "segments" } }, "required": ["type"] },
           "then": {
-            "required": ["segment_dimension", "segment_values", "bounds"],
+            "required": ["metric", "segment_dimension", "segment_values", "bounds"],
+            "additionalProperties": false,
             "properties": {
+              "type": {},
+              "metric": { "enum": ["reversal_rate", "high_confidence_failure", "outcomes", "escalation"], "description": "The judgment rate compared across segments (opensrm-7zpz). escalation means the escalation rate, not the human agreement rate. audit_sampling is excluded: it measures sampling, not performance." },
               "segment_dimension": { "type": "string", "minLength": 1 },
               "segment_values": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
+              "outcome_signal": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["source", "window"],
+                "description": "For metric outcomes only: the same outcome signal the outcomes judgment SLO declares (window = how long after a decision to wait for its outcome).",
+                "properties": {
+                  "source": { "type": "string" },
+                  "window": { "$ref": "#/definitions/Duration" }
+                }
+              },
+              "measurement": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "The named metric's rate parameters. window: any metric; population window, default 30d. source: reversal_rate only (required). confidence_threshold: high_confidence_failure only (required).",
+                "properties": {
+                  "window": { "allOf": [{ "$ref": "#/definitions/Duration" }, { "not": { "pattern": "^0+(ms|s|m|h|d|w)$" }, "description": "A zero population window could never be evaluated." }] },
+                  "source": { "enum": ["lineage", "calibration_sample", "downstream_signal"] },
+                  "confidence_threshold": { "$ref": "#/definitions/Ratio" }
+                }
+              },
               "bounds": {
                 "type": "object",
                 "additionalProperties": false,
                 "required": ["maximum_variance_from_overall"],
                 "properties": { "maximum_variance_from_overall": { "$ref": "#/definitions/Ratio" } }
               }
-            }
+            },
+            "allOf": [
+              {
+                "if": { "properties": { "metric": { "const": "reversal_rate" } }, "required": ["metric"] },
+                "then": { "required": ["measurement"], "properties": { "measurement": { "required": ["source"] } } },
+                "else": { "properties": { "measurement": { "properties": { "source": { "not": {}, "description": "source parameterises reversal_rate only." } } } } }
+              },
+              {
+                "if": { "properties": { "metric": { "const": "high_confidence_failure" } }, "required": ["metric"] },
+                "then": { "required": ["measurement"], "properties": { "measurement": { "required": ["confidence_threshold"] } } },
+                "else": { "properties": { "measurement": { "properties": { "confidence_threshold": { "not": {}, "description": "confidence_threshold parameterises high_confidence_failure only." } } } } }
+              },
+              {
+                "if": { "properties": { "metric": { "const": "outcomes" } }, "required": ["metric"] },
+                "then": { "required": ["outcome_signal"] },
+                "else": { "properties": { "outcome_signal": { "not": {}, "description": "outcome_signal parameterises outcomes only." } } }
+              }
+            ]
           }
         },
         {
           "if": { "properties": { "type": { "const": "stability" } }, "required": ["type"] },
           "then": {
             "required": ["probe", "bounds"],
+            "additionalProperties": false,
             "properties": {
+              "type": {},
               "probe": {
                 "type": "object",
+                "additionalProperties": false,
                 "required": ["frozen_input_set", "frequency"],
                 "properties": {
                   "frozen_input_set": { "type": "string" },
@@ -402,9 +445,12 @@
           "if": { "properties": { "type": { "const": "calibration" } }, "required": ["type"] },
           "then": {
             "required": ["measurement", "bounds"],
+            "additionalProperties": false,
             "properties": {
+              "type": {},
               "measurement": {
                 "type": "object",
+                "additionalProperties": false,
                 "required": ["bins", "window"],
                 "properties": {
                   "bins": { "type": "integer", "minimum": 2 },
@@ -431,7 +477,9 @@
           "if": { "properties": { "type": { "const": "audit_backlog" } }, "required": ["type"] },
           "then": {
             "required": ["bounds"],
+            "additionalProperties": false,
             "properties": {
+              "type": {},
               "bounds": {
                 "type": "object",
                 "additionalProperties": false,
@@ -445,7 +493,9 @@
           "if": { "properties": { "type": { "const": "feedback_latency" } }, "required": ["type"] },
           "then": {
             "required": ["bounds"],
+            "additionalProperties": false,
             "properties": {
+              "type": {},
               "bounds": {
                 "type": "object",
                 "additionalProperties": false,

@@ -8,6 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed — BREAKING (v2-draft)
+- **A `segments` threshold names the rate it compares** (opensrm-7zpz).
+  `metric` is now required: `reversal_rate`, `high_confidence_failure`,
+  `outcomes` or `escalation` (the escalation rate), each defined as for the
+  judgment SLO of that name; `audit_sampling` is excluded because it
+  measures sampling, not performance. The
+  rate's parameters come with it: `measurement.window` (population window,
+  default `30d`), `measurement.source` (required for `reversal_rate`),
+  `measurement.confidence_threshold` (required for
+  `high_confidence_failure`) and `outcome_signal` (`source`, `window`;
+  required for `outcomes`). Previously an entry named neither a rate nor a
+  window, so no two implementations had to evaluate it alike.
+
+  ```yaml
+  judgment_threshold:
+    - type: segments
+      metric: reversal_rate
+      measurement: { source: lineage }
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds: { maximum_variance_from_overall: 0.05 }
+  ```
+- **Judgment threshold entries are closed**, as are their `measurement`,
+  `probe` and `outcome_signal` objects (opensrm-7zpz). A key the type does not define is now a
+  validation error; before, a misplaced `window:` or a misspelled
+  `frequncy:` validated and was silently ignored.
 - **Judgment error magnitudes are no longer SLOs** (decision 3c, opensrm-l33e).
   `segments`, `stability` and `calibration` leave `judgment_slo`, and
   `audit_sampling`'s `audit_backlog_maximum_age` leaves its target. All four

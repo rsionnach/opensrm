@@ -1,0 +1,21 @@
+# MUST be rejected: source parameterises reversal_rate only; on another metric it would otherwise be silently ignored (opensrm-7zpz).
+# One defect only: `metric: escalation` with `measurement.source`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: segments
+      metric: escalation
+      measurement:
+        source: lineage
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds:
+        maximum_variance_from_overall: 0.05

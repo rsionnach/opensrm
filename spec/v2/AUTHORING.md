@@ -345,11 +345,14 @@ Error magnitudes — segments, stability, calibration, audit backlog, feedback l
 
 ### 4.5 `judgment_threshold` — bounds on error magnitudes
 
-Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest or a ServiceManifestTemplate it extends (the resolved list is the template's entries followed by the manifest's, so a manifest cannot remove a threshold its template declares, and `overrides.judgment_threshold` may append entries but not remove or replace them (CORE §5.5); the ai-gate check applies after resolution). Each entry names a `type` and a closed `bounds` object; a breach is the measured value strictly exceeding any declared bound (CORE §5.5.6 E1). You may repeat a type — for instance `segments` on two dimensions; each entry is evaluated on its own, and a breach of any one is a breach (CORE §5.5.6 E1), and a breach outranks not evaluable, which outranks within bounds (CORE §5.5.6 E4). No data is reported as not evaluable — never as a pass (CORE §5.5.6 E3). (Decision 3c, opensrm-l33e.)
+Some measures of decision quality are not SLOs. A segment variance, a drift bound, a calibration error, an audit backlog age and a feedback delay are *error magnitudes*: they have no population of good events, no complement and no error budget. In every standard surveyed they would be monitored metrics with thresholds. OpenSRM declares them under `spec.judgment_threshold`, an inline list on an `ai-gate` ServiceManifest or a ServiceManifestTemplate it extends (the resolved list is the template's entries followed by the manifest's, so a manifest cannot remove a threshold its template declares, and `overrides.judgment_threshold` may append entries but not remove or replace them (CORE §5.5); the ai-gate check applies after resolution). Each entry names a `type` and a closed `bounds` object, and the entry is closed too, as are its `measurement`, `probe` and `outcome_signal` objects: a misspelled or misplaced key is a validation error rather than a field quietly ignored (CORE §5.5). A breach is the measured value strictly exceeding any declared bound (CORE §5.5.6 E1). You may repeat a type — for instance `segments` on two dimensions; each entry is evaluated on its own, and a breach of any one is a breach (CORE §5.5.6 E1), and a breach outranks not evaluable, which outranks within bounds (CORE §5.5.6 E4). No data is reported as not evaluable — never as a pass (CORE §5.5.6 E3). (Decision 3c, opensrm-l33e.)
 
 ```yaml
 judgment_threshold:
   - type: segments
+    metric: reversal_rate
+    measurement:
+      source: lineage
     segment_dimension: customer_tier
     segment_values: [enterprise, smb, consumer]
     bounds:
@@ -795,6 +798,9 @@ Bounds on error magnitudes, declared under `judgment_threshold` (§4.5). A breac
 ```yaml
 judgment_threshold:
   - type: segments
+    metric: reversal_rate
+    measurement:
+      source: lineage
     segment_dimension: customer_tier
     segment_values: [enterprise, smb, consumer]
     bounds:
@@ -811,6 +817,24 @@ aggregate hides.
 customer tiers, geographies, languages, request types. On decisions
 affecting people, this is often the judgment threshold that matters most, and
 aggregate metrics are structurally incapable of surfacing it.
+
+**Choosing the rate.** `metric` says which rate must hold evenly:
+`reversal_rate`, `high_confidence_failure`, `outcomes` or `escalation`,
+each defined as for the judgment SLO of that name (`escalation` is the
+escalation rate, not the human agreement rate). Give it the same
+parameter its SLO form needs — `measurement.source` for
+`reversal_rate` (values explained in [§5.1](#51-reversal_rate)), `measurement.confidence_threshold` for
+`high_confidence_failure`, an `outcome_signal` (`source`, `window`) for
+`outcomes` — and optionally `measurement.window` (default `30d`). Do not
+confuse the two windows on an `outcomes` entry: `outcome_signal.window`
+is how long to wait for each decision's outcome, `measurement.window` is
+how far back decisions are counted. Only decisions whose outcome window
+has elapsed are counted, so make `measurement.window` comfortably longer
+than `outcome_signal.window`. If it is not longer, no decision's outcome
+window has elapsed by the time it is counted, so the entry is never
+evaluable (CORE §5.5.6 E3). One entry checks one rate; if reversals *and*
+escalations must both hold evenly across tiers, declare two entries
+(CORE §5.5.1).
 
 **Setting the bound** means choosing `segment_dimension` where you
 suspect performance actually varies, not where the data is easiest to
@@ -1062,7 +1086,14 @@ over-read:
   `additionalProperties: false` on `spec`, so a typo like `judgement_slo`
   or `contract` (singular, v1 habit) is silently ignored rather than
   flagged. Your block simply does nothing. This looseness is a known gap
-  in the draft schema, tracked internally as `opensrm-vquh`.
+  in the draft schema, tracked internally as `opensrm-vquh`. The
+  exception is `judgment_threshold`: each entry, and its `measurement`,
+  `probe` and `outcome_signal` objects, is closed, so an unknown key
+  there *is* an error (CORE §5.5). The schema checks this only for entries
+  declared under `judgment_threshold` itself: `template.overrides` is not
+  validated at all, so an entry appended through
+  `overrides.judgment_threshold` is checked by your implementation, not by
+  the schema (tracked as `opensrm-0myj`).
 - **Classical SLO bodies are not validated** — only that each item is a
   `$ref` or carries `kind: SLO` ([§4.3](#43-slo--classical-slos)).
   Validate them against the OpenSLO schema separately.

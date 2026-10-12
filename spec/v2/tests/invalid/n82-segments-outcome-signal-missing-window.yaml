@@ -1,0 +1,21 @@
+# MUST be rejected: outcome_signal needs both source and window, as the outcomes SLO's does (opensrm-7zpz).
+# One defect only: `outcome_signal` without `window`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: segments
+      metric: outcomes
+      outcome_signal:
+        source: retro-consumer
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds:
+        maximum_variance_from_overall: 0.05

@@ -1,0 +1,20 @@
+# MUST be rejected: threshold entries are closed (opensrm-7zpz); a window belongs under measurement, and at the entry's top level it would otherwise be silently ignored.
+# One defect only: `window: 7d` beside `metric`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: segments
+      metric: escalation
+      window: 7d
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds:
+        maximum_variance_from_overall: 0.05

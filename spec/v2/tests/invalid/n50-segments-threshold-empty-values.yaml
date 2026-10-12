@@ -13,6 +13,7 @@ spec:
     type: ai-gate
   judgment_threshold:
     - type: segments
+      metric: escalation
       segment_dimension: customer_tier
       segment_values: []
       bounds:

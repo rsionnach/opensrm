@@ -1,0 +1,17 @@
+# MUST be rejected: threshold entries are closed (CORE §5.5); the feedback_latency window is fixed (§5.5.5), so a declared one would otherwise be silently ignored (opensrm-7zpz).
+# One defect only: `window: 7d` on a feedback_latency entry.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: feedback_latency
+      window: 7d
+      bounds:
+        maximum_p50: 1h
