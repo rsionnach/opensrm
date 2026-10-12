@@ -385,7 +385,7 @@
                 "additionalProperties": false,
                 "description": "The named metric's rate parameters. window: any metric; population window, default 30d. source: reversal_rate only (required). confidence_threshold: high_confidence_failure only (required).",
                 "properties": {
-                  "window": { "$ref": "#/definitions/Duration" },
+                  "window": { "allOf": [{ "$ref": "#/definitions/Duration" }, { "not": { "pattern": "^0+(ms|s|m|h|d|w)$" }, "description": "A zero population window could never be evaluated." }] },
                   "source": { "enum": ["lineage", "calibration_sample", "downstream_signal"] },
                   "confidence_threshold": { "$ref": "#/definitions/Ratio" }
                 }

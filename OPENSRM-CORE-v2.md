@@ -393,7 +393,7 @@ Tracks that measured performance does not vary beyond the declared bound across 
 - `measurement.window` — any metric; the population window, over which the rate is measured for each listed segment and for the overall population alike. Default `30d`.
 - `measurement.source` — required for `reversal_rate`; not allowed with any other metric.
 - `measurement.confidence_threshold` — required for `high_confidence_failure`; not allowed with any other metric.
-- `outcome_signal` (`source`, `window`) — required for `outcomes`, with the same meaning as the outcomes judgment SLO's; not allowed with any other metric. Its `window` is how long to wait for a decision's outcome, not the population window.
+- `outcome_signal` (`source`, `window`) — required for `outcomes`, with the same meaning as the outcomes judgment SLO's; not allowed with any other metric. Its `window` is how long to wait for a decision's outcome, not the population window. The `outcomes` rate counts only decisions in `measurement.window` whose `outcome_signal.window` has elapsed; a decision still awaiting its outcome is in neither the numerator nor the denominator.
 
 One entry compares one rate; a manifest that needs several rates to hold evenly declares an entry for each. (opensrm-7zpz)
 
@@ -469,7 +469,7 @@ The rules below apply to every threshold type; the type-specific rules in §5.5.
 
 1. **E1 Breach.** A breach is a measured value strictly exceeding a declared bound; a value equal to the bound is within bounds. Every declared bound of every entry is evaluated, each entry independently, and a breach of any one bound of any entry is a breach.
 2. **E2 Units.** Duration bounds are compared after normalising both values to a common unit.
-3. **E3 Not evaluable.** When a bound cannot be measured — no decisions, a listed segment with no decisions, or no ground truth arriving in a `feedback_latency` window — its outcome is *not evaluable*: not a breach, and an implementation MUST report it rather than treat it as within bounds. The outcome is decided per bound and, for `segments`, per listed segment. The form of the report is implementation-defined.
+3. **E3 Not evaluable.** When a bound cannot be measured — no decisions, a listed segment with no decisions (for `metric: outcomes`, none whose outcome window has elapsed), or no ground truth arriving in a `feedback_latency` window — its outcome is *not evaluable*: not a breach, and an implementation MUST report it rather than treat it as within bounds. The outcome is decided per bound and, for `segments`, per listed segment. The form of the report is implementation-defined.
 4. **E4 Precedence.** Where outcomes are combined — across bounds, across the listed segments of one entry, or across entries — a breach takes precedence over not evaluable, which takes precedence over within bounds.
 
 ## 6. Reliability Contracts (OpenSRM's original contribution)

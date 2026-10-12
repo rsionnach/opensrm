@@ -828,7 +828,10 @@ parameter its SLO form needs — `measurement.source` for
 `outcomes` — and optionally `measurement.window` (default `30d`). Do not
 confuse the two windows on an `outcomes` entry: `outcome_signal.window`
 is how long to wait for each decision's outcome, `measurement.window` is
-how far back decisions are counted. One entry checks one rate; if reversals *and*
+how far back decisions are counted. Only decisions whose outcome window
+has elapsed are counted, so make `measurement.window` comfortably longer
+than `outcome_signal.window`; otherwise most of the population is still
+pending and segments read as not evaluable (CORE §5.5.6 E3). One entry checks one rate; if reversals *and*
 escalations must both hold evenly across tiers, declare two entries
 (CORE §5.5.1).
 
@@ -1085,7 +1088,11 @@ over-read:
   in the draft schema, tracked internally as `opensrm-vquh`. The
   exception is `judgment_threshold`: each entry, and its `measurement`,
   `probe` and `outcome_signal` objects, is closed, so an unknown key
-  there *is* an error (CORE §5.5).
+  there *is* an error (CORE §5.5). The schema checks this only for entries
+  declared under `judgment_threshold` itself: `template.overrides` is not
+  validated at all, so an entry appended through
+  `overrides.judgment_threshold` is checked by your implementation, not by
+  the schema (tracked as `opensrm-0myj`).
 - **Classical SLO bodies are not validated** — only that each item is a
   `$ref` or carries `kind: SLO` ([§4.3](#43-slo--classical-slos)).
   Validate them against the OpenSLO schema separately.
