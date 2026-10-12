@@ -1,4 +1,4 @@
-# MUST be rejected: a zero population window could never be evaluated (opensrm-7zpz).
+# MUST be rejected: measurement.window MUST be greater than zero (CORE §5.5.1, opensrm-7zpz).
 # One defect only: `measurement.window: 0d`.
 apiVersion: opensrm.nthlayer.io/v2
 kind: ServiceManifest

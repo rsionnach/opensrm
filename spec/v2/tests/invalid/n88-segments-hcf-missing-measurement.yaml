@@ -1,0 +1,19 @@
+# MUST be rejected: metric high_confidence_failure needs measurement.confidence_threshold (CORE §5.5.1, opensrm-7zpz).
+# One defect only: no `measurement` block.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: segments
+      metric: high_confidence_failure
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds:
+        maximum_variance_from_overall: 0.05

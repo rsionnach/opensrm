@@ -1,0 +1,21 @@
+# MUST be rejected: confidence_threshold is a ratio, as on the high_confidence_failure SLO (CORE §5.2.2, §5.5.1, opensrm-7zpz).
+# One defect only: `confidence_threshold: 1.5`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: segments
+      metric: high_confidence_failure
+      measurement:
+        confidence_threshold: 1.5
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds:
+        maximum_variance_from_overall: 0.05

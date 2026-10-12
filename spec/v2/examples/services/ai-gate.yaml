@@ -100,6 +100,12 @@ spec:
       segment_values: [enterprise, smb, consumer]
       bounds:
         maximum_variance_from_overall: 0.05
+    - type: segments
+      metric: escalation      # the escalation rate; takes no parameters
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds:
+        maximum_variance_from_overall: 0.10
 
   contracts:
     - name: refund-decision-api

@@ -1,0 +1,20 @@
+# MUST be rejected: threshold entries are closed (CORE §5.5, opensrm-7zpz).
+# One defect only: `window: 7d` on a stability entry.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: stability
+      window: 7d
+      probe:
+        frozen_input_set: "s3://probes/refunds.jsonl"
+        frequency: daily
+      bounds:
+        maximum_drift: 0.02

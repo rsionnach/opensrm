@@ -1,0 +1,22 @@
+# MUST be rejected: outcome_signal.window is a Duration, as on the outcomes SLO (CORE §5.2.4, opensrm-7zpz).
+# One defect only: `window: 1 hour`.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  judgment_threshold:
+    - type: segments
+      metric: outcomes
+      outcome_signal:
+        source: retro-consumer
+        window: 1 hour
+      segment_dimension: customer_tier
+      segment_values: [enterprise, smb, consumer]
+      bounds:
+        maximum_variance_from_overall: 0.05
