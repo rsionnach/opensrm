@@ -41,6 +41,8 @@ The GenAI semantic conventions are in Development status upstream and attribute 
 - **Provider span.** A span emitted by a model provider or agent runtime for a model request, tool use, turn or session, following the GenAI conventions.
 - **Provenance.** The link from a decision record to the model request that produced it: W3C trace context and the provider's response id.
 - **Lineage.** The chain of decision, reversal and outcome records about one decision, keyed on `nthlayer.decision.id`.
+- **Not evaluable.** The outcome of a judgment SLO or threshold bound that cannot be measured (core §5.5.6 E3): neither a breach nor within bounds, and reported as such.
+- **No verdict.** A grader evaluation that ended without a result (§4.4). It is not a label: `indeterminate` is a verdict, *no verdict* is the absence of one.
 
 ## 3. Admissibility
 
@@ -50,12 +52,15 @@ Every telemetry signal an implementation consumes falls in exactly one class. Th
 |---|---|---|---|
 | **Authoritative** | `nthlayer.decision`, `nthlayer.reversal`, `nthlayer.outcome` events emitted by the application | Every judgment SLO denominator; every judgment SLO numerator, except where the Grader row admits a grader evaluation instead; every judgment threshold | — |
 | **Corroborating** | Provider spans and their attributes | Provenance; lineage *discovery*; stability partitioning; classical SLIs for internal SLOs (§4 core); cost; audit content | Any judgment SLO count; contract breach evidence (§6 core) |
-| **Grader** | `gen_ai.evaluation.result` events, from any evaluator | `measurement.source: calibration_sample`; audit sampling evidence | `measurement.source: lineage`; `downstream_signal`; the `outcomes` and `high_confidence_failure` judgment SLOs; the `calibration` threshold |
+| **Grader** | `gen_ai.evaluation.result` events, from any evaluator | `measurement.source: calibration_sample`; audit sampling evidence | `measurement.source: lineage`; `measurement.source: downstream_signal`; the `outcomes` and `high_confidence_failure` judgment SLOs; the `calibration` threshold |
 
 Rules:
 
 - **A1.** An implementation MUST classify each consumed signal by the table above and MUST NOT promote a signal across classes. In particular a provider span MUST NOT be counted as a decision, and a grader evaluation MUST NOT be counted as an outcome.
-- **A2.** The population of decisions a judgment SLO on an `ai-gate` service is computed over comes only from authoritative records: every denominator counts decision records. A grader evaluation can contribute to a numerator only where the Grader row admits it (`calibration_sample`, `audit_sampling`), and only for a decision record it names (§4.4). A service that emits provider spans and no decision records therefore has no decision records in the sense of core §5.5.6 E3, which makes each of its judgment SLOs *not evaluable* (amended by §9 erratum 13). Provider spans MUST NOT be used to make it evaluable.
+- **A2.** For a judgment SLO on an `ai-gate` service:
+  - **A2.1** Every denominator counts decision records, and only decision records.
+  - **A2.2** A grader evaluation contributes to a numerator only where the Grader row admits it (`calibration_sample`, `audit_sampling`), and only for a decision record it names (§4.4).
+  - **A2.3** A service that emits provider spans and no decision records has no decision records in the sense of core §5.5.6 E3, so each of its judgment SLOs is *not evaluable* (§9 erratum 13). Provider spans MUST NOT be used to make it evaluable.
 - **A3.** Provider spans are delivered best-effort, can be lost, duplicated, or left unsampled by the caller. An implementation MUST NOT use them as the sole evidence of a contract breach (§6 core) or as the basis for SLA credits. It MAY use them for internal SLOs (§4 core) and MUST deduplicate by trace id and span id before counting.
 - **A4.** A grader evaluation whose evaluator is the same provider that served the evaluated completion is *self-grading*. An implementation MUST record the evaluator identity (§4.4) and MUST be able to report self-graded samples separately from independently graded ones.
 - **A5.** Calibration (§5.5.3 core) compares a decision's confidence with whether the decision was correct, which is ground truth. It MUST be computed from `nthlayer.decision.confidence` joined, by `nthlayer.outcome.decision_id`, to `nthlayer.outcome.value`, and from nothing else. A decision whose outcome is `indeterminate`, or has not yet arrived, is not in the calibration sample. A grader evaluation never enters it, whoever the evaluator.
@@ -130,9 +135,9 @@ Emitted as the upstream conventions define it. OpenSRM adds one attribute and co
 
 | Attribute | Type | Req. | OpenSRM constraint |
 |---|---|---|---|
-| `gen_ai.evaluation.name` | string | Required (upstream) | The evaluation metric. For a human audit under an `audit_sampling` judgment SLO, MUST be `opensrm.audit`. |
+| `gen_ai.evaluation.name` | string | Required (upstream) | The evaluation metric. For a human audit under an `audit_sampling` judgment SLO, MUST be `opensrm.audit`. This is an evaluation *name*, a value of an upstream attribute, so it is named for the specification rather than carrying the `nthlayer.` attribute prefix. |
 | `gen_ai.evaluation.score.value` | double | Cond. required (upstream) | The *evaluator's* score. MUST NOT carry the decision's own confidence; that is `nthlayer.decision.confidence`. |
-| `gen_ai.evaluation.score.label` | string | Cond. required (upstream) | For `opensrm.audit`: `correct`, `incorrect`, `indeterminate`. |
+| `gen_ai.evaluation.score.label` | string | Cond. required (upstream) | For `opensrm.audit`: `correct`, `incorrect`, `indeterminate`. For any other evaluation the labels are the evaluator's own, and a provider profile maps the provider's results to them (§7.1 R4). |
 | `gen_ai.evaluation.explanation` | string | Recommended (upstream) | Content-class. |
 | `gen_ai.response.id` | string | Recommended (upstream) | The completion evaluated, as upstream defines it. |
 | `nthlayer.decision.id` | string | Conditionally required (OpenSRM) | The decision the evaluation is about, so it can be joined to lineage. Required for `opensrm.audit`, and whenever the evaluated completion produced a decision the implementation can identify (by §5 provenance). An evaluation without it feeds no judgment SLO. |
@@ -163,7 +168,7 @@ The series currently defined, and their names under N1–N3:
 | Brier score (§5.5.3 core) | computed (§3, A5) | gauge | `gen_ai_calibration_brier`; `ai_gate_calibration_brier` | `nthlayer_calibration_brier` |
 | Feedback latency (§5.5.5 core) | interval of §4.3 | histogram | `gen_ai_feedback_latency_seconds`; `ai_gate_feedback_latency_seconds` | `nthlayer_feedback_latency_seconds` |
 
-Where two current names map to one, they are the same quantity under two names. The rename changes names only, with one exception: kinds and labels stay as they are today. The exception is high-confidence failures. `gen_ai_overrides_hcf_total` counts *overrides* of high-confidence decisions; §4.3 makes the `high_confidence_failure` judgment SLO count high-confidence decisions whose *outcome* is `incorrect`. `nthlayer_high_confidence_failures_total` follows §4.3, so the series is redefined as well as renamed, and its rate is `nthlayer_high_confidence_failures_total` over high-confidence `nthlayer_decisions_total`, not reversals over decisions. Reconciling the labels the two current names carry for one quantity (for example reversals counted as `ai_gate_decisions_total{reversed="true"}` as well as by their own counter) is the shared metrics contract's job, not this addendum's. `gen_ai_calibration_error`, already superseded by the two calibration gauges, is retired with no successor.
+Where two current names map to one, they are the same quantity under two names. The rename changes names only, and kinds and labels stay as they are today. The one exception is high-confidence failures. `gen_ai_overrides_hcf_total` counts *overrides* of high-confidence decisions; §4.3 makes the `high_confidence_failure` judgment SLO count high-confidence decisions whose *outcome* is `incorrect`. `nthlayer_high_confidence_failures_total` follows §4.3, so the series is redefined as well as renamed, and its rate is `nthlayer_high_confidence_failures_total` over high-confidence `nthlayer_decisions_total`, not reversals over decisions. Reconciling the labels the two current names carry for one quantity (for example reversals counted as `ai_gate_decisions_total{reversed="true"}` as well as by their own counter) is the shared metrics contract's job, not this addendum's. `gen_ai_calibration_error`, already superseded by the two calibration gauges, is retired with no successor.
 
 ## 5. Provenance (normative)
 
@@ -183,7 +188,7 @@ This section states, per purpose, which span attributes an implementation MAY co
 
 ### 6.2 Decision identity
 
-`gen_ai.agent.id` and `gen_ai.agent.name` on an agent turn or tool span identify the agent. For an `ai-gate` service implemented as an agent, the manifest's `spec.service.name` SHOULD equal the agent's `gen_ai.agent.name`, and `breach_actions[].reduce_autonomy.agent` SHOULD equal its `gen_ai.agent.id`. `gen_ai.tool.call.id` identifies one tool invocation and MAY be used as the `nthlayer.decision.id` input when each tool call is itself a decision; the id emitted MUST still be the decision record's own id.
+`gen_ai.agent.id` and `gen_ai.agent.name` on an agent turn or tool span identify the agent. For an `ai-gate` service implemented as an agent, the manifest's `spec.service.name` SHOULD equal the agent's `gen_ai.agent.name`, and `breach_actions[].reduce_autonomy.agent` SHOULD equal its `gen_ai.agent.id`. `gen_ai.tool.call.id` identifies one tool invocation. When each tool call is itself a decision, it MAY be one of the inputs from which the decision record's id is derived; it MUST NOT itself be emitted as `nthlayer.decision.id`.
 
 ### 6.3 Autonomy
 
@@ -317,7 +322,7 @@ This section separates two parties. An **implementation** consumes telemetry and
 An OpenSRM v2 implementation that consumes GenAI-convention telemetry MUST, in addition to §13 of the core spec:
 
 - Classify every consumed signal by §3 and never promote a signal across classes (A1)
-- Report judgment SLOs on an `ai-gate` with no decision records as not evaluable (A2; core §5.5.6 E3)
+- Report judgment SLOs on an `ai-gate` with no decision records as not evaluable (A2.3; core §5.5.6 E3)
 - Deduplicate provider spans by trace id and span id, and not use them as sole contract-breach evidence (A3)
 - Record evaluator identity on every grader evaluation and be able to report self-graded samples separately (A4)
 - Compute calibration from authoritative outcomes only (A5)
