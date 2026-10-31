@@ -148,7 +148,7 @@ degrades gracefully if an agent fails.
   (webhook) + topology (NthLayer tool call) + nthlayer-measure
   quality verdicts → nthlayer-correlate correlates →
   `verdict.create()` correlation + snapshot verdicts with lineage →
-  [OTel side-effect: `gen_ai.decision.*` per correlation].
+  [OTel side-effect: an `nthlayer.decision` event per correlation].
 - **Flow 3 — Decision → Verdict → Measurement.** Any agent
   `verdict.create()` → [OTel side-effect] → human/CI
   `verdict.resolve()` → [OTel side-effect] → nthlayer-measure

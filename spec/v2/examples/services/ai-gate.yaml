@@ -140,11 +140,16 @@ spec:
     required_traces:
       - span_name: "refund.decide"
         required_attributes: [refund.amount, refund.reason, decision.confidence]
+      # Emitted by the model provider, not this service: CI verifies it at
+      # the telemetry destination (Addendum A1 §8).
+      - span_name: "anthropic.model_request"
+        emitted_by: provider
+        required_attributes: [gen_ai.response.model, gen_ai.response.id]
     required_logs:
       - format: structured
         required_fields: [timestamp, level, service, trace_id, decision_id]
-    # Without a decision event carrying the outcome and its later
-    # reversal, none of the judgment SLOs above are computable.
+    # Without decision records, and the reversal and outcome events that
+    # follow them, none of the judgment SLOs above are computable.
     required_events:
       - type: "io.nthlayer.decision.v1"
-        schema_ref: "gen_ai.evaluation.result"
+        schema_ref: "nthlayer.decision"

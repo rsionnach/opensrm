@@ -154,8 +154,8 @@ Every component in the ecosystem falls into one of four categories based on its 
 │  │                                                                     │  │
 │  │  ┌────────────────┐  ┌────────────────────┐  ┌────────────────┐   │  │
 │  │  │ Change Events  │  │ Decision Telemetry │  │ Outcomes       │   │  │
-│  │  │ change.id      │  │ gen_ai.decision.*  │  │ gen_ai.outcome │   │  │
-│  │  │ change.type    │  │ gen_ai.override.*  │  │                │   │  │
+│  │  │ change.id      │  │ nthlayer.decision  │  │ nthlayer.      │   │  │
+│  │  │ change.type    │  │ nthlayer.reversal  │  │   outcome      │   │  │
 │  │  │ change.scope.* │  │                    │  │                │   │  │
 │  │  └────────────────┘  └────────────────────┘  └────────────────┘   │  │
 │  │                                                                     │  │
@@ -216,7 +216,7 @@ Every component in the ecosystem falls into one of four categories based on its 
 
 **Store:** SQLite (Tier 1, default). PostgreSQL and ClickHouse stores are deferred until SQLite contention or query volume warrants them.
 
-**OTel integration:** `gen_ai.decision.*` and `gen_ai.override.*` events are emitted automatically when verdicts are created and resolved. This is a side-effect of verdict operations, not a separate instrumentation step.
+**OTel integration:** `nthlayer.decision` and `nthlayer.reversal` events ([Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) §4) are emitted automatically when verdicts are created and resolved; a human override is an `nthlayer.reversal` with `type: human_override`. This is a side-effect of verdict operations, not a separate instrumentation step. (Current implementations still emit the retired `gen_ai.decision.*` and `gen_ai.override.*` forms; migrating them is tracked separately.)
 
 **Why it's not an agent:** Verdict is pure schema and transport. It records decisions — it doesn't make them. No model calls, no reasoning. It's the foundation layer that sits below all agents in the dependency graph.
 
@@ -313,7 +313,7 @@ Observe --> Correlate --> Assess --> Publish
 - Correlation accuracy: what percentage of nthlayer-correlate's "related change" assessments do humans agree with?
 - False positive rate: how often does nthlayer-correlate flag a change as incident-related when it isn't?
 
-**Verdict output:** Every correlation assessment is emitted as a verdict via `verdict.create()`. Snapshot verdicts link to child correlation verdicts via lineage. When a human disagrees with a correlation, `verdict.resolve(status="overridden")` closes the loop. OTel events (`gen_ai.decision.*`, `gen_ai.override.*`) are emitted automatically as a side-effect.
+**Verdict output:** Every correlation assessment is emitted as a verdict via `verdict.create()`. Snapshot verdicts link to child correlation verdicts via lineage. When a human disagrees with a correlation, `verdict.resolve(status="overridden")` closes the loop. OTel events (`nthlayer.decision`, `nthlayer.reversal`) are emitted automatically as a side-effect.
 
 **DEGRADED mode:** When the model is unavailable, nthlayer-correlate continues the transport pipeline (ingest, group, deduplicate) and emits template-based verdicts with `confidence: 0.0`, flagging them for human review. The pre-correlation engine is fully testable without a model.
 
@@ -507,7 +507,7 @@ Agents in the OpenSRM ecosystem communicate through three mechanisms:
 
 **Shared state (within nthlayer-respond):** All nthlayer-respond agents read from and write to a shared incident context object. This is the simplest model for agents collaborating on a single incident. Agents are functions with model calls inside, called sequentially by the coordinator within a single process. No mailboxes, no message buses, no polling.
 
-**OTel events (observability side-channel):** `gen_ai.decision.*` and `gen_ai.override.*` events are emitted automatically when verdicts are created and resolved. These feed Prometheus metrics and Grafana dashboards via NthLayer. This is a read-only observability channel, not a communication path.
+**OTel events (observability side-channel):** `nthlayer.decision` and `nthlayer.reversal` events are emitted automatically when verdicts are created and resolved. These feed Prometheus metrics and Grafana dashboards via NthLayer. This is a read-only observability channel, not a communication path.
 
 ### Orchestration
 
@@ -577,7 +577,7 @@ Event Sources        nthlayer-correlate Agent                Verdict Store
    │                    ├───────────────────────────▶│
    │                    │                            │
    │                    │  [OTel side-effect:        │
-   │                    │   gen_ai.decision.* per    │
+   │                    │   nthlayer.decision per    │
    │                    │   correlation]             │
 ```
 
@@ -589,7 +589,7 @@ Any Agent           Verdict Store        Human / CI           nthlayer-measure
    │ verdict.create()   │                    │                    │
    │ (judgment phase)   │                    │                    │
    ├───────────────────▶│                    │                    │
-   │                    │  [OTel side-effect: gen_ai.decision.*] │
+   │                    │  [OTel side-effect: nthlayer.decision] │
    │                    │                    │                    │
    │                    │  verdict.review()  │                    │
    │                    │◀───────────────────┤                    │
@@ -599,7 +599,7 @@ Any Agent           Verdict Store        Human / CI           nthlayer-measure
    │                    │   or CI auto-      │                    │
    │                    │   resolve)         │                    │
    │                    │◀───────────────────┤                    │
-   │                    │  [OTel side-effect: gen_ai.override.*] │
+   │                    │  [OTel side-effect: nthlayer.reversal] │
    │                    │                    │                    │
    │                    │  verdict.accuracy(producer=X)           │
    │                    ├───────────────────────────────────────▶│
@@ -676,7 +676,7 @@ Every agent in the ecosystem is itself a service with SLOs. The same specificati
 
 1. Every agent decision emits a verdict via `verdict.create()` (judgment phase: outcome, confidence, producer, lineage)
 2. Human overrides and CI signals resolve verdicts via `verdict.resolve()` (outcome phase: confirmed, overridden, or auto-resolved)
-3. OTel events (`gen_ai.decision.*`, `gen_ai.override.*`) are emitted automatically as a side-effect of verdict operations
+3. OTel events (`nthlayer.decision`, `nthlayer.reversal`) are emitted automatically as a side-effect of verdict operations
 4. These OTel events flow to Prometheus via OTel Collector
 5. NthLayer generates Prometheus recording rules and Grafana dashboards from each agent's OpenSRM `type: ai-gate` manifest
 6. The nthlayer-measure queries `verdict.accuracy()` and `verdict.gaming-check()` for calibration and governance decisions
@@ -719,14 +719,14 @@ This closes the loop: agents are monitored by the same system they help operate.
 
 ```
 reversal_rate = 
-  sum(rate(gen_ai_reversals_total[30d])) 
+  sum(rate(nthlayer_reversals_total[30d])) 
   / 
-  sum(rate(gen_ai_decisions_total[30d]))
+  sum(rate(nthlayer_decisions_total[30d]))
 
 high_confidence_failure_rate = 
-  sum(rate(gen_ai_reversals_total{confidence_bucket=">0.9"}[30d])) 
+  sum(rate(nthlayer_reversals_total{confidence_bucket=">0.9"}[30d])) 
   / 
-  sum(rate(gen_ai_decisions_total{confidence_bucket=">0.9"}[30d]))
+  sum(rate(nthlayer_decisions_total{confidence_bucket=">0.9"}[30d]))
 
 calibration_ece = 
   sum(abs(accuracy_by_bin - confidence_by_bin) * weight_by_bin)
@@ -777,7 +777,7 @@ calibration_ece =
 | NthLayer | nthlayer-correlate | JSON | Topology graph | Tool to agent |
 | All agents | Verdict Store | Verdict | Judgments with lineage | Agent to primitive |
 | Verdict Store | nthlayer-measure | Query | accuracy(), gaming-check() | Primitive to agent |
-| Verdict Store | OTel Collector | Events | gen_ai.decision.*, gen_ai.override.* (auto-emitted) | Primitive to data |
+| Verdict Store | OTel Collector | Events | nthlayer.decision, nthlayer.reversal (auto-emitted) | Primitive to data |
 | nthlayer-correlate | nthlayer-respond | Verdict | Correlation verdicts | Agent to agent |
 | nthlayer-measure | All agents | Config | Autonomy policy | Agent to agent |
 | nthlayer-respond agents | Shared context | In-memory | Incident findings (within single process) | Agent to agent |

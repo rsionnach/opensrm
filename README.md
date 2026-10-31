@@ -259,18 +259,21 @@ See [conventions/change-events/](conventions/change-events/).
 Standardized schema for AI/human decisions and their outcomes.
 
 ```yaml
-# AI makes a decision
-gen_ai.decision.id: dec-001
-gen_ai.decision.value: approve
-gen_ai.decision.confidence: 0.87
+# AI makes a decision (nthlayer.decision event)
+nthlayer.decision.id: dec-001
+nthlayer.decision.type: code_review
+nthlayer.decision.value: approve
+nthlayer.decision.confidence: 0.87
+nthlayer.decision.autonomous: true
 
-# Human overrides
-gen_ai.reversal.decision_id: dec-001
-gen_ai.reversal.type: human_override
-gen_ai.reversal.new_value: request_changes
+# Human overrides (nthlayer.reversal event)
+nthlayer.reversal.decision_id: dec-001
+nthlayer.reversal.type: human_override
+nthlayer.reversal.actor_type: human
+nthlayer.reversal.new_value: request_changes
 ```
 
-See [conventions/decision-telemetry/](conventions/decision-telemetry/).
+The wire form and its binding to provider telemetry are in [Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md); the upstream proposal is in [conventions/decision-telemetry/](conventions/decision-telemetry/).
 
 ---
 

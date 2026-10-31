@@ -18,7 +18,7 @@ What this changes:
 | Bespoke ownership model | **Backstage entity compatibility** via alignment with kinds and annotations | Existing Backstage catalogues can adopt OpenSRM incrementally |
 | Bespoke contract references | **OpenAPI 3.1 / AsyncAPI 3.x references** | Contracts are APIs and events; reuse the existing specs |
 | Bespoke change-event schema | **CloudEvents v1.0 envelope** with OTel semantic conventions on payload | CNCF-graduated, battle-tested |
-| Proposed `gen_ai.decision.*` OTel conventions | **Adopt shipped `gen_ai.evaluation.result` from OTel v1.39.0** + propose `gen_ai.decision.*` upstream | Already 70% there; contribute rather than fork |
+| Proposed `gen_ai.decision.*` OTel conventions | **Emit decision records as `nthlayer.decision` events ([Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md))**, use the shipped `gen_ai.evaluation.result` for grader evaluations, and propose `gen_ai.decision.*` upstream | Contribute rather than fork; keep OpenSRM-defined names out of `gen_ai.*` until upstream accepts them |
 | Bespoke SLI query syntax | **OpenSLO indicator semantics** with PromQL as a supported query language | Existing standards already specify this correctly |
 | Policy semantics implicit | **Rego-evaluable** where relevant (see RBAC extension) | Same substrate as RBAC extension |
 | Runtime workload needs out of scope | **Score compatibility noted** as complementary pattern | Score describes workload needs, OpenSRM describes reliability contracts |
