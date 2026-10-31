@@ -58,8 +58,8 @@ Rules:
 
 - **A1.** An implementation MUST classify each consumed signal by the table above and MUST NOT promote a signal across classes. In particular a provider span MUST NOT be counted as a decision, and a grader evaluation MUST NOT be counted as an outcome.
 - **A2.** For a judgment SLO on an `ai-gate` service:
-  - **A2.1** Every denominator counts decision records, and only decision records.
-  - **A2.2** A grader evaluation contributes to a numerator only where the Grader row admits it (`calibration_sample`, `audit_sampling`), and only for a decision record it names (§4.4).
+  - **A2.1** Every denominator MUST count decision records, and only decision records.
+  - **A2.2** A grader evaluation MAY contribute to a numerator only where the Grader row admits it (`calibration_sample`, `audit_sampling`), and only for a decision record it names (§4.4).
   - **A2.3** A service that emits provider spans and no decision records has no decision records in the sense of core §5.5.6 E3, so each of its judgment SLOs is *not evaluable* (§9 erratum 13). Provider spans MUST NOT be used to make it evaluable.
 - **A3.** Provider spans are delivered best-effort, can be lost, duplicated, or left unsampled by the caller. An implementation MUST NOT use them as the sole evidence of a contract breach (§6 core) or as the basis for SLA credits. It MAY use them for internal SLOs (§4 core) and MUST deduplicate by trace id and span id before counting.
 - **A4.** A grader evaluation whose evaluator is the same provider that served the evaluated completion is *self-grading*. An implementation MUST record the evaluator identity (§4.4) and MUST be able to report self-graded samples separately from independently graded ones.
@@ -137,7 +137,7 @@ Emitted as the upstream conventions define it. OpenSRM adds one attribute and co
 |---|---|---|---|
 | `gen_ai.evaluation.name` | string | Required (upstream) | The evaluation metric. For a human audit under an `audit_sampling` judgment SLO, MUST be `opensrm.audit`. This is an evaluation *name*, a value of an upstream attribute, so it is named for the specification rather than carrying the `nthlayer.` attribute prefix. |
 | `gen_ai.evaluation.score.value` | double | Cond. required (upstream) | The *evaluator's* score. MUST NOT carry the decision's own confidence; that is `nthlayer.decision.confidence`. |
-| `gen_ai.evaluation.score.label` | string | Cond. required (upstream) | For `opensrm.audit`: `correct`, `incorrect`, `indeterminate`. For any other evaluation the labels are the evaluator's own, and a provider profile maps the provider's results to them (§7.1 R4). |
+| `gen_ai.evaluation.score.label` | string | Cond. required (upstream) | For `opensrm.audit`: `correct`, `incorrect`, `indeterminate`. For any other evaluation the labels are defined by the evaluator or, for a provider grader, by that provider's profile (§7.1 R4). |
 | `gen_ai.evaluation.explanation` | string | Recommended (upstream) | Content-class. |
 | `gen_ai.response.id` | string | Recommended (upstream) | The completion evaluated, as upstream defines it. |
 | `nthlayer.decision.id` | string | Conditionally required (OpenSRM) | The decision the evaluation is about, so it can be joined to lineage. Required for `opensrm.audit`, and whenever the evaluated completion produced a decision the implementation can identify (by §5 provenance). An evaluation without it feeds no judgment SLO. |
