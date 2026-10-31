@@ -726,7 +726,7 @@ reversal_rate =
 high_confidence_failure_rate = 
   sum(rate(nthlayer_high_confidence_failures_total{confidence_bucket=">0.9"}[30d])) 
   / 
-  sum(rate(nthlayer_outcomes_total{outcome_value=~"correct|incorrect",confidence_bucket=">0.9"}[30d]))
+  sum(rate(nthlayer_outcomes_total{outcome_value=~"correct|incorrect",decision_value!="escalate",confidence_bucket=">0.9"}[30d]))
 
 calibration_ece = 
   sum(abs(accuracy_by_bin - confidence_by_bin) * weight_by_bin)

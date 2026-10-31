@@ -347,7 +347,7 @@ spec:
     escalation_human_agreement_rate: 0.8  # humans agree with escalation 80% of the time
 ```
 
-An escalation's human resolution is the `nthlayer.outcome` of the escalate decision ([Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) §4.6 C6): `correct` when the escalation was warranted. `escalation_human_agreement_rate` is the share of resolved escalations that are `correct`.
+An escalation's human resolution is the `nthlayer.outcome` of the escalate decision ([Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) §4.6 C6): `correct` when the escalation was warranted. `escalation_human_agreement_rate` is the share of escalate decisions whose outcome in effect is `correct` or `incorrect` that are `correct`.
 
 ### 5.3 Statistical requirements
 
