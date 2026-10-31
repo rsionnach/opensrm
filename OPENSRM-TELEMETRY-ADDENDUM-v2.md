@@ -13,7 +13,7 @@ Model providers now emit OpenTelemetry spans for every model request, tool use a
 
 This addendum does four things:
 
-1. **Binds OpenSRM to provider-emitted spans.** It specifies which judgment-SLO inputs MAY be taken from `gen_ai.*` spans, which MUST come from the application, and which are admissible only as grader opinion. The binding is provider-neutral; §7 adds a profile for Claude Platform.
+1. **Binds OpenSRM to provider-emitted spans.** It specifies which judgment-SLO inputs MAY be taken from `gen_ai.*` spans, which MUST come from the application, and which are admissible only as grader opinion. The binding is provider-neutral; what each provider emits is stated in a separate provider profile (§7), the first of which covers Claude Platform.
 2. **Consolidates the decision telemetry vocabulary.** The repository currently carries four overlapping sets (`nthlayer.decision.*` in core §11.3; `gen_ai.{decision,reversal,outcome}.*` in `conventions/`; the SitRep appendix's extensions; `gen_ai.override.*` in `ARCHITECTURE.md`). This addendum reduces them to one family of three application-emitted events, and repositions `gen_ai.evaluation.result` as the grader event it is upstream.
 3. **Corrects three collisions with the upstream conventions**: `gen_ai.system` (removed upstream), `gen_ai.response.id` (upstream: the provider's completion id, not a decision CID), and `gen_ai.evaluation.score.value` (upstream: an evaluator's score, not a decision's confidence).
 4. **Adds one additive schema field**, `instrumentation.required_traces[].emitted_by`, so a manifest can declare a span the provider emits rather than the application.
@@ -26,7 +26,7 @@ Nothing in this addendum adds a judgment SLO type, a threshold type or an evalua
 
 This addendum is normative for OpenSRM v2 implementations that consume OpenTelemetry telemetry from a model provider, an agent runtime, or an application's own GenAI instrumentation. Where an implementation consumes none of these, only §4 (vocabulary), §5 (provenance) and §9 (errata) apply.
 
-The GenAI semantic conventions are in Development status upstream and attribute names can change. This addendum pins the conventions at the commit named in §11 and will be revised when the upstream names move.
+The GenAI semantic conventions are in Development status upstream and attribute names can change. This addendum pins the `gen_ai.*` names it uses at the commit named in §12 and will be revised when they move. Each provider profile pins its own sources (§7.1 R2).
 
 ## 2. Terminology
 
@@ -140,7 +140,7 @@ A human audit verdict is a grader evaluation with `nthlayer.evaluator.kind: huma
 
 ## 6. Binding to GenAI-convention spans (normative, provider-neutral)
 
-This section states, per purpose, which span attributes an implementation MAY consume and under what rule. Attribute names are the upstream `gen_ai.*` names. Provider-specific names are in §7.
+This section states, per purpose, which span attributes an implementation MAY consume and under what rule. Attribute names are the upstream `gen_ai.*` names. Provider-specific names are in the provider profiles (§7).
 
 ### 6.1 Lineage discovery
 
@@ -182,7 +182,7 @@ Provider request spans carry duration, `http.response.status_code`, `error.type`
 
 ### 6.7 Cost
 
-`gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gen_ai.usage.cache_read.input_tokens`, `gen_ai.usage.cache_write.input_tokens` and provider-specific usage attributes support cost indicators. Usage attributes repeat on more than one span level; an implementation MUST follow the provider's documented counting rule (for Claude Platform, §7.3) or it double-counts.
+`gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gen_ai.usage.cache_read.input_tokens`, `gen_ai.usage.cache_write.input_tokens` and provider-specific usage attributes support cost indicators. Usage attributes repeat on more than one span level; an implementation MUST follow the counting rule in the provider's profile (§7.1 R6) or it double-counts.
 
 ### 6.8 Audit content
 
@@ -192,39 +192,29 @@ In content mode, `gen_ai.system_instructions`, `gen_ai.input.messages`, `gen_ai.
 
 For the avoidance of doubt, no provider span carries: a decision value, a decision confidence, a decision id, reversibility, a reversal, ground truth, a business segment, feedback latency or audit backlog. Every one of these is the application's to emit (§4). The intended joining model is: the application's own span carries business context, the provider's spans carry mechanics, and the implementation joins them on trace id.
 
-## 7. Provider profile: Claude Platform (normative for that provider)
+## 7. Provider profiles
 
-Source: Anthropic's OpenTelemetry span reference, beta, conventions pinned at `semantic-conventions-genai` commit `e57c543b` (2026-09-24).
+§6 is provider-neutral. What a particular provider emits, under which span and attribute names, with which gaps, is stated in a **provider profile**: a separate document, normative only for an implementation consuming that provider's telemetry. Profiles are versioned and pinned independently of this addendum and of each other, so one provider's re-pin does not revise the others.
 
-### 7.1 Attribute binding
+### 7.1 Profile requirements
 
-| OpenSRM purpose | Claude Platform attribute(s) | Span(s) | Rule |
+A provider profile MUST:
+
+- **R1.** Name the provider and the `gen_ai.provider.name` values it covers.
+- **R2.** Pin its sources: the `semantic-conventions-genai` commit its attribute names are taken from, and the version or publication date of the provider's own span reference. Where the pinned commit differs from this addendum's (§12), the profile MUST list every `gen_ai.*` name §4–§6 uses that differs at its pin.
+- **R3.** For each purpose of §6.1–§6.8, give the provider attributes and spans that serve it, or state that the provider emits nothing for it.
+- **R4.** Map each result value of any provider grader to a `gen_ai.evaluation.result` label, or to *no verdict* (§4.4).
+- **R5.** State the provider's coverage gaps: request paths, tools or modes that emit no span, content restrictions, delivery guarantees, and any beta or stability caveat on the names.
+- **R6.** State the counting rule for usage attributes that repeat across span levels (§6.7).
+- **R7.** Carry its own revision history, recording the pin of each version.
+
+A profile MUST NOT relax a rule of §3–§6. It MAY narrow one for its provider (for example, by naming the one span provenance references) and MAY add provider attributes to the purposes it binds.
+
+### 7.2 Registered profiles
+
+| Provider | Profile | `gen_ai.provider.name` | Pin |
 |---|---|---|---|
-| Provenance (P1, P5) | trace id and span id; `anthropic.request.id`; `gen_ai.response.id` | `anthropic.model_request`; `anthropic.messages.create` (`SERVER`) | Reference the `SERVER` request span or its `anthropic.model_request` child. |
-| Lineage discovery (6.1) | `gen_ai.conversation.id` (thread), `anthropic.session.id` (session), `anthropic.session.thread.id` (SDK tool runner) | session and turn spans | Discovery only. A session's spans span several traces; group by id, not by trace. |
-| Decision identity (6.2) | `gen_ai.agent.id`, `gen_ai.agent.name`, `gen_ai.tool.call.id` | `anthropic.session.turn`, tool spans | `gen_ai.agent.name` is `anthropic.advisor` on an advisor thread; an advisor is not a gate. |
-| Tenancy / segment | `anthropic.organization.id`, `anthropic.workspace.id` | every request span | MAY serve as a `segment_dimension` when the manifest declares it. |
-| Autonomy (6.3) | `anthropic.tool.evaluated_permission` ∈ `allow`, `ask` | API tool spans in Managed Agents | As 6.3. Denied tool uses emit no span. |
-| Escalation check (6.4) | `anthropic.session.turn.stop_reason` = `requires_action`, with `gen_ai.tool.name` | `anthropic.session.turn` | Check only; never count. |
-| Grader (4.4, A4) | `anthropic.session.outcome_evaluation.result` ∈ `satisfied`, `needs_revision`, `max_iterations_reached`, `failed`, `interrupted`; `.explanation`; `anthropic.session.outcome.id` | `anthropic.session.outcome_evaluation` | Ingest as a `gen_ai.evaluation.result` with `nthlayer.evaluator.kind: provider`. `satisfied` → label `pass`; `needs_revision`, `max_iterations_reached`, `failed` → `fail`; `interrupted` → not evaluable. Self-grading. |
-| Stability (6.5) | `gen_ai.response.model`, `gen_ai.request.model`, `anthropic.response.service_tier`, `anthropic.request.service_tier`, `gen_ai.request.temperature`, `gen_ai.request.top_p`, `gen_ai.request.top_k`, `gen_ai.request.reasoning.level`, `anthropic.thinking.type`, `anthropic.thinking.budget_tokens`, `anthropic.beta` | `anthropic.messages.create`, `anthropic.model_request` | Pin and record per S1. |
-| Classical SLIs (6.6) | span duration, `http.response.status_code`, `error.type`, `gen_ai.response.time_to_first_chunk`, `http.request.resend_count` | request spans | Internal SLOs only (A3). |
-| Cost (6.7) | `gen_ai.usage.*`, `anthropic.usage.cache_creation.ephemeral_5m_input_tokens`, `anthropic.usage.cache_creation.ephemeral_1h_input_tokens`, `anthropic.usage.compaction.input_tokens`, `anthropic.usage.compaction.output_tokens`, `gen_ai.usage.reasoning.output_tokens` | `anthropic.messages.create`, `anthropic.model_request`, `anthropic.compaction`, `anthropic.session.outcome_evaluation` | Count per 7.3. |
-| Audit content (6.8) | `gen_ai.system_instructions`, `gen_ai.input.messages`, `gen_ai.output.messages`, `gen_ai.tool.call.arguments`, `anthropic.tool_result.content`, `anthropic.content.truncated` | request, turn and tool spans | Content mode only. |
-
-### 7.2 Coverage caveats an implementation MUST account for
-
-- API-side spans exist only for Claude Platform and Claude Platform on AWS. Requests through the Bedrock or Vertex AI clients produce SDK spans only (`gen_ai.provider.name` is `aws.bedrock` or `gcp.vertex_ai`), with no `anthropic.model_request` children and no API-run tool spans.
-- The API emits no span for the OpenAI-compatible endpoint.
-- The API emits no tool span when the model asks for a tool the application runs, when a tool runs in a self-hosted sandbox, for multiagent or advisor tools, or when a tool use is denied.
-- Thinking content is absent from Managed Agents spans.
-- Span delivery is best-effort; a caller can unset the sampled flag; spans can arrive more than once. A3 applies. For a complete record of usage, the provider directs implementations to its Usage API.
-- Under a HIPAA, FERPA or K-12 restriction the provider exports metadata only, whatever the destination's content mode. Audit content (6.8) is then unavailable from spans.
-- Span names and attributes can change during the provider's beta.
-
-### 7.3 Token counting
-
-To count each token once: when a request has both an SDK `CLIENT` span and an API `SERVER` span, sum the API spans. Within API spans for a Messages request, sum either the `anthropic.messages.create` spans or their `anthropic.model_request` children, not both; add `anthropic.compaction` spans and do not also add the `anthropic.usage.compaction.*` attributes. For a Managed Agents session, sum `anthropic.model_request` and `anthropic.session.outcome_evaluation`. `gen_ai.usage.input_tokens` already includes cache reads and writes.
+| Anthropic Claude Platform | [`profiles/claude-platform.md`](profiles/claude-platform.md) | `anthropic` | `e57c543b` |
 
 ## 8. Schema change: `instrumentation.required_traces[].emitted_by`
 
@@ -299,15 +289,14 @@ An implementation SHOULD:
 - **Upstream namespace.** `gen_ai.decision.*` is the wrong home for a decision a rule engine or a human approver makes, and the core spec is explicit that `ai-gate` denotes decision-making, not AI. The upstream proposal may be better made as a top-level `decision.*` namespace with `gen_ai.*` provenance attributes alongside, rather than as a GenAI extension. This changes the proposal, not the wire form, which stays `nthlayer.` either way.
 - **Binding `reduce_autonomy` to provider policy.** A provider that evaluates permission policies per tool call could enforce a `reduce_autonomy` breach action directly. Out of scope for this addendum; noted as a candidate consumer integration.
 - **Agent-runtime telemetry.** Claude Code, the Agent SDK and similar runtimes publish separate monitoring conventions. Whether they warrant a second provider profile is deferred until one is consumed.
-- **Pin cadence.** The upstream conventions are in Development status and the provider's export is in beta. How often this addendum re-pins, and whether an implementation should tolerate both the pinned and current names during a transition, is unresolved.
+- **Pin cadence.** Resolved in part: each provider profile re-pins on its own schedule (§7.1 R2, R7), and this addendum re-pins only when a `gen_ai.*` name in §4–§6 moves. Whether an implementation should accept both the pinned and the current names during a transition is unresolved.
 
 ## 12. References
 
-- Anthropic, *OpenTelemetry for the Claude API* and *OpenTelemetry span reference* (beta), https://platform.claude.com/docs/en/manage-claude/opentelemetry and https://platform.claude.com/docs/en/api/opentelemetry/spans
-- OpenTelemetry GenAI semantic conventions, https://github.com/open-telemetry/semantic-conventions-genai — pinned at commit `e57c543b` (2026-09-24) to match the provider; repository head at time of writing `9ffc7e00` (2026-10-21). `gen_ai.evaluation.result` is defined in `docs/gen-ai/gen-ai-events.md`; `gen_ai.provider.name` in `docs/registry/attributes/gen-ai.md`.
+- OpenTelemetry GenAI semantic conventions, https://github.com/open-telemetry/semantic-conventions-genai — pinned at commit `e57c543b` (2026-09-24), the commit the first provider profile pins; repository head at time of writing `9ffc7e00` (2026-10-21). `gen_ai.evaluation.result` is defined in `docs/gen-ai/gen-ai-events.md`; `gen_ai.provider.name` in `docs/registry/attributes/gen-ai.md`.
 - CloudEvents v1.0 Distributed Tracing extension (`traceparent`, `tracestate`), https://github.com/cloudevents/spec/blob/main/cloudevents/extensions/distributed-tracing.md
 - W3C Trace Context, https://www.w3.org/TR/trace-context/
-- `OPENSRM-CORE-v2.md`, `conventions/decision-telemetry/README.md`, `spec/v2/schema.json` in this repository
+- `OPENSRM-CORE-v2.md`, `conventions/decision-telemetry/README.md`, `spec/v2/schema.json` and the provider profiles of §7.2 in this repository
 
 ## 13. Revision history
 
