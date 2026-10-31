@@ -793,7 +793,7 @@ sum(rate(nthlayer_reversals_total{decision_type="incident_response"}[30d]))
 sum(rate(nthlayer_decisions_total{decision_type="incident_response"}[30d]))
 
 # High-confidence failure rate
-sum(rate(nthlayer_high_confidence_failures_total[30d])) 
+sum(rate(nthlayer_high_confidence_failures_total{confidence_bucket=">0.9"}[30d])) 
 / 
 sum(rate(nthlayer_decisions_total{confidence_bucket=">0.9"}[30d]))
 
