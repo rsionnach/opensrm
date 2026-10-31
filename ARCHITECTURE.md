@@ -724,7 +724,7 @@ reversal_rate =
   sum(rate(nthlayer_decisions_total[30d]))
 
 high_confidence_failure_rate = 
-  sum(rate(nthlayer_reversals_total{confidence_bucket=">0.9"}[30d])) 
+  sum(rate(nthlayer_high_confidence_failures_total[30d])) 
   / 
   sum(rate(nthlayer_decisions_total{confidence_bucket=">0.9"}[30d]))
 
