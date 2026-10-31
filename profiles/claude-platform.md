@@ -5,7 +5,7 @@
 **Provider:** Anthropic Claude Platform, including Claude Platform on AWS
 **Upstream pin:** `semantic-conventions-genai` commit `e57c543b` (2026-09-24)
 **Provider source:** Anthropic, *OpenTelemetry span reference* (beta), as published 2026-10-21
-**Date:** 2026-10-21
+**Date:** 2026-10-31
 
 ---
 
@@ -21,7 +21,7 @@ This profile binds the provider-neutral purposes of Addendum A1 §6 to the spans
 | Tenancy / segment | `anthropic.organization.id`, `anthropic.workspace.id` | every request span | MAY serve as a `segment_dimension` when the manifest declares it. |
 | Autonomy (6.3) | `anthropic.tool.evaluated_permission` ∈ `allow`, `ask` | API tool spans in Managed Agents | As 6.3. Denied tool uses emit no span. |
 | Escalation check (6.4) | `anthropic.session.turn.stop_reason` = `requires_action`, with `gen_ai.tool.name` | `anthropic.session.turn` | Check only; never count. |
-| Grader (4.4, A4) | `anthropic.session.outcome_evaluation.result` ∈ `satisfied`, `needs_revision`, `max_iterations_reached`, `failed`, `interrupted`; `.explanation`; `anthropic.session.outcome.id` | `anthropic.session.outcome_evaluation` | Ingest as a `gen_ai.evaluation.result` with `nthlayer.evaluator.kind: provider`. `satisfied` → label `pass`; `needs_revision`, `max_iterations_reached`, `failed` → `fail`; `interrupted` → not evaluable. Self-grading. |
+| Grader (4.4, A4) | `anthropic.session.outcome_evaluation.result` ∈ `satisfied`, `needs_revision`, `max_iterations_reached`, `failed`, `interrupted`; `.explanation`; `anthropic.session.outcome.id` | `anthropic.session.outcome_evaluation` | Ingest as a `gen_ai.evaluation.result` with `nthlayer.evaluator.kind: provider`. `satisfied` → label `pass`; `needs_revision`, `max_iterations_reached`, `failed` → `fail`; `interrupted` → no verdict (A1 §4.4). Self-grading. |
 | Stability (6.5) | `gen_ai.response.model`, `gen_ai.request.model`, `anthropic.response.service_tier`, `anthropic.request.service_tier`, `gen_ai.request.temperature`, `gen_ai.request.top_p`, `gen_ai.request.top_k`, `gen_ai.request.reasoning.level`, `anthropic.thinking.type`, `anthropic.thinking.budget_tokens`, `anthropic.beta` | `anthropic.messages.create`, `anthropic.model_request` | Pin and record per S1. |
 | Classical SLIs (6.6) | span duration, `http.response.status_code`, `error.type`, `gen_ai.response.time_to_first_chunk`, `http.request.resend_count` | request spans | Internal SLOs only (A3). |
 | Cost (6.7) | `gen_ai.usage.*`, `anthropic.usage.cache_creation.ephemeral_5m_input_tokens`, `anthropic.usage.cache_creation.ephemeral_1h_input_tokens`, `anthropic.usage.compaction.input_tokens`, `anthropic.usage.compaction.output_tokens`, `gen_ai.usage.reasoning.output_tokens` | `anthropic.messages.create`, `anthropic.model_request`, `anthropic.compaction`, `anthropic.session.outcome_evaluation` | Count per §3 of this profile. |
@@ -51,4 +51,4 @@ To count each token once: when a request has both an SDK `CLIENT` span and an AP
 
 | Version | Date | Pin | Changes |
 |---|---|---|---|
-| 1-draft | 2026-10-21 | `e57c543b` | Initial profile, split out of Addendum A1-draft §7 unchanged. |
+| 1-draft | 2026-10-31 | `e57c543b` | Initial profile, split out of Addendum A1-draft §7 (2026-10-21). One change: a grader `interrupted` result maps to *no verdict* (A1 §4.4) rather than the undefined "not evaluable". |

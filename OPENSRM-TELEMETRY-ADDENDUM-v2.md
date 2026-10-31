@@ -2,8 +2,9 @@
 
 **Status:** Draft for review
 **Applies to:** `OPENSRM-CORE-v2.md` (v2-draft, 2026-08-25); `conventions/decision-telemetry/`
-**Date:** 2026-10-21
-**Supersedes:** `OPENSRM-CORE-v2.md` §11.2 and §11.3 in their entirety; amends §2.4, §5.3, §8, §13, §16.1
+**Provider profiles:** §7.2
+**Date:** 2026-10-31
+**Supersedes:** `OPENSRM-CORE-v2.md` §11.2 and §11.3 in their entirety; amends §2.4, §5.3, §5.5.5, §5.5.6, §8, §13, §16.1
 
 ---
 
@@ -17,8 +18,11 @@ This addendum does four things:
 2. **Consolidates the decision telemetry vocabulary.** The repository currently carries four overlapping sets (`nthlayer.decision.*` in core §11.3; `gen_ai.{decision,reversal,outcome}.*` in `conventions/`; the SitRep appendix's extensions; `gen_ai.override.*` in `ARCHITECTURE.md`). This addendum reduces them to one family of three application-emitted events, and repositions `gen_ai.evaluation.result` as the grader event it is upstream.
 3. **Corrects three collisions with the upstream conventions**: `gen_ai.system` (removed upstream), `gen_ai.response.id` (upstream: the provider's completion id, not a decision CID), and `gen_ai.evaluation.score.value` (upstream: an evaluator's score, not a decision's confidence).
 4. **Adds one additive schema field**, `instrumentation.required_traces[].emitted_by`, so a manifest can declare a span the provider emits rather than the application.
+5. **Names OpenSRM's metric series.** Series OpenSRM defines use the `nthlayer_` prefix, never `gen_ai_` (§4.5).
 
-Nothing in this addendum adds a judgment SLO type, a threshold type or an evaluation rule. §5 of the core spec is untouched.
+The addendum adds no judgment SLO type and no threshold type. It changes core §5 in two places, both through §9 errata: E3 (§5.5.6) is extended to judgment SLOs, so a service with no decision records is *not evaluable* rather than within objective (erratum 13); and "arrival" in §5.5.5 is defined as the outcome's timestamp (erratum 14). It also pins down an input core §5 left open: calibration is computed from authoritative outcomes only (§3, A5).
+
+**Conformance break.** Core §13 made the `nthlayer.decision.*` attributes a MAY. This addendum makes the `nthlayer.decision` event, with its Required attributes, a MUST for every instrumented `ai-gate` service (§10.2, erratum 6). An `ai-gate` service conformant before it, emitting `gen_ai.evaluation.result` events only, is not conformant after it. An implementation that also reads the old form during a migration MUST still classify it by §3: a `gen_ai.evaluation.result` event is a grader evaluation, never a decision record.
 
 ---
 
@@ -46,14 +50,15 @@ Every telemetry signal an implementation consumes falls in exactly one class. Th
 |---|---|---|---|
 | **Authoritative** | `nthlayer.decision`, `nthlayer.reversal`, `nthlayer.outcome` events emitted by the application | Every judgment SLO numerator and denominator; every judgment threshold | — |
 | **Corroborating** | Provider spans and their attributes | Provenance; lineage *discovery*; stability partitioning; classical SLIs for internal SLOs (§4 core); cost; audit content | Any judgment SLO count; contract breach evidence (§6 core) |
-| **Grader** | `gen_ai.evaluation.result` events, from any evaluator | `measurement.source: calibration_sample`; audit sampling evidence; calibration thresholds | `measurement.source: lineage`; `downstream_signal`; the `outcomes` judgment SLO |
+| **Grader** | `gen_ai.evaluation.result` events, from any evaluator | `measurement.source: calibration_sample`; audit sampling evidence | `measurement.source: lineage`; `downstream_signal`; the `outcomes` and `high_confidence_failure` judgment SLOs; the `calibration` threshold |
 
 Rules:
 
 - **A1.** An implementation MUST classify each consumed signal by the table above and MUST NOT promote a signal across classes. In particular a provider span MUST NOT be counted as a decision, and a grader evaluation MUST NOT be counted as an outcome.
-- **A2.** A judgment SLO on an `ai-gate` service is computable only from authoritative records. A service that emits provider spans and no decision records has no computable judgment SLOs; an implementation MUST report this as *not evaluable* (§5.5.6 E3 core), not as within bounds.
+- **A2.** A judgment SLO on an `ai-gate` service is computable only from authoritative records. A service that emits provider spans and no decision records therefore has no decision records in the sense of core §5.5.6 E3, which makes each of its judgment SLOs *not evaluable* (amended by §9 erratum 13). Provider spans MUST NOT be used to make it evaluable.
 - **A3.** Provider spans are delivered best-effort, can be lost, duplicated, or left unsampled by the caller. An implementation MUST NOT use them as the sole evidence of a contract breach (§6 core) or as the basis for SLA credits. It MAY use them for internal SLOs (§4 core) and MUST deduplicate by trace id and span id before counting.
 - **A4.** A grader evaluation whose evaluator is the same provider that served the evaluated completion is *self-grading*. An implementation MUST record the evaluator identity (§4.4) and MUST be able to report self-graded samples separately from independently graded ones.
+- **A5.** Calibration (§5.5.3 core) compares a decision's confidence with whether the decision was correct, which is ground truth. It MUST be computed from `nthlayer.decision.confidence` joined, by `nthlayer.outcome.decision_id`, to `nthlayer.outcome.value`, and from nothing else. A decision whose outcome is `indeterminate`, or has not yet arrived, is not in the calibration sample. A grader evaluation never enters it, whoever the evaluator.
 
 ## 4. Decision telemetry vocabulary (normative)
 
@@ -112,7 +117,12 @@ Emitted once per decision whose ground truth becomes known, by the application o
 | `nthlayer.outcome.severity` | string | Recommended | Impact severity, in the organisation's severity vocabulary. |
 | `nthlayer.outcome.source` | string | Required | Which signal resolved the outcome; low cardinality. Examples: `incident_resolution`, `chargeback_feed`, `human_audit`. MUST NOT be a provider grader (§3, A1). |
 
-The interval between a decision's `nthlayer.decision` event and its `nthlayer.outcome` event is the measurement for the `feedback_latency` threshold (§5.5.5 core).
+The `feedback_latency` threshold (§5.5.5 core) measures, per decision, the interval from the `Timestamp` of its `nthlayer.decision` event to the `Timestamp` of its `nthlayer.outcome` event. These are the OpenTelemetry log record `Timestamp` fields, the time the event occurred:
+
+- **T1.** An emitter MUST set the `nthlayer.decision` event's `Timestamp` to when the decision became effective, and the `nthlayer.outcome` event's `Timestamp` to when the ground truth was determined. A consumer that resolves an outcome after the fact (a retrospective analysis, a chargeback feed) sets it to when the outcome was determined, not to when it emits the event.
+- **T2.** An implementation MUST NOT use `ObservedTimestamp`, or the time it received an event, as either end of the interval.
+- **T3.** "Arrival" in §5.5.5 core is the outcome's `Timestamp`. The 30-day window is anchored on it.
+
 
 ### 4.4 `gen_ai.evaluation.result` (grader)
 
@@ -127,6 +137,8 @@ Emitted as the upstream conventions define it. OpenSRM adds one attribute and co
 | `gen_ai.response.id` | string | Recommended (upstream) | The completion evaluated, as upstream defines it. |
 | `nthlayer.decision.id` | string | Required (OpenSRM) | The decision the evaluation is about. Added by OpenSRM so an evaluation can be joined to lineage when the evaluated completion produced a decision. |
 | `nthlayer.evaluator.kind` | string | Required (OpenSRM) | `human`, `implementation`, `provider`. Low cardinality. Supports A4. |
+
+A grader evaluation that ended without a verdict (the evaluator was interrupted, timed out or errored) has *no verdict*. An implementation ingesting one MUST record it without a `gen_ai.evaluation.score.label` or `gen_ai.evaluation.score.value`, MUST exclude it from every count and rate grader evaluations feed (audit sampling completion, `calibration_sample` measurement), and MUST report how many it excluded alongside each such count. A sampled decision whose only evaluations have no verdict is still unaudited for `audit_sampling` and `audit_backlog`.
 
 A human audit verdict is a grader evaluation with `nthlayer.evaluator.kind: human`. It feeds `audit_sampling` completion and `calibration_sample` measurement. It becomes ground truth only when the application also emits an `nthlayer.outcome` with `source: human_audit`; the two are distinct records because an audit can be sampled and still not be the organisation's definition of ground truth.
 
@@ -147,8 +159,8 @@ The series currently defined, and their names under N1–N3:
 | Reversals | `nthlayer.reversal` | counter | `gen_ai_overrides_total` | `nthlayer_reversals_total` |
 | High-confidence failures (§5.2.2 core) | `nthlayer.decision.confidence` joined to `nthlayer.outcome.value` | counter | `gen_ai_overrides_hcf_total` | `nthlayer_high_confidence_failures_total` |
 | Decision confidence | `nthlayer.decision.confidence` | gauge | `ai_gate_confidence_score` | `nthlayer_decision_confidence` |
-| Expected calibration error (§5.5.3 core) | computed (§3) | gauge | `gen_ai_calibration_ece`; `ai_gate_calibration_error` | `nthlayer_calibration_ece` |
-| Brier score (§5.5.3 core) | computed (§3) | gauge | `gen_ai_calibration_brier`; `ai_gate_calibration_brier` | `nthlayer_calibration_brier` |
+| Expected calibration error (§5.5.3 core) | computed (§3, A5) | gauge | `gen_ai_calibration_ece`; `ai_gate_calibration_error` | `nthlayer_calibration_ece` |
+| Brier score (§5.5.3 core) | computed (§3, A5) | gauge | `gen_ai_calibration_brier`; `ai_gate_calibration_brier` | `nthlayer_calibration_brier` |
 | Feedback latency (§5.5.5 core) | interval of §4.3 | histogram | `gen_ai_feedback_latency_seconds`; `ai_gate_feedback_latency_seconds` | `nthlayer_feedback_latency_seconds` |
 
 Where two current names map to one, they are the same quantity under two names. The rename changes names only: kinds and labels stay as they are today. Reconciling the labels the two current names carry for one quantity (for example reversals counted as `ai_gate_decisions_total{reversed="true"}` as well as by their own counter) is the shared metrics contract's job, not this addendum's. `gen_ai_calibration_error`, already superseded by the two calibration gauges, is retired with no successor.
@@ -271,14 +283,14 @@ The field is optional and additive; every existing manifest validates unchanged.
 
 ## 9. Errata to existing documents
 
-Each item gives the current text and its replacement. Items 1–7 amend `OPENSRM-CORE-v2.md`.
+Each item gives the current text and its replacement. Items 1–7 and 13–15 amend `OPENSRM-CORE-v2.md`.
 
 1. **§2.4, last two sentences.** Current: "The `gen_ai.evaluation.result` event (shipped in OTel semconv v1.39.0) is the substrate for judgment-SLO outcome reporting. The `gen_ai.decision.*` subset is proposed upstream." Replace with: "Decision, reversal and outcome records are the `nthlayer.decision`, `nthlayer.reversal` and `nthlayer.outcome` events (Addendum A1 §4); grader evaluations use the upstream `gen_ai.evaluation.result` event. The `gen_ai.decision.*`, `gen_ai.reversal.*` and `gen_ai.outcome.*` forms are proposed upstream."
 2. **§5.3, final paragraph before the implementation note.** Current: "The wire format for judgment-SLO outcomes is the OTel `gen_ai.evaluation.result` event (OTel semconv v1.39.0+), extended with the `nthlayer.decision.*` attributes described in §11.3." Replace with: "The wire formats for judgment-SLO inputs are the four events of Addendum A1 §4. `gen_ai.evaluation.result` carries grader evaluations only."
 3. **§8 example, `required_events`.** Current: `schema_ref: "gen_ai.evaluation.result"` under `type: "io.nthlayer.decision.v1"`. Replace with `schema_ref: "nthlayer.decision"`. Same change in `spec/v2/examples/services/ai-gate.yaml`, `spec/v2/examples/service-manifest-full.yaml` and `spec/v2/AUTHORING.md` (the `required_events` example).
 4. **§11.2, whole section.** Replace with a pointer to Addendum A1 §4 and §5. The current example is wrong on three counts: `gen_ai.system` is no longer in the upstream registry (use `gen_ai.provider.name`); `gen_ai.response.id` is the provider's completion id upstream, not a CID; `gen_ai.evaluation.score.value` is the evaluator's score upstream, not the decision's confidence.
 5. **§11.3, whole section.** Replace with a pointer to Addendum A1 §4.0 (namespace rule) and §4.1. The four attributes fold in as follows: `nthlayer.decision.type` keeps its name with the §4.1 meaning (class of decision, not the chosen option); `nthlayer.decision.reversible` and `nthlayer.decision.autonomous` keep their names; `nthlayer.decision.reversal_of` is retired in favour of the `nthlayer.reversal` event, where `nthlayer.reversal.decision_id` carries the link.
-6. **§13, SHOULD list.** Current: "Emit `gen_ai.evaluation.result` events for judgment-SLO outcomes". Replace with: "Emit the Addendum A1 §4 events for decisions, reversals and outcomes, and `gen_ai.evaluation.result` for grader evaluations". **§13, MAY list.** Current: "Adopt the `nthlayer.decision.*` attributes described in §11.3 pending upstream standardisation". Delete; the attributes are now MUST-emit for conformant `ai-gate` services (§10 below).
+6. **§13, SHOULD list.** Current: "Emit `gen_ai.evaluation.result` events for judgment-SLO outcomes". Replace with: "Emit the Addendum A1 §4 events for decisions, reversals and outcomes, and `gen_ai.evaluation.result` for grader evaluations". **§13, MAY list.** Current: "Adopt the `nthlayer.decision.*` attributes described in §11.3 pending upstream standardisation". Delete; the `nthlayer.decision` event and its Required attributes are now MUST-emit for instrumented `ai-gate` services (§10.2). This is the conformance break the Summary records.
 7. **§16.1.** Current: "OpenTelemetry GenAI semantic conventions: https://opentelemetry.io/docs/specs/semconv/gen-ai/". Replace with: "OpenTelemetry GenAI semantic conventions: https://github.com/open-telemetry/semantic-conventions-genai (the conventions moved out of the core semantic-conventions repository; the former URL is a redirect notice)".
 8. **`conventions/decision-telemetry/README.md`.** Retitle the attribute tables as the upstream proposal form; add the attributes §4.1–§4.3 introduce (`decision.type`, `decision.autonomous`, `decision.reversible`, `decision.segment.<dimension>`, `reversal.actor_type`, `reversal.actor`, `reversal.reason`, `outcome.value`, `outcome.source`) so the proposal and the wire form have identical suffixes; change the "Next Steps" target repository to `open-telemetry/semantic-conventions-genai`.
 9. **`components/sitrep/sitrep-technical-appendix.md`, "Integration: Decision Telemetry".** Rename emitted attributes to the `nthlayer.` wire form; `gen_ai.decision.gate_type` becomes `nthlayer.decision.type`; the three `o11y.*` link attributes are SitRep's own and are unaffected.
@@ -286,26 +298,46 @@ Each item gives the current text and its replacement. Items 1–7 amend `OPENSRM
 11. **`STATUS.md`, Decision Telemetry table.** Add a row for the `nthlayer.` wire form and the Addendum; change the submit target to `semantic-conventions-genai`.
 12. **`docs/spec-conventions.md` line 151.** `gen_ai.decision.*` → `nthlayer.decision` event.
 
-Not changed by this addendum: the five judgment SLO types, the five judgment threshold types, the evaluation rules E1–E4, the `ai-gate` type rule, template semantics, change events, contracts and dependencies.
+13. **§5.5.6 E3.** Append: "E3 applies equally to a judgment SLO (§5.2): one whose service has no decision records in its window is *not evaluable*, and an implementation MUST report it rather than treat it as within objective. Provider-emitted telemetry is not a decision record (Addendum A1 §3)." Change the §5.5.6 lead-in from "The rules below apply to every threshold type" to "The rules below apply to every threshold type, and E3 also to judgment SLOs".
+14. **§5.5.5, after the first paragraph.** Insert: "Ground truth *arrives* at the time it was determined, carried as the `Timestamp` of its `nthlayer.outcome` event (Addendum A1 §4.3, T1–T3), not at the time the event was emitted or received."
+15. **§13, MUST list.** Current: "Where it evaluates judgment thresholds, report a bound that cannot be measured as not evaluable (§5.5.6 E3)". Replace with: "Where it evaluates judgment thresholds or judgment SLOs, report a bound that cannot be measured, and a judgment SLO whose service has no decision records, as not evaluable (§5.5.6 E3)".
+
+Not changed by this addendum: the five judgment SLO types, the five judgment threshold types, the evaluation rules E1, E2 and E4, the `ai-gate` type rule, template semantics, change events, contracts and dependencies.
 
 ## 10. Conformance additions
+
+This section separates two parties. An **implementation** consumes telemetry and evaluates manifests. An **application** is an instrumented service, or the instrumentation library acting for it, that emits telemetry. A tool that does both carries both sets of duties.
+
+### 10.1 Implementations
 
 An OpenSRM v2 implementation that consumes GenAI-convention telemetry MUST, in addition to §13 of the core spec:
 
 - Classify every consumed signal by §3 and never promote a signal across classes (A1)
-- Report judgment SLOs on an `ai-gate` with no decision records as not evaluable (A2)
+- Report judgment SLOs on an `ai-gate` with no decision records as not evaluable (A2; core §5.5.6 E3)
 - Deduplicate provider spans by trace id and span id, and not use them as sole contract-breach evidence (A3)
 - Record evaluator identity on every grader evaluation and be able to report self-graded samples separately (A4)
-- Emit, for every `ai-gate` service it instruments, `nthlayer.decision` events with the Required attributes of §4.1, and `nthlayer.reversal` and `nthlayer.outcome` events where the service's judgment SLOs need them
-- Carry provenance per §5
+- Compute calibration from authoritative outcomes only (A5)
+- Measure feedback latency from event `Timestamp`s (T1–T3), and handle grader evaluations with no verdict as §4.4 requires
 - Partition stability measurement per S1–S4
 - Accept `emitted_by` on `required_traces` items and verify `provider` spans at the destination (§8)
+- Name the series it defines per N1–N3 (§4.5)
+- Consume a provider's telemetry per that provider's profile, where one is registered (§7.2)
 
 An implementation SHOULD:
 
 - Propose lineage candidates from `gen_ai.conversation.id` for human review (6.1)
 - Derive classical SLIs from provider spans for internal objectives (6.6)
 - Present content-mode span attributes for audit sampling, flagging truncation (6.8)
+
+### 10.2 Applications
+
+An instrumented `ai-gate` service MUST:
+
+- Emit an `nthlayer.decision` event for every decision, with the Required attributes of §4.1, and the Conditionally required ones where their condition holds
+- Emit `nthlayer.reversal` and `nthlayer.outcome` events where its judgment SLOs or thresholds need them
+- Set event `Timestamp`s per T1
+- Carry provenance per §5
+- Emit the `nthlayer.` forms of §4.0, never the `gen_ai.decision.*`, `gen_ai.reversal.*` or `gen_ai.outcome.*` forms, and never `gen_ai.system` (P4)
 
 ## 11. Open questions
 
@@ -326,3 +358,4 @@ An implementation SHOULD:
 | Version | Date | Changes |
 |---|---|---|
 | A1-draft | 2026-10-21 | Initial draft: admissibility classes; consolidated decision telemetry vocabulary; provenance rules; provider-neutral span binding; Claude Platform profile; `emitted_by` schema field; errata to core §2.4, §5.3, §8, §11, §13, §16.1 and to five companion documents. |
+| A1-draft.2 | 2026-10-31 | Review revision (findings F1–F6). Claude Platform binding split into `profiles/claude-platform.md`, with profile requirements and a registry in §7. Metric-name rule and mapping table, `nthlayer_` prefix (§4.5). Calibration computed from authoritative outcomes only (A5). A2's not-evaluable rule moved into core §5.5.6 E3 (erratum 13). Feedback latency measured on event `Timestamp`s (T1–T3, erratum 14). Grader evaluations with no verdict defined (§4.4). Conformance break called out; §10 split into implementation and application duties. |
