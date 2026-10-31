@@ -795,7 +795,7 @@ sum(rate(nthlayer_decisions_total{decision_type="incident_response"}[30d]))
 # High-confidence failure rate
 sum(rate(nthlayer_high_confidence_failures_total{confidence_bucket=">0.9"}[30d])) 
 / 
-sum(rate(nthlayer_decisions_total{confidence_bucket=">0.9"}[30d]))
+sum(rate(nthlayer_outcomes_total{outcome_value=~"correct|incorrect",confidence_bucket=">0.9"}[30d]))
 
 # Correlation accuracy (requires outcome events)
 sum(rate(o11y_correlations_confirmed_total[30d])) 

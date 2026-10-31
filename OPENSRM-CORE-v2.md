@@ -347,6 +347,8 @@ spec:
     escalation_human_agreement_rate: 0.8  # humans agree with escalation 80% of the time
 ```
 
+An escalation's human resolution is the `nthlayer.outcome` of the escalate decision ([Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) §4.6 C6): `correct` when the escalation was warranted. `escalation_human_agreement_rate` is the share of resolved escalations that are `correct`.
+
 ### 5.3 Statistical requirements
 
 Judgment SLO and threshold evaluation relies on established statistical methods, not bespoke formulas. A conformant implementation MUST compute:
@@ -799,4 +801,4 @@ The OpenSRM specification does not prescribe specific tooling. Readers looking f
 |---------|------|---------|
 | 1 | 2026-02 | Initial standalone spec (dev.to article) |
 | 2-draft | 2026-04-19 | Repositioned as composition of CNCF-adjacent standards with narrow original contribution (judgment SLOs, reliability contracts, dependencies-with-expected-guarantees). Classical SLOs now use OpenSLO v1 documents; ownership aligns with Backstage entity refs; contracts reference OpenAPI/AsyncAPI documents; change events use CloudEvents v1.0 envelopes; telemetry uses OTel `gen_ai.*` conventions. Implementation-specific references (particular compilers, libraries, or validators) removed from normative text per the specification/tooling separation principle. |
-| 2-draft (A1 errata) | 2026-10-31 | [Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) errata applied: §2.4 and §5.3 name the A1 §4 events; §8 example `schema_ref: nthlayer.decision`; §11.2 and §11.3 superseded by A1; §13 SHOULD/MAY lists updated (the `nthlayer.decision.*` MAY becomes an A1 §10.2 MUST); §16.1 GenAI conventions URL. §5.5.6 E3 extended to judgment SLOs with no decision records; §5.5.5 defines ground-truth arrival as the outcome event's `Timestamp`. |
+| 2-draft (A1 errata) | 2026-10-31 | [Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) errata applied: §2.4 and §5.3 name the A1 §4 events; §8 example `schema_ref: nthlayer.decision`; §11.2 and §11.3 superseded by A1; §13 SHOULD/MAY lists updated (the `nthlayer.decision.*` MAY becomes an A1 §10.2 MUST); §16.1 GenAI conventions URL. §5.5.6 E3 extended to judgment SLOs with no decision records; §5.5.5 defines ground-truth arrival as the outcome event's `Timestamp`; §5.2.5 defines the escalation resolution as an `nthlayer.outcome`. |

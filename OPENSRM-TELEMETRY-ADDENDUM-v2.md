@@ -4,7 +4,7 @@
 **Applies to:** `OPENSRM-CORE-v2.md` (v2-draft, 2026-08-25); `conventions/decision-telemetry/`
 **Provider profiles:** §7.2
 **Date:** 2026-10-31
-**Supersedes:** `OPENSRM-CORE-v2.md` §11.2 and §11.3 in their entirety; amends the Delta Summary, §2.4, §5.3, §5.5.5, §5.5.6, §8, §13, §16.1
+**Supersedes:** `OPENSRM-CORE-v2.md` §11.2 and §11.3 in their entirety; amends the Delta Summary, §2.4, §5.2.5, §5.3, §5.5.5, §5.5.6, §8, §13, §16.1
 
 ---
 
@@ -153,7 +153,7 @@ A human audit verdict is a grader evaluation with `nthlayer.evaluator.kind: huma
 
 - **N1.** A series OpenSRM defines MUST use the `nthlayer_` prefix and MUST NOT use `gen_ai_`. A series the upstream conventions define keeps its upstream name (for example `gen_ai_client_operation_duration_seconds`).
 - **N2.** The name after the prefix follows the OpenTelemetry-to-Prometheus naming rules: the quantity in snake_case, the base unit as a suffix where there is one (`_seconds`), and `_total` on counters. A ratio has no unit suffix.
-- **N3.** Every series carries a `service` label equal to the manifest's `metadata.name`. A label taken from a §4 attribute is named by the attribute with the `nthlayer.` prefix removed and dots replaced by underscores, so labels from different events cannot collide (`nthlayer.decision.type` → `decision_type`, `nthlayer.reversal.type` → `reversal_type`, `nthlayer.decision.segment.customer_tier` → `decision_segment_customer_tier`). Only attributes marked low cardinality, and `nthlayer.decision.segment.<dimension>`, MAY become labels. Other labels, such as a bucket computed from a numeric attribute, are defined by the series' contract.
+- **N3.** Every series carries a `service` label equal to the manifest's `metadata.name`. A label taken from a §4 attribute is named by the attribute with the `nthlayer.` prefix removed and dots replaced by underscores, so labels from different events cannot collide (`nthlayer.decision.type` → `decision_type`, `nthlayer.reversal.type` → `reversal_type`, `nthlayer.decision.segment.customer_tier` → `decision_segment_customer_tier`). Only attributes marked low cardinality, and `nthlayer.decision.segment.<dimension>`, MAY become labels. Any character of a dimension name outside `[A-Za-z0-9_]` becomes `_` in its label; two dimensions of one service whose labels then coincide (`customer-tier` and `customer_tier`) are a manifest error, which an implementation MUST report at load. Other labels, such as a bucket computed from a numeric attribute, are defined by the series' contract.
 - **N4.** Recording rules an implementation generates are not series under N1. They follow Prometheus's `level:metric:operations` convention and their names are implementation-defined.
 
 The series currently defined, and their names under N1–N3:
@@ -163,12 +163,24 @@ The series currently defined, and their names under N1–N3:
 | Decisions | `nthlayer.decision` | counter | `gen_ai_decisions_total`; `ai_gate_decisions_total` | `nthlayer_decisions_total` |
 | Reversals | `nthlayer.reversal` | counter | `gen_ai_overrides_total`; `gen_ai_reversals_total` (in documentation only) | `nthlayer_reversals_total` |
 | High-confidence failures (§5.2.2 core) | `nthlayer.decision.confidence` joined to `nthlayer.outcome.value` (§4.3) | counter | `gen_ai_overrides_hcf_total` (redefined, see below) | `nthlayer_high_confidence_failures_total` |
+| Outcomes | `nthlayer.outcome` (in effect, §4.6) | counter | — (new) | `nthlayer_outcomes_total` |
 | Decision confidence | `nthlayer.decision.confidence` | gauge | `ai_gate_confidence_score` | `nthlayer_decision_confidence` |
 | Expected calibration error (§5.5.3 core) | computed (§3, A5) | gauge | `gen_ai_calibration_ece`; `ai_gate_calibration_error` | `nthlayer_calibration_ece` |
 | Brier score (§5.5.3 core) | computed (§3, A5) | gauge | `gen_ai_calibration_brier`; `ai_gate_calibration_brier` | `nthlayer_calibration_brier` |
 | Feedback latency (§5.5.5 core) | interval of §4.3 | histogram | `gen_ai_feedback_latency_seconds`; `ai_gate_feedback_latency_seconds` | `nthlayer_feedback_latency_seconds` |
 
-Where two current names map to one, they are the same quantity under two names. The rename changes names only, and kinds and labels stay as they are today. The one exception is high-confidence failures. `gen_ai_overrides_hcf_total` counts *overrides* of high-confidence decisions; §4.3 makes the `high_confidence_failure` judgment SLO count high-confidence decisions whose *outcome* is `incorrect`. `nthlayer_high_confidence_failures_total` follows §4.3, so the series is redefined as well as renamed, and its rate is `nthlayer_high_confidence_failures_total` over high-confidence `nthlayer_decisions_total`, not reversals over decisions. Reconciling the labels the two current names carry for one quantity (for example reversals counted as `ai_gate_decisions_total{reversed="true"}` as well as by their own counter) is the shared metrics contract's job, not this addendum's. `gen_ai_calibration_error`, already superseded by the two calibration gauges, is retired with no successor.
+Where two current names map to one, they are the same quantity under two names. The rename changes names only, and kinds and labels stay as they are today. The one exception is high-confidence failures. `gen_ai_overrides_hcf_total` counts *overrides* of high-confidence decisions; §4.3 makes the `high_confidence_failure` judgment SLO count high-confidence decisions whose *outcome* is `incorrect`. `nthlayer_high_confidence_failures_total` follows §4.3, so the series is redefined as well as renamed. Its rate is `nthlayer_high_confidence_failures_total` over the high-confidence decisions whose outcome in effect (§4.6) is `correct` or `incorrect`, counted by `nthlayer_outcomes_total`. A decision still awaiting its outcome, or resolved `indeterminate`, is in neither count, as for the `outcomes` judgment SLO. It is not reversals over decisions. The confidence threshold that makes a decision high-confidence is a parameter of the series' contract, carried as a label (as `confidence_bucket` is today), so that judgment SLOs and `segments` entries with different `confidence_threshold`s can share one series. Reconciling the labels the two current names carry for one quantity (for example reversals counted as `ai_gate_decisions_total{reversed="true"}` as well as by their own counter) is the shared metrics contract's job, not this addendum's. `gen_ai_calibration_error`, already superseded by the two calibration gauges, is retired with no successor.
+
+### 4.6 Counting
+
+The §4 events are delivered at least once and can be corrected, so judgment SLOs count decisions, not events.
+
+- **C1.** `nthlayer.decision` events are deduplicated on `nthlayer.decision.id`. Every judgment count is per decision.
+- **C2.** A decision is reversed when at least one `nthlayer.reversal` names it. Further reversals of the same decision do not count it again.
+- **C3.** Where several `nthlayer.outcome` events name one decision, the one with the latest `Timestamp` is *in effect*: it alone counts for the `outcomes` and `high_confidence_failure` judgment SLOs, the calibration sample (A5) and the feedback-latency interval (T1). A correction can therefore move a decision between windows, and a window recomputed after one can differ from its earlier report.
+- **C4.** A reversal, outcome or grader evaluation naming no known decision record is excluded from every count and sample, and an implementation MUST report how many it excluded.
+- **C5.** An outcome in effect whose `Timestamp` precedes its decision's (clock skew, a backdated record) is excluded from the feedback-latency sample and reported. It still counts for every other purpose.
+- **C6.** The human resolution of a decision whose `nthlayer.decision.value` is `escalate` is an `nthlayer.outcome` on that decision: `correct` when the escalation was warranted, `incorrect` when it was not. `escalation_human_agreement_rate` (§5.2.5 core) is the share of escalate decisions with a `correct` or `incorrect` outcome in effect whose outcome is `correct`. Escalate decisions are outside the `high_confidence_failure` and calibration samples, since they choose no option. The decision the human then makes MAY be a separate decision record, made by the human's own gate.
 
 ## 5. Provenance (normative)
 
@@ -282,13 +294,13 @@ JSON Schema (draft-07) delta to `#/definitions/Instrumentation/properties/requir
 }
 ```
 
-The field is optional and additive; every existing manifest validates unchanged. Verification semantics: for `application`, CI checks the code emits the span with the attributes; for `provider`, CI checks that the configured telemetry destination has received a span of that name with those attributes within the implementation's verification window.
+The field is optional and additive; every existing manifest validates unchanged. Verification semantics: for `application`, CI checks the code emits the span with the attributes; for `provider`, CI checks that the configured telemetry destination has received a span of that name with those attributes within the implementation's verification window. A received span lacking a required attribute fails the check. When no span of that name was received in the window (no traffic yet, a caller-unsampled request, or a request path the provider's profile lists as emitting no span), the check is *inconclusive*: it MUST be reported as such and never as passed.
 
 `required_events[].schema_ref` gains a recognised value set: `nthlayer.decision`, `nthlayer.reversal`, `nthlayer.outcome`, `gen_ai.evaluation.result`. A `schema_ref` outside this set is permitted (the field stays a free string) but is not an OpenSRM-defined event.
 
 ## 9. Errata to existing documents
 
-Each item gives the current text and its replacement. Items 1–7 and 13–16 amend `OPENSRM-CORE-v2.md`.
+Each item gives the current text and its replacement. Items 1–7, 13–16 and 19 amend `OPENSRM-CORE-v2.md`.
 
 1. **§2.4, last two sentences.** Current: "The `gen_ai.evaluation.result` event (shipped in OTel semconv v1.39.0) is the substrate for judgment-SLO outcome reporting. The `gen_ai.decision.*` subset is proposed upstream." Replace with: "Decision, reversal and outcome records are the `nthlayer.decision`, `nthlayer.reversal` and `nthlayer.outcome` events (Addendum A1 §4); grader evaluations use the upstream `gen_ai.evaluation.result` event. The `gen_ai.decision.*`, `gen_ai.reversal.*` and `gen_ai.outcome.*` forms are proposed upstream."
 2. **§5.3, final paragraph before the implementation note.** Current: "The wire format for judgment-SLO outcomes is the OTel `gen_ai.evaluation.result` event (OTel semconv v1.39.0+), extended with the `nthlayer.decision.*` attributes described in §11.3." Replace with: "The wire formats for judgment-SLO inputs are the four events of Addendum A1 §4. `gen_ai.evaluation.result` carries grader evaluations only."
@@ -309,7 +321,9 @@ Each item gives the current text and its replacement. Items 1–7 and 13–16 am
 
 16. **`OPENSRM-CORE-v2.md`, Delta Summary, the decision-telemetry row.** Current: "**Adopt shipped `gen_ai.evaluation.result` from OTel v1.39.0** + propose `gen_ai.decision.*` upstream". Replace with: "**Emit decision records as `nthlayer.decision` events (Addendum A1)**, use the shipped `gen_ai.evaluation.result` for grader evaluations, and propose `gen_ai.decision.*` upstream"; and the rationale "Already 70% there; contribute rather than fork" with: "Contribute rather than fork; keep OpenSRM-defined names out of `gen_ai.*` until upstream accepts them".
 17. **`README.md`, "Decision Telemetry" example.** Rename to the `nthlayer.` wire form and add the Required attributes §4.1 and §4.2 list (`decision.type`, `decision.autonomous`, `reversal.actor_type`).
-18. **Prometheus series in `ARCHITECTURE.md` ("Judgment SLO Measurement") and `components/sitrep/sitrep-technical-appendix.md` ("Metrics Derivation").** `gen_ai_reversals_total` → `nthlayer_reversals_total` and `gen_ai_decisions_total` → `nthlayer_decisions_total` (§4.5); SitRep's `gate_type` label → `decision_type` (N3). Both documents' high-confidence-failure query divides `nthlayer_high_confidence_failures_total` by high-confidence decisions, per the §4.5 redefinition.
+18. **Prometheus series in `ARCHITECTURE.md` ("Judgment SLO Measurement") and `components/sitrep/sitrep-technical-appendix.md` ("Metrics Derivation").** `gen_ai_reversals_total` → `nthlayer_reversals_total` and `gen_ai_decisions_total` → `nthlayer_decisions_total` (§4.5); SitRep's `gate_type` label → `decision_type` (N3). Both documents' high-confidence-failure query divides `nthlayer_high_confidence_failures_total` by the high-confidence decisions with a `correct` or `incorrect` outcome (`nthlayer_outcomes_total`), per the §4.5 redefinition.
+
+19. **§5.2.5, after the example.** Insert: "An escalation's human resolution is the `nthlayer.outcome` of the escalate decision (Addendum A1 §4.6 C6): `correct` when the escalation was warranted. `escalation_human_agreement_rate` is the share of resolved escalations that are `correct`."
 
 Not changed by this addendum: the five judgment SLO types, the five judgment threshold types, the evaluation rules E1, E2 and E4, the `ai-gate` type rule, template semantics, change events, contracts and dependencies.
 
@@ -327,6 +341,7 @@ An OpenSRM v2 implementation that consumes GenAI-convention telemetry MUST, in a
 - Record evaluator identity on every grader evaluation and be able to report self-graded samples separately (A4)
 - Compute calibration from authoritative outcomes only (A5)
 - Measure feedback latency from event `Timestamp`s (T1–T3), and handle grader evaluations with no verdict as §4.4 requires
+- Count per decision, with the outcome in effect, per C1–C6 (§4.6)
 - Partition stability measurement per S1–S4
 - Accept `emitted_by` on `required_traces` items and verify `provider` spans at the destination (§8)
 - Name the series it defines per N1–N3 (§4.5)
@@ -367,4 +382,4 @@ An instrumented `ai-gate` service MUST:
 | Version | Date | Changes |
 |---|---|---|
 | A1-draft | 2026-10-21 | Initial draft: admissibility classes; consolidated decision telemetry vocabulary; provenance rules; provider-neutral span binding; Claude Platform profile; `emitted_by` schema field; errata to core §2.4, §5.3, §8, §11, §13, §16.1 and to five companion documents. |
-| A1-draft.2 | 2026-10-31 | Review revision (findings F1–F6). Claude Platform binding split into `profiles/claude-platform.md`, with profile requirements and a registry in §7. Metric-name rule and mapping table, `nthlayer_` prefix (§4.5). Calibration computed from authoritative outcomes only (A5). A2's not-evaluable rule moved into core §5.5.6 E3 (erratum 13). Feedback latency measured on event `Timestamp`s (T1–T3, erratum 14). Grader evaluations with no verdict defined (§4.4). Conformance break called out; §10 split into implementation and application duties. |
+| A1-draft.2 | 2026-10-31 | Review revision (findings F1–F6). Claude Platform binding split into `profiles/claude-platform.md`, with profile requirements and a registry in §7. Metric-name rule and mapping table, `nthlayer_` prefix (§4.5). Calibration computed from authoritative outcomes only (A5). A2's not-evaluable rule moved into core §5.5.6 E3 (erratum 13). Feedback latency measured on event `Timestamp`s (T1–T3, erratum 14). Grader evaluations with no verdict defined (§4.4). Conformance break called out; §10 split into implementation and application duties. Counting rules C1–C6 (§4.6): per-decision counts, latest outcome in effect, escalation resolved by an outcome (erratum 19). HCF rate excludes unresolved and `indeterminate` decisions. Provider-span verification can be inconclusive (§8). |

@@ -15,7 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   evaluations only. Admissibility classes (authoritative, corroborating,
   grader) govern which signals may feed judgment SLOs; provider spans never
   count. Calibration uses authoritative outcomes only. OpenSRM-defined
-  Prometheus series use the `nthlayer_` prefix. Provider-specific bindings
+  Prometheus series use the `nthlayer_` prefix. Judgment SLOs count
+  decisions, not events; the latest outcome is in effect; an escalation's
+  human resolution is an `nthlayer.outcome` on it. Provider-specific bindings
   live in provider profiles (`profiles/`), the first being Claude Platform.
   **Breaking:** the `nthlayer.decision` event becomes a MUST for instrumented
   `ai-gate` services (core §13 had a MAY), and core §5.5.6 E3 now makes a
