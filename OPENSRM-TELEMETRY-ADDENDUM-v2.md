@@ -130,6 +130,29 @@ Emitted as the upstream conventions define it. OpenSRM adds one attribute and co
 
 A human audit verdict is a grader evaluation with `nthlayer.evaluator.kind: human`. It feeds `audit_sampling` completion and `calibration_sample` measurement. It becomes ground truth only when the application also emits an `nthlayer.outcome` with `source: human_audit`; the two are distinct records because an audit can be sampled and still not be the organisation's definition of ground truth.
 
+### 4.5 Metric names
+
+§4.0's argument applies to metric series too. A Prometheus series that OpenSRM defines, whether counted from the §4 events or computed from them by an implementation, is not an upstream GenAI series. A `gen_ai_` name for it would collide with the series providers and upstream instrumentation emit.
+
+- **N1.** A series OpenSRM defines MUST use the `nthlayer_` prefix and MUST NOT use `gen_ai_`. A series the upstream conventions define keeps its upstream name (for example `gen_ai_client_operation_duration_seconds`).
+- **N2.** The name after the prefix follows the OpenTelemetry-to-Prometheus naming rules: the quantity in snake_case, the base unit as a suffix where there is one (`_seconds`), and `_total` on counters. A ratio has no unit suffix.
+- **N3.** Every series carries a `service` label equal to the manifest's `metadata.name`. A label derived from a §4 attribute is named by the attribute with its `nthlayer.<event>.` prefix removed and dots replaced by underscores (`nthlayer.decision.segment.customer_tier` → `segment_customer_tier`). Only attributes marked low cardinality, and `segment.<dimension>` attributes, MAY become labels.
+- **N4.** Recording rules an implementation generates are not series under N1. They follow Prometheus's `level:metric:operations` convention and their names are implementation-defined.
+
+The series currently defined, and their names under N1–N3:
+
+| Quantity | Derived from | Kind | Current name(s) | Name |
+|---|---|---|---|---|
+| Decisions | `nthlayer.decision` | counter | `gen_ai_decisions_total`; `ai_gate_decisions_total` | `nthlayer_decisions_total` |
+| Reversals | `nthlayer.reversal` | counter | `gen_ai_overrides_total` | `nthlayer_reversals_total` |
+| High-confidence failures (§5.2.2 core) | `nthlayer.decision.confidence` joined to `nthlayer.outcome.value` | counter | `gen_ai_overrides_hcf_total` | `nthlayer_high_confidence_failures_total` |
+| Decision confidence | `nthlayer.decision.confidence` | gauge | `ai_gate_confidence_score` | `nthlayer_decision_confidence` |
+| Expected calibration error (§5.5.3 core) | computed (§3) | gauge | `gen_ai_calibration_ece`; `ai_gate_calibration_error` | `nthlayer_calibration_ece` |
+| Brier score (§5.5.3 core) | computed (§3) | gauge | `gen_ai_calibration_brier`; `ai_gate_calibration_brier` | `nthlayer_calibration_brier` |
+| Feedback latency (§5.5.5 core) | interval of §4.3 | histogram | `gen_ai_feedback_latency_seconds`; `ai_gate_feedback_latency_seconds` | `nthlayer_feedback_latency_seconds` |
+
+Where two current names map to one, they are the same quantity under two names. The rename changes names only: kinds and labels stay as they are today. Reconciling the labels the two current names carry for one quantity (for example reversals counted as `ai_gate_decisions_total{reversed="true"}` as well as by their own counter) is the shared metrics contract's job, not this addendum's. `gen_ai_calibration_error`, already superseded by the two calibration gauges, is retired with no successor.
+
 ## 5. Provenance (normative)
 
 - **P1.** An `nthlayer.decision` event for a decision derived from a model request SHOULD be parented to that request's span. When it cannot be (the decision is recorded outside the trace, or later), it MUST carry `gen_ai.response.id` and SHOULD carry the request's W3C trace context in the attributes `traceparent` and, where present, `tracestate`.
