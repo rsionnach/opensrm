@@ -96,6 +96,7 @@ spec:
         labels: [method, path]
     required_traces:
       - span_name: "payment.authorise"
+        emitted_by: application   # the default, stated explicitly (Addendum A1 §8)
         required_attributes: [payment.amount, payment.currency, customer.id]
     required_logs:
       - format: structured
