@@ -163,7 +163,7 @@ The series currently defined, and their names under N1–N3:
 | Decisions | `nthlayer.decision` | counter | `gen_ai_decisions_total`; `ai_gate_decisions_total` | `nthlayer_decisions_total` |
 | Reversals | `nthlayer.reversal` | counter | `gen_ai_overrides_total`; `gen_ai_reversals_total` (in documentation only) | `nthlayer_reversals_total` |
 | High-confidence failures (§5.2.2 core) | `nthlayer.decision.confidence` joined to `nthlayer.outcome.value` (§4.3) | counter | `gen_ai_overrides_hcf_total` (redefined, see below) | `nthlayer_high_confidence_failures_total` |
-| Outcomes | `nthlayer.outcome` (in effect, §4.6) | counter | — (new) | `nthlayer_outcomes_total` |
+| Outcomes | `nthlayer.outcome` (approximating §4.6, see below) | counter | — (new) | `nthlayer_outcomes_total` |
 | Decision confidence | `nthlayer.decision.confidence` | gauge | `ai_gate_confidence_score` | `nthlayer_decision_confidence` |
 | Expected calibration error (§5.5.3 core) | computed (§3, A5) | gauge | `gen_ai_calibration_ece`; `ai_gate_calibration_error` | `nthlayer_calibration_ece` |
 | Brier score (§5.5.3 core) | computed (§3, A5) | gauge | `gen_ai_calibration_brier`; `ai_gate_calibration_brier` | `nthlayer_calibration_brier` |
@@ -341,7 +341,7 @@ An OpenSRM v2 implementation that consumes GenAI-convention telemetry MUST, in a
 - Record evaluator identity on every grader evaluation and be able to report self-graded samples separately (A4)
 - Compute calibration from authoritative outcomes only (A5)
 - Measure feedback latency from event `Timestamp`s (T1–T3), and handle grader evaluations with no verdict as §4.4 requires
-- Count per decision, with the outcome in effect, per C1–C6 (§4.6)
+- Count per decision, with the outcome in effect, per C1–C6 (§4.6); an implementation evaluating from §4.5 counters reports the corrections and late joins in its window (§4.5)
 - Partition stability measurement per S1–S4
 - Accept `emitted_by` on `required_traces` items and verify `provider` spans at the destination (§8)
 - Name the series it defines per N1–N3 (§4.5)
