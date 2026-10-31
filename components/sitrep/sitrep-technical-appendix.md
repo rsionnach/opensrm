@@ -7,7 +7,7 @@ This technical appendix provides implementation details for Sitrep (Observabilit
 **Key updates in v2:**
 - Hybrid generation model (batch + incident-triggered)
 - Integration with Change Event Semantic Conventions
-- Integration with Decision Telemetry (gen_ai.decision.*)
+- Integration with Decision Telemetry (`nthlayer.decision` events, Addendum A1)
 - Integration with Judgment SLOs (OpenSRM ai-gate)
 - Service identity via OpenSRM service catalog (resolver as fallback only)
 
@@ -653,14 +653,15 @@ Sitrep snapshots are linked to AI agent decisions for quality tracking:
 
 ```yaml
 # OTel Decision Event (emitted by AI agent after consuming snapshot)
-name: gen_ai.decision
+name: nthlayer.decision
 timestamp: "2026-02-20T14:35:00Z"
 attributes:
   # Decision identity
-  gen_ai.decision.id: dec-resp-001
-  gen_ai.decision.value: rollback
-  gen_ai.decision.confidence: 0.82
-  gen_ai.decision.gate_type: incident_response
+  nthlayer.decision.id: dec-resp-001
+  nthlayer.decision.type: incident_response
+  nthlayer.decision.value: rollback
+  nthlayer.decision.confidence: 0.82
+  nthlayer.decision.autonomous: true
   
   # Link to snapshot that informed this decision
   o11y.snapshot.id: snap-abc123
@@ -674,26 +675,26 @@ attributes:
 ### Reversal Event (Human Override)
 
 ```yaml
-name: gen_ai.reversal
+name: nthlayer.reversal
 timestamp: "2026-02-20T14:40:00Z"
 attributes:
-  gen_ai.decision.id: dec-resp-001
-  gen_ai.reversal.type: human_override
-  gen_ai.reversal.actor_type: human
-  gen_ai.reversal.actor: alice@example.com
-  gen_ai.reversal.new_value: increase_pool_size
-  gen_ai.reversal.reason: "Rollback too disruptive during peak hours"
+  nthlayer.reversal.decision_id: dec-resp-001
+  nthlayer.reversal.type: human_override
+  nthlayer.reversal.actor_type: human
+  nthlayer.reversal.actor: alice@example.com
+  nthlayer.reversal.new_value: increase_pool_size
+  nthlayer.reversal.reason: "Rollback too disruptive during peak hours"
 ```
 
 ### Outcome Event (Ground Truth)
 
 ```yaml
-name: gen_ai.outcome
-timestamp: "2026-02-20T14:55:00Z"
+name: nthlayer.outcome
+timestamp: "2026-02-20T14:55:00Z"  # when the outcome was determined (A1 §4.3 T1)
 attributes:
-  gen_ai.decision.id: dec-resp-001
-  gen_ai.outcome.value: incorrect  # Human override was correct
-  gen_ai.outcome.source: incident_resolution
+  nthlayer.outcome.decision_id: dec-resp-001
+  nthlayer.outcome.value: incorrect  # Human override was correct
+  nthlayer.outcome.source: incident_resolution
   
   # Link back to correlation
   o11y.snapshot.id: snap-abc123
@@ -777,9 +778,9 @@ spec:
           
   instrumentation:
     events:
-      decision: gen_ai.decision
-      reversal: gen_ai.reversal
-      outcome: gen_ai.outcome
+      decision: nthlayer.decision
+      reversal: nthlayer.reversal
+      outcome: nthlayer.outcome
       snapshot: o11y.snapshot
 ```
 
@@ -787,14 +788,14 @@ spec:
 
 ```promql
 # Reversal rate
-sum(rate(gen_ai_reversals_total{gate_type="incident_response"}[30d])) 
+sum(rate(nthlayer_reversals_total{decision_type="incident_response"}[30d])) 
 / 
-sum(rate(gen_ai_decisions_total{gate_type="incident_response"}[30d]))
+sum(rate(nthlayer_decisions_total{decision_type="incident_response"}[30d]))
 
 # High-confidence failure rate
-sum(rate(gen_ai_reversals_total{confidence_bucket=">0.9"}[30d])) 
+sum(rate(nthlayer_high_confidence_failures_total{confidence_bucket=">0.9"}[30d])) 
 / 
-sum(rate(gen_ai_decisions_total{confidence_bucket=">0.9"}[30d]))
+sum(rate(nthlayer_outcomes_total{outcome_value=~"correct|incorrect",decision_value!="escalate",confidence_bucket=">0.9"}[30d]))
 
 # Correlation accuracy (requires outcome events)
 sum(rate(o11y_correlations_confirmed_total[30d])) 

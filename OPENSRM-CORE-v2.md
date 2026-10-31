@@ -18,7 +18,7 @@ What this changes:
 | Bespoke ownership model | **Backstage entity compatibility** via alignment with kinds and annotations | Existing Backstage catalogues can adopt OpenSRM incrementally |
 | Bespoke contract references | **OpenAPI 3.1 / AsyncAPI 3.x references** | Contracts are APIs and events; reuse the existing specs |
 | Bespoke change-event schema | **CloudEvents v1.0 envelope** with OTel semantic conventions on payload | CNCF-graduated, battle-tested |
-| Proposed `gen_ai.decision.*` OTel conventions | **Adopt shipped `gen_ai.evaluation.result` from OTel v1.39.0** + propose `gen_ai.decision.*` upstream | Already 70% there; contribute rather than fork |
+| Proposed `gen_ai.decision.*` OTel conventions | **Emit decision records as `nthlayer.decision` events ([Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md))**, use the shipped `gen_ai.evaluation.result` for grader evaluations, and propose `gen_ai.decision.*` upstream | Contribute rather than fork; keep OpenSRM-defined names out of `gen_ai.*` until upstream accepts them |
 | Bespoke SLI query syntax | **OpenSLO indicator semantics** with PromQL as a supported query language | Existing standards already specify this correctly |
 | Policy semantics implicit | **Rego-evaluable** where relevant (see RBAC extension) | Same substrate as RBAC extension |
 | Runtime workload needs out of scope | **Score compatibility noted** as complementary pattern | Score describes workload needs, OpenSRM describes reliability contracts |
@@ -69,7 +69,7 @@ Before specifying OpenSRM, it's useful to map its relationship to adjacent stand
 ### 2.4 CloudEvents and OpenTelemetry
 
 **Role:** Event envelope and decision telemetry.
-**Integration:** OpenSRM's change events, decision records, and telemetry emissions use CloudEvents v1.0 envelopes with OTel semantic convention attributes on the payload. The `gen_ai.evaluation.result` event (shipped in OTel semconv v1.39.0) is the substrate for judgment-SLO outcome reporting. The `gen_ai.decision.*` subset is proposed upstream.
+**Integration:** OpenSRM's change events, decision records, and telemetry emissions use CloudEvents v1.0 envelopes with OTel semantic convention attributes on the payload. Decision, reversal and outcome records are the `nthlayer.decision`, `nthlayer.reversal` and `nthlayer.outcome` events ([Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) §4); grader evaluations use the upstream `gen_ai.evaluation.result` event. The `gen_ai.decision.*`, `gen_ai.reversal.*` and `gen_ai.outcome.*` forms are proposed upstream.
 
 ### 2.5 Score
 
@@ -347,6 +347,8 @@ spec:
     escalation_human_agreement_rate: 0.8  # humans agree with escalation 80% of the time
 ```
 
+An escalation's human resolution is the `nthlayer.outcome` of the escalate decision ([Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) §4.6 C6): `correct` when the escalation was warranted. `escalation_human_agreement_rate` is the share of escalate decisions whose outcome in effect is `correct` or `incorrect` that are `correct`.
+
 ### 5.3 Statistical requirements
 
 Judgment SLO and threshold evaluation relies on established statistical methods, not bespoke formulas. A conformant implementation MUST compute:
@@ -356,7 +358,7 @@ Judgment SLO and threshold evaluation relies on established statistical methods,
 - **Segment-variance statistics** (§5.5.1) for `segments` judgment thresholds, using hypothesis tests appropriate to the segment distribution (reported with the §5.5.1 outcome; does not decide the breach)
 - **Cohort retention analysis** for reversal rate and outcomes, tracking decisions from emission through resolution
 
-The wire format for judgment-SLO outcomes is the OTel `gen_ai.evaluation.result` event (OTel semconv v1.39.0+), extended with the `nthlayer.decision.*` attributes described in §11.3.
+The wire formats for judgment-SLO inputs are the four events of [Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) §4. `gen_ai.evaluation.result` carries grader evaluations only.
 
 The specific mathematical libraries used to implement these computations are an implementation concern.
 
@@ -455,6 +457,8 @@ judgment_threshold:
 
 How long until ground truth arrives for a decision; it bounds how quickly any judgment SLO can notice a regression. The p50 and p90 are computed over the decisions whose ground truth arrived in the last 30 days (a rolling window anchored on arrival; decisions still awaiting ground truth are not counted); a manifest cannot change that window in this version of the spec.
 
+Ground truth *arrives* at the time it was determined, carried as the `Timestamp` of its `nthlayer.outcome` event ([Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) §4.3, T1–T3), not at the time the event was emitted or received.
+
 ```yaml
 judgment_threshold:
   - type: feedback_latency
@@ -465,11 +469,11 @@ judgment_threshold:
 
 #### 5.5.6 Evaluation
 
-The rules below apply to every threshold type; the type-specific rules in §5.5.1–§5.5.5 refine these; a type-specific rule may narrow a rule here (as §5.5.4 narrows E3 for an empty backlog) but never contradicts one, and where it narrows, it applies.
+The rules below apply to every threshold type, and E3 also to judgment SLOs; the type-specific rules in §5.5.1–§5.5.5 refine these; a type-specific rule may narrow a rule here (as §5.5.4 narrows E3 for an empty backlog) but never contradicts one, and where it narrows, it applies.
 
 1. **E1 Breach.** A breach is a measured value strictly exceeding a declared bound; a value equal to the bound is within bounds. Every declared bound of every entry is evaluated, each entry independently, and a breach of any one bound of any entry is a breach.
 2. **E2 Units.** Duration bounds are compared after normalising both values to a common unit.
-3. **E3 Not evaluable.** When a bound cannot be measured — no decisions, a listed segment with no decisions (for `metric: outcomes`, none whose outcome window has elapsed), or no ground truth arriving in a `feedback_latency` window — its outcome is *not evaluable*: not a breach, and an implementation MUST report it rather than treat it as within bounds. The outcome is decided per bound and, for `segments`, per listed segment. The form of the report is implementation-defined.
+3. **E3 Not evaluable.** When a bound cannot be measured — no decisions, a listed segment with no decisions (for `metric: outcomes`, none whose outcome window has elapsed), or no ground truth arriving in a `feedback_latency` window — its outcome is *not evaluable*: not a breach, and an implementation MUST report it rather than treat it as within bounds. The outcome is decided per bound and, for `segments`, per listed segment. The form of the report is implementation-defined. E3 applies equally to a judgment SLO (§5.2): one whose service has no decision records in its window is *not evaluable*, and an implementation MUST report it rather than treat it as within objective. Provider-emitted telemetry is not a decision record ([Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) §3).
 4. **E4 Precedence.** Where outcomes are combined — across bounds, across the listed segments of one entry, or across entries — a breach takes precedence over not evaluable, which takes precedence over within bounds.
 
 ## 6. Reliability Contracts (OpenSRM's original contribution)
@@ -592,7 +596,7 @@ instrumentation:
   required_events:
     # For judgment-SLO-bearing services
     - type: "io.nthlayer.decision.v1"
-      schema_ref: "gen_ai.evaluation.result"  # OTel semconv reference
+      schema_ref: "nthlayer.decision"  # Addendum A1 §4.1
 ```
 
 This serves two purposes. First, it's a checklist for service owners ("here's what you need to emit for your SLOs to work"). Second, it's verifiable — CI can check that the service actually emits the declared instrumentation.
@@ -685,30 +689,11 @@ Standard OTel conventions apply. HTTP services use `http.*` attributes; RPC serv
 
 ### 11.2 Judgment SLO telemetry
 
-For services with judgment SLOs, decisions emit `gen_ai.evaluation.result` events (OTel semconv v1.39.0+):
-
-```
-Attributes:
-  gen_ai.system: "triage-agent"
-  gen_ai.evaluation.name: "incident_triage"
-  gen_ai.evaluation.score.value: 0.87     # confidence
-  gen_ai.evaluation.score.label: "high"
-  gen_ai.evaluation.explanation: "Pattern matches known cascade failure"
-  gen_ai.response.id: "bafyrei...cid"
-```
+Superseded by [Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md). Decision, reversal and outcome records, and grader evaluations, are the events of its §4; their provenance rules are its §5. The example this section carried is withdrawn: `gen_ai.system` is no longer in the upstream registry (use `gen_ai.provider.name`), `gen_ai.response.id` is the provider's completion id, not a CID, and `gen_ai.evaluation.score.value` is an evaluator's score, not a decision's confidence.
 
 ### 11.3 Proposed decision-specific conventions
 
-OpenSRM needs a few additional attributes that the current OTel semconv doesn't cover. These are emitted under the `nthlayer.decision.*` namespace pending upstream adoption as `gen_ai.decision.*`:
-
-```
-nthlayer.decision.type: "triage | investigate | remediate | approve"
-nthlayer.decision.reversible: true | false
-nthlayer.decision.autonomous: true | false       # was this executed without human approval
-nthlayer.decision.reversal_of: "bafyrei...parent"  # if this decision reverses a prior one
-```
-
-These are candidates for upstream contribution to the OTel GenAI SIG as `gen_ai.decision.*`.
+Superseded by [Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) §4.0 (namespace rule) and §4.1. The attributes this section proposed fold in as follows: `nthlayer.decision.type` keeps its name with the §4.1 meaning (the class of decision, not the option chosen); `nthlayer.decision.reversible` and `nthlayer.decision.autonomous` keep their names; `nthlayer.decision.reversal_of` is retired in favour of the `nthlayer.reversal` event, whose `nthlayer.reversal.decision_id` carries the link.
 
 ## 12. Migration from v1
 
@@ -742,13 +727,13 @@ An OpenSRM v2 implementation MUST:
 - Where it evaluates judgment thresholds, support all five threshold types (§5.5)
 - Where it evaluates judgment thresholds, evaluate every declared bound of every entry, treating a measured value that strictly exceeds a bound as a breach and a value equal to it as within bounds (§5.5.6 E1)
 - Where it evaluates judgment thresholds, compare Duration bounds after normalising both values to a common unit (§5.5.6 E2)
-- Where it evaluates judgment thresholds, report a bound that cannot be measured as not evaluable (§5.5.6 E3)
+- Where it evaluates judgment thresholds or judgment SLOs, report a bound that cannot be measured, and a judgment SLO whose service has no decision records, as not evaluable (§5.5.6 E3)
 - Where it evaluates judgment thresholds, combine outcomes by the precedence in §5.5.6 E4
 
 An implementation SHOULD:
 
 - Validate dependency and contract references against the resolved catalogue
-- Emit `gen_ai.evaluation.result` events for judgment-SLO outcomes
+- Emit the [Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) §4 events for decisions, reversals and outcomes, and `gen_ai.evaluation.result` for grader evaluations
 - Integrate with a Backstage catalogue where one is deployed
 - Produce observability artifacts (recording rules, alerting rules, dashboards) that preserve semantic equivalence with the declared SLOs
 
@@ -757,7 +742,6 @@ An implementation MAY:
 - Extend judgment SLO types beyond the five standards under its own `apiVersion`
 - Add custom annotations under reserved namespaces
 - Target any observability backend capable of representing the declared SLOs
-- Adopt the `nthlayer.decision.*` attributes described in §11.3 pending upstream standardisation
 
 The specific libraries, parsers, validators, and generation tools used to meet these conformance requirements are an implementation concern. The spec describes *what* must be true; it does not prescribe *how*.
 
@@ -797,7 +781,7 @@ Specifications this document composes with or depends on:
 - CloudEvents v1.0: https://cloudevents.io/
 - OpenAPI 3.1: https://spec.openapis.org/oas/v3.1.0
 - AsyncAPI 3.x: https://www.asyncapi.com/docs/reference/specification/v3.0.0
-- OpenTelemetry GenAI semantic conventions: https://opentelemetry.io/docs/specs/semconv/gen-ai/
+- OpenTelemetry GenAI semantic conventions: https://github.com/open-telemetry/semantic-conventions-genai (the conventions moved out of the core semantic-conventions repository; the former URL is a redirect notice)
 - RFC 2119: Key words for use in RFCs
 
 ### 16.2 Informative
@@ -817,3 +801,4 @@ The OpenSRM specification does not prescribe specific tooling. Readers looking f
 |---------|------|---------|
 | 1 | 2026-02 | Initial standalone spec (dev.to article) |
 | 2-draft | 2026-04-19 | Repositioned as composition of CNCF-adjacent standards with narrow original contribution (judgment SLOs, reliability contracts, dependencies-with-expected-guarantees). Classical SLOs now use OpenSLO v1 documents; ownership aligns with Backstage entity refs; contracts reference OpenAPI/AsyncAPI documents; change events use CloudEvents v1.0 envelopes; telemetry uses OTel `gen_ai.*` conventions. Implementation-specific references (particular compilers, libraries, or validators) removed from normative text per the specification/tooling separation principle. |
+| 2-draft (A1 errata) | 2026-10-31 | [Addendum A1](OPENSRM-TELEMETRY-ADDENDUM-v2.md) errata applied: §2.4 and §5.3 name the A1 §4 events; §8 example `schema_ref: nthlayer.decision`; §11.2 and §11.3 superseded by A1; §13 SHOULD/MAY lists updated (the `nthlayer.decision.*` MAY becomes an A1 §10.2 MUST); §16.1 GenAI conventions URL. §5.5.6 E3 extended to judgment SLOs with no decision records; §5.5.5 defines ground-truth arrival as the outcome event's `Timestamp`; §5.2.5 defines the escalation resolution as an `nthlayer.outcome`. |

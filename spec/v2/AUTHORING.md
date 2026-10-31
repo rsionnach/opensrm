@@ -479,7 +479,7 @@ SLO is computable at all:
 ```yaml
     required_events:
       - type: "io.nthlayer.decision.v1"
-        schema_ref: "gen_ai.evaluation.result"
+        schema_ref: "nthlayer.decision"
 ```
 
 → [`examples/services/ai-gate.yaml`](examples/services/ai-gate.yaml)

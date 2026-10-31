@@ -1,0 +1,16 @@
+# MUST be rejected: emitted_by is application or provider (Addendum A1 §8). A third value (here sdk, an instrumentation library) has no verification semantics, so CI could not say where to look for the span.
+apiVersion: opensrm.nthlayer.io/v2
+kind: ServiceManifest
+metadata:
+  name: refund-approver
+spec:
+  owner:
+    group: group:default/payments
+  service:
+    name: refund-approver
+    type: ai-gate
+  instrumentation:
+    required_traces:
+      - span_name: "anthropic.model_request"
+        emitted_by: sdk
+        required_attributes: [gen_ai.response.id]

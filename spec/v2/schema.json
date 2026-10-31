@@ -645,7 +645,12 @@
             "required": ["span_name"],
             "properties": {
               "span_name": { "type": "string" },
-              "required_attributes": { "type": "array", "items": { "type": "string" } }
+              "required_attributes": { "type": "array", "items": { "type": "string" } },
+              "emitted_by": {
+                "enum": ["application", "provider"],
+                "default": "application",
+                "description": "Who emits the span. 'provider' declares a span the model provider or agent runtime emits; verification checks the telemetry destination rather than the application's code (Addendum A1 §8)."
+              }
             }
           }
         },

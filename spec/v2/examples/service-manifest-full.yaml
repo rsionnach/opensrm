@@ -96,10 +96,11 @@ spec:
         labels: [method, path]
     required_traces:
       - span_name: "payment.authorise"
+        emitted_by: application   # the default, stated explicitly (Addendum A1 §8)
         required_attributes: [payment.amount, payment.currency, customer.id]
     required_logs:
       - format: structured
         required_fields: [timestamp, level, service, trace_id]
     required_events:
       - type: "io.nthlayer.decision.v1"
-        schema_ref: "gen_ai.evaluation.result"
+        schema_ref: "nthlayer.decision"

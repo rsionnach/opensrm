@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — BREAKING for `ai-gate` conformance (v2-draft)
+- **Addendum A1: telemetry binding and decision telemetry errata**
+  (`OPENSRM-TELEMETRY-ADDENDUM-v2.md`, opensrm-ln7w). One decision-telemetry
+  vocabulary: the application-emitted `nthlayer.decision`, `nthlayer.reversal`
+  and `nthlayer.outcome` events, with `gen_ai.evaluation.result` for grader
+  evaluations only. Admissibility classes (authoritative, corroborating,
+  grader) govern which signals may feed judgment SLOs; provider spans never
+  count. Calibration uses authoritative outcomes only. OpenSRM-defined
+  Prometheus series use the `nthlayer_` prefix. Judgment SLOs count
+  decisions, not events; the latest outcome is in effect; an escalation's
+  human resolution is an `nthlayer.outcome` on it. Provider-specific bindings
+  live in provider profiles (`profiles/`), the first being Claude Platform.
+  **Breaking:** the `nthlayer.decision` event becomes a MUST for instrumented
+  `ai-gate` services (core §13 had a MAY), and core §5.5.6 E3 now makes a
+  judgment SLO with no decision records *not evaluable*.
+- **Schema:** `instrumentation.required_traces[].emitted_by`
+  (`application` | `provider`), optional and additive.
+
 ### Changed — BREAKING (v2-draft)
 - **A `segments` threshold names the rate it compares** (opensrm-7zpz).
   `metric` is now required: `reversal_rate`, `high_confidence_failure`,

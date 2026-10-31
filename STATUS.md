@@ -16,7 +16,7 @@ Last updated: March 2026
 | **nthlayer-correlate** | External repo | ✅ Implemented | Pre-correlation agent |
 | **nthlayer-respond** | External repo | ✅ Implemented | Multi-agent incident response |
 | **Change Events** | `conventions/change-events/` | 📝 Drafted | OTel proposal |
-| **Decision Telemetry** | `conventions/decision-telemetry/` | 📝 Drafted | OTel proposal |
+| **Decision Telemetry** | `conventions/decision-telemetry/`, `OPENSRM-TELEMETRY-ADDENDUM-v2.md` | 📝 Drafted | OTel proposal (`semantic-conventions-genai`); `nthlayer.` wire form in Addendum A1 |
 
 **Legend:**
 - ✅ Stable / Implemented
@@ -101,14 +101,16 @@ OTel semantic conventions for AI/human decisions.
 | gen_ai.decision.* attributes | Drafted |
 | gen_ai.reversal.* attributes | Drafted |
 | gen_ai.outcome.* attributes | Drafted |
+| `nthlayer.` wire form (Addendum A1 §4) | Drafted |
+| Provider profile: Claude Platform | Drafted |
 | Examples | Drafted |
 
 **Next steps:**
 1. Continue OTel GenAI SIG engagement
 2. Align with genai-utils work
-3. Submit PR
+3. Submit PR to `open-telemetry/semantic-conventions-genai`
 
-**Location:** `conventions/decision-telemetry/`
+**Location:** `conventions/decision-telemetry/`; wire form and binding in `OPENSRM-TELEMETRY-ADDENDUM-v2.md`; provider profiles in `profiles/`
 
 ---
 
