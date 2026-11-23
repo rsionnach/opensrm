@@ -59,6 +59,8 @@ spec:
         name: enrichment-throughput
       spec:
         service: order-events-enricher
+        # This reads the event rate alone. "Without lag growth" is the
+        # SLO above: the two hold together.
         indicator:
           metadata:
             name: enrichment-events-per-second

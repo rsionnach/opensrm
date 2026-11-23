@@ -68,7 +68,9 @@ spec:
       spec:
         service: invoice-reconciler
         # Good events are the jobs in the histogram's 900-second bucket:
-        # those that finished within 15 minutes.
+        # those that finished within 15 minutes. The histogram is observed
+        # from enqueue to completion, so queue time counts. Prometheus
+        # writes a bucket's bound as a float, hence `le="900.0"`.
         indicator:
           metadata:
             name: reconciliation-jobs-within-15m
@@ -79,7 +81,7 @@ spec:
                 metricSource:
                   type: Prometheus
                   spec:
-                    query: sum(rate(reconciliation_job_duration_seconds_bucket{le="900"}[5m]))
+                    query: sum(rate(reconciliation_job_duration_seconds_bucket{le="900.0"}[5m]))
               total:
                 metricSource:
                   type: Prometheus
