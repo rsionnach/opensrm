@@ -59,8 +59,11 @@ spec:
         name: enrichment-throughput
       spec:
         service: order-events-enricher
-        # This reads the event rate alone. "Without lag growth" is the
-        # SLO above: the two hold together.
+        # This reads the rate of events enriched successfully, alone.
+        # "Without lag growth" is the SLO above: the two hold together.
+        # The reading can only reach 20k/s while that many events arrive,
+        # so a quiet source topic reads as a miss: evaluate this
+        # objective under load, not around the clock.
         indicator:
           metadata:
             name: enrichment-events-per-second
@@ -69,7 +72,7 @@ spec:
               metricSource:
                 type: Prometheus
                 spec:
-                  query: sum(rate(stream_events_processed_total[5m]))
+                  query: sum(rate(stream_events_processed_total{outcome="success"}[5m]))
         objectives:
           - displayName: "Sustains 20k events/sec without lag growth 99% of the time"
             op: gte

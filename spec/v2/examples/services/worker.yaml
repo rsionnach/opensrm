@@ -35,6 +35,8 @@ spec:
   # Each SLO carries its indicator: OpenSLO requires `indicator` or
   # `indicatorRef`. Both are ratios of good events to all events, read
   # from the metrics this manifest requires under `instrumentation`.
+  # Between runs no job finishes, both rates are zero and the ratio has
+  # no value: an idle window is no data, not a breach.
   slo:
     - apiVersion: openslo/v1
       kind: SLO
@@ -47,7 +49,6 @@ spec:
             name: reconciliation-jobs-succeeded
           spec:
             ratioMetric:
-              counter: true
               good:
                 metricSource:
                   type: Prometheus
@@ -76,7 +77,6 @@ spec:
             name: reconciliation-jobs-within-15m
           spec:
             ratioMetric:
-              counter: true
               good:
                 metricSource:
                   type: Prometheus
