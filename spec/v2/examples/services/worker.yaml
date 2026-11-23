@@ -18,7 +18,7 @@ metadata:
     backstage.io/component-ref: "component:default/invoice-reconciler"
   labels:
     domain: finance
-    tier: important
+    tier: standard
 spec:
   owner:
     group: "group:default/finance-platform"
@@ -31,6 +31,12 @@ spec:
 
   # Availability is the wrong question for a worker — it is not serving
   # requests. Ask instead: did the queued work complete, and in time?
+  #
+  # Each SLO carries its indicator: OpenSLO requires `indicator` or
+  # `indicatorRef`. Both are ratios of good events to all events, read
+  # from the metrics this manifest requires under `instrumentation`.
+  # Between runs no job finishes, both rates are zero and the ratio has
+  # no value: an idle window is no data, not a breach.
   slo:
     - apiVersion: openslo/v1
       kind: SLO
@@ -38,6 +44,21 @@ spec:
         name: reconciliation-success-rate
       spec:
         service: invoice-reconciler
+        indicator:
+          metadata:
+            name: reconciliation-jobs-succeeded
+          spec:
+            ratioMetric:
+              good:
+                metricSource:
+                  type: Prometheus
+                  spec:
+                    query: sum(rate(reconciliation_jobs_total{outcome="success"}[5m]))
+              total:
+                metricSource:
+                  type: Prometheus
+                  spec:
+                    query: sum(rate(reconciliation_jobs_total[5m]))
         objectives:
           - displayName: "99.5% of reconciliation jobs complete without error"
             target: 0.995
@@ -47,6 +68,25 @@ spec:
         name: reconciliation-processing-time
       spec:
         service: invoice-reconciler
+        # Good events are the jobs in the histogram's 900-second bucket:
+        # those that finished within 15 minutes. The histogram is observed
+        # from enqueue to completion, so queue time counts. Prometheus
+        # writes a bucket's bound as a float, hence `le="900.0"`.
+        indicator:
+          metadata:
+            name: reconciliation-jobs-within-15m
+          spec:
+            ratioMetric:
+              good:
+                metricSource:
+                  type: Prometheus
+                  spec:
+                    query: sum(rate(reconciliation_job_duration_seconds_bucket{le="900.0"}[5m]))
+              total:
+                metricSource:
+                  type: Prometheus
+                  spec:
+                    query: sum(rate(reconciliation_job_duration_seconds_count[5m]))
         objectives:
           - displayName: "95% of jobs finish within 15 minutes of enqueue"
             target: 0.95

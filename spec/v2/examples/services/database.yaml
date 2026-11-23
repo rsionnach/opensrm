@@ -7,6 +7,8 @@ kind: ServiceManifest
 metadata:
   name: ledger-primary
   namespace: default
+  labels:
+    tier: critical
 spec:
   owner:
     group: "group:default/sre-finance"

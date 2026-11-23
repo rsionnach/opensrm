@@ -17,7 +17,7 @@ metadata:
     backstage.io/component-ref: "component:default/order-events-enricher"
   labels:
     domain: commerce
-    tier: important
+    tier: standard
 spec:
   owner:
     group: "group:default/streaming-platform"
@@ -28,6 +28,10 @@ spec:
     type: stream
     description: "Enriches the raw order event stream with customer and catalogue attributes"
 
+  # Each SLO carries its indicator: OpenSLO requires `indicator` or
+  # `indicatorRef`. Both are threshold metrics, read from the metrics this
+  # manifest requires under `instrumentation`: the objective's `op` and
+  # `value` say what the reading is compared with.
   slo:
     - apiVersion: openslo/v1
       kind: SLO
@@ -35,8 +39,19 @@ spec:
         name: enrichment-consumer-lag
       spec:
         service: order-events-enricher
+        indicator:
+          metadata:
+            name: enrichment-max-consumer-lag
+          spec:
+            thresholdMetric:
+              metricSource:
+                type: Prometheus
+                spec:
+                  query: max(stream_consumer_lag_seconds)
         objectives:
           - displayName: "99% of the time, consumer lag stays under 30 seconds"
+            op: lt
+            value: 30
             target: 0.99
     - apiVersion: openslo/v1
       kind: SLO
@@ -44,8 +59,24 @@ spec:
         name: enrichment-throughput
       spec:
         service: order-events-enricher
+        # This reads the rate of events enriched successfully, alone.
+        # "Without lag growth" is the SLO above: the two hold together.
+        # The reading can only reach 20k/s while that many events arrive,
+        # so a quiet source topic reads as a miss: evaluate this
+        # objective under load, not around the clock.
+        indicator:
+          metadata:
+            name: enrichment-events-per-second
+          spec:
+            thresholdMetric:
+              metricSource:
+                type: Prometheus
+                spec:
+                  query: sum(rate(stream_events_processed_total{outcome="success"}[5m]))
         objectives:
           - displayName: "Sustains 20k events/sec without lag growth 99% of the time"
+            op: gte
+            value: 20000
             target: 0.99
 
   # `throughput` in a promise is expressed in rps — the schema's
