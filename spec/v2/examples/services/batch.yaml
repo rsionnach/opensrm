@@ -9,6 +9,8 @@ kind: ServiceManifest
 metadata:
   name: nightly-reconciliation
   namespace: default
+  labels:
+    tier: standard
 spec:
   owner:
     group: "group:default/sre-finance"

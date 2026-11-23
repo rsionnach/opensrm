@@ -11,6 +11,8 @@ kind: ServiceManifest
 metadata:
   name: refund-triage
   namespace: default
+  labels:
+    tier: standard
 spec:
   owner:
     group: "group:default/payments"
